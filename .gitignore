@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+.worker-bundle.js
+*.tgz
+
+# Generated routes (generouted)
+src/router.ts
+src/modals.tsx
+
+# DeepSpace / Wrangler local state
+.deepspace
+.wrangler
+.wrangler.deepspace.*.toml
+
+# Secrets (local dev vars, never commit)
+.dev.vars
+.dev.vars.*
+
+# Test output
+test-results/
+playwright-report/
+
+# AI agent files
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
