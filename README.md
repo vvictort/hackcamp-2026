@@ -258,6 +258,18 @@ Each teammate uses their own clone and their own Claude Code. Setup, once per pe
 | Brain | Shared project memory: `entire brain brief "<task>"`; add a rule with `entire brain remember "<rule>" --path project.<area>.<name> --agent none` |
 | Agent guide | `.entire/agent-guide.md` tells every agent to use Brain and Graph before working |
 
+#### Privacy
+
+Session transcripts are redacted before they are stored:
+
+- **Built in:** secrets, high-entropy strings, emails, phone numbers and IPs.
+- **Shared rules** in [`.entire/redactors/altamyra.yaml`](.entire/redactors/altamyra.yaml): BC PENs, Gemini and Maritime keys, DeepSpace secrets, live Maritime agent URLs and IDs.
+- **Personal rules** in `.entire/redactors/local/` (gitignored): put your name, emails, hostname and home path there. Those values then stay out of both the transcripts and this public repo.
+- Only fictional demo students appear in sessions. Never paste real student or IEP data.
+- Checkpoints go only to the private checkpoint repo, never to this one.
+
+We audited all 361 checkpoints before the first upload: no live keys, tokens or real student data.
+
 #### Set up Entire
 
 ```sh

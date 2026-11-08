@@ -21,6 +21,19 @@ rules:
     samples:
       - { input: "GEMINI_API_KEY=AIzaSyA1234567890abcdefghijklmnopqrstuv", redacted: true }
       - { input: "AIza is the key prefix", redacted: false }
+  - id: maritime-agent-url
+    description: Live Maritime agent URLs (api.maritime.sh/a/<uuid>, /api/agents/<uuid>, <uuid>.mtm.sh)
+    regex: '(?i)(?:maritime\.sh/(?:a|api/agents)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.mtm\.sh)'
+    samples:
+      - { input: "https://api.maritime.sh/a/00000000-1111-2222-3333-444444444444/health", redacted: true }
+      - { input: "curl https://00000000-1111-2222-3333-444444444444.mtm.sh/health", redacted: true }
+      - { input: "https://api.maritime.sh/a/<agent-id>", redacted: false }
+  - id: maritime-ids
+    description: Maritime agentId / projectId values in CLI JSON output
+    regex: '"(?:agentId|projectId)"\s*:\s*"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"'
+    samples:
+      - { input: '"projectId": "00000000-1111-2222-3333-444444444444"', redacted: true }
+      - { input: '"sessionId": "00000000-1111-2222-3333-444444444444"', redacted: false }
   - id: deepspace-app-owner-jwt
     description: Values of DeepSpace secrets that appear when .dev.vars is printed
     regex: '(?m)^(?:APP_OWNER_JWT|APP_IDENTITY_TOKEN|MARITIME_AGENT_TOKEN|GEMINI_API_KEY)=\S+'
