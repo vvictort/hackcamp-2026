@@ -1,5 +1,7 @@
 /** Small typed fetch client for the Altamira /api/v1 backend. */
 
+import { getAuthToken } from 'deepspace'
+
 export class ApiError extends Error {
   constructor(
     readonly code: string,
@@ -14,10 +16,15 @@ export class ApiError extends Error {
 const BASE = '/api/v1'
 
 export async function api<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  // The worker authenticates /api/v1 with the DeepSpace bearer token, not a cookie alone.
+  const token = await getAuthToken().catch(() => null)
+  const headers: Record<string, string> = {}
+  if (token) headers.authorization = `Bearer ${token}`
+  if (body !== undefined) headers['content-type'] = 'application/json'
   const res = await fetch(`${BASE}${path}`, {
     method,
     credentials: 'include',
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   const text = await res.text()
