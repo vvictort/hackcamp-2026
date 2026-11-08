@@ -116,3 +116,35 @@ describe('M3 student mode, decision rules and drafts through /api/v1', () => {
     expect(JSON.stringify(draft.body.draft.sentences)).toMatch(/in relation to[^.]*IEP goal/i)
   })
 })
+
+describe('demo student self start (ALTAMIRA_DEV_SEED)', () => {
+  const DEMO = 'demo-user-1'
+
+  it('the student role starts a session for its own linked student only', async () => {
+    const h = createHarness({ seed: false, devSeed: true })
+    await h.post(DEMO, '/dev/seed')
+    await h.post(DEMO, '/dev/role', { role: 'student' })
+    const me = await h.get(DEMO, '/me')
+    const own = kai
+    expect(Object.keys(me.body.studentRoles ?? {}).concat(me.body.memberships.map((m: { studentId: string }) => m.studentId))).toContain(own)
+    const ok = await h.post(DEMO, `/students/${own}/student-mode/start`)
+    expect(ok.body).toMatchObject({ token: expect.any(String) })
+    expect(ok.status).toBe(201)
+    const other = await h.post(DEMO, `/students/${amara}/student-mode/start`)
+    expect(other.status).toBe(403)
+    expect(other.body.error?.message ?? other.body.message ?? JSON.stringify(other.body)).toMatch(/teacher or EA/)
+  })
+
+  it('a linked student account (parent link) may self start in dev seed only', async () => {
+    const h = createHarness({ devSeed: true })
+    const res = await h.post(U.parentKai, `/students/${kai}/student-mode/start`)
+    expect(res.status).toBe(201)
+    expect((await h.post(U.parentSofia, `/students/${kai}/student-mode/start`)).status).toBe(403)
+  })
+
+  it('without the dev flag a parent link cannot self start', async () => {
+    const h = createHarness({ devSeed: false })
+    const res = await h.post(U.parentKai, `/students/${kai}/student-mode/start`)
+    expect(res.status).toBe(403)
+  })
+})
