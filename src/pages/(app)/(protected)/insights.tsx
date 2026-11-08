@@ -1,13 +1,13 @@
 import { RoleGate } from '@/lib/altamira/RoleGate'
 import { useMemo } from 'react'
 import { useAsyncResource, getAuthToken } from 'deepspace'
-import { CircleX, EyeOff, Lock } from 'lucide-react'
+import { CircleX, EyeOff, Lock, Sparkles } from 'lucide-react'
 import { useLang } from '@/i18n'
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/components/ui'
 import { useAltamiraMe } from '@/lib/altamira/role'
 
 type Group = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
-type InsightsData = { groups: Group[]; minGroupSize: number; monthlyNarrative?: string | { text?: string } | null }
+type InsightsData = { groups: Group[]; minGroupSize: number; monthlyNarrative?: string | { text?: string; period?: string | null } | null }
 
 class InsightsError extends Error {
   constructor(readonly status: number, message: string) {
@@ -23,21 +23,25 @@ async function fetchFrom(url: string, signal: AbortSignal): Promise<InsightsData
   return { ...json, groups: json.groups ?? [], minGroupSize: json.minGroupSize ?? 10 }
 }
 
-/** The district summary (with the monthly narrative); falls back to the plain aggregate when it is not there. */
-async function fetchInsights(districtId: string | null, signal: AbortSignal): Promise<InsightsData> {
-  if (districtId) {
-    try {
-      return await fetchFrom(`/api/v1/districts/${encodeURIComponent(districtId)}/insights`, signal)
-    } catch (e) {
-      if (!(e instanceof InsightsError && e.status === 404)) throw e
-    }
-  }
-  return fetchFrom('/api/v1/insights?groupBy=schoolId,goalArea', signal)
+/** The signed-in district lead's own district summary; the month defaults to the latest one with data. */
+function fetchInsights(districtId: string | null, signal: AbortSignal): Promise<InsightsData> {
+  if (!districtId) return Promise.reject(new InsightsError(403, 'forbidden'))
+  return fetchFrom(`/api/v1/districts/${encodeURIComponent(districtId)}/insights?groupBy=schoolId,goalArea`, signal)
 }
 
 const narrativeOf = (d: InsightsData | null) => {
   const n = d?.monthlyNarrative
   return (typeof n === 'string' ? n : n?.text)?.trim() || ''
+}
+
+/** '2026-11' -> 'November 2026'; any other period text is shown as it is. */
+function monthLabel(d: InsightsData | null): string | null {
+  const n = d?.monthlyNarrative
+  const period = typeof n === 'object' && n ? n.period : null
+  if (!period) return null
+  const m = /^(\d{4})-(\d{2})$/.exec(period)
+  if (!m) return period
+  return new Date(Date.UTC(+m[1], +m[2] - 1, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' })
 }
 
 function InsightsPageBody() {
@@ -82,14 +86,19 @@ function InsightsView() {
     return [...map.entries()]
   }, [data.data])
 
+  const allHidden = (data.data?.groups ?? []).every((g) => g.suppressed)
   const forbidden = data.status === 'error' && /HTTP 403|forbidden/i.test(data.error ?? '')
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6 lg:gap-8">
       <PageHeader title={t('insights.title')} description={t('insights.description')} />
       {data.status === 'ready' && (
-        <Card title={t('insights.narrativeTitle')}>
+        <Card title={monthLabel(data.data) ? t('insights.narrativeTitle', { month: monthLabel(data.data) ?? '' }) : t('insights.narrativeTitleNoMonth')}>
           <p className="whitespace-pre-line text-body">{narrativeOf(data.data) || t('insights.narrativeNone')}</p>
+          <p className="flex items-center gap-2 text-small text-muted-foreground">
+            <Sparkles className="size-4 shrink-0" aria-hidden />
+            {t('insights.aiNote')}
+          </p>
         </Card>
       )}
       <p className="flex items-center gap-2 text-small text-muted-foreground">
@@ -113,7 +122,7 @@ function InsightsView() {
             )}
           </div>
         </div>
-      ) : bySchool.length === 0 ? (
+      ) : bySchool.length === 0 || allHidden ? (
         <Card>
           <EmptyState className="py-10" title={t('insights.emptyTitle')} description={t('insights.emptyBody')} />
         </Card>
