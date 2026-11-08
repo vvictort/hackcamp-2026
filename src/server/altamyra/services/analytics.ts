@@ -32,7 +32,6 @@ const time = (iso: string) => Date.parse(iso)
 const dateOnly = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 const sorted = (points: readonly Point[]) => [...points].sort((a, b) => time(a.at) - time(b.at))
 
-/** The UTC Monday of the week holding `ms`, at the same time of day. */
 export const mondayOf = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DAY_MS
 
 export function median(values: readonly number[]): number | null {
