@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, CircleDashed, FileText, History, Pencil, RefreshCw, Trash2, X } from 'lucide-react'
 import { Badge, Button, Card, StatusBadge, Textarea } from '@/components/ui'
+import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { lensText, type LensSuggestionView, type StudentAnalysis } from '@/lib/lessonLens'
 import type { LensKey } from '@/i18n/en/lens'
 
@@ -25,7 +26,7 @@ function StateBadge({ state }: { state: LensSuggestionView['state'] }) {
   )
 }
 
-function Suggestion({ s, a }: { s: LensSuggestionView; a: ResultActions }) {
+function Suggestion({ s, a, studentId }: { s: LensSuggestionView; a: ResultActions; studentId?: string }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(s.text)
   const disabled = a.busy === s.id || !s.id
@@ -73,6 +74,7 @@ function Suggestion({ s, a }: { s: LensSuggestionView; a: ResultActions }) {
               <Check aria-hidden />
               {lensText('lens.approve')}
             </Button>
+            <ReadAloudButton text={s.text} studentId={studentId} />
             <Button size="sm" variant="outline" disabled={disabled} onClick={() => (setDraft(s.text), setEditing(true))}>
               <Pencil aria-hidden />
               {lensText('lens.edit')}
@@ -125,7 +127,7 @@ export function LensStudentCard({ st, a }: { st: StudentAnalysis; a: ResultActio
         {st.suggestions.length ? (
           <ul className="flex flex-col gap-2">
             {st.suggestions.map((s, i) => (
-              <Suggestion key={s.id || i} s={s} a={a} />
+              <Suggestion key={s.id || i} s={s} a={a} studentId={st.studentId} />
             ))}
           </ul>
         ) : (

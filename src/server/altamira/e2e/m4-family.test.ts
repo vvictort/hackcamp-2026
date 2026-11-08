@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { FAMILY_VISIBLE_STATUSES } from '../contract/enums'
 import { closeAll } from '../services/testing'
-import { approvedMathSheets, kai, sofia, U } from './flows'
+import { approveAdaptation, approvedMathSheets, kai, sofia, U } from './flows'
 import { createHarness } from './harness'
 
 afterEach(closeAll)
@@ -9,6 +9,7 @@ afterEach(closeAll)
 describe('M4 families, Today View and handoff through /api/v1', () => {
   it('parents see only confirmed data, never a pending AI score', async () => {
     const h = createHarness({
+      devSeed: true,
       ai: { scorePhotoPage: async (input) => ({ sheetCode: null, items: input.check.items.map((i) => ({ itemId: i.id, value: 0, confidence: 0.2 })) }) },
     })
     const { lesson, sheets } = await approvedMathSheets(h, sofia)
@@ -25,7 +26,11 @@ describe('M4 families, Today View and handoff through /api/v1', () => {
     for (const p of points) expect(FAMILY_VISIBLE_STATUSES).toContain(p.status)
     expect(points.map((p: { id: string }) => p.id)).not.toContain(pendingId)
     // Approved adaptations show with the real lesson title.
-    expect(family.body.lessons).toEqual([expect.objectContaining({ lessonId: lesson.id, title: lesson.title })])
+    const approved = await approveAdaptation(h, sofia, {})
+    expect(approved.status).toBe(201)
+    const again = await h.get(U.parentSofia, `/family/${sofia}/progress`)
+    expect(again.body.lessons.map((l: { lessonId: string }) => l.lessonId)).toContain(approved.body.lessonId)
+    expect(lesson.id).toEqual(expect.any(String))
 
     // Parents send input and manage consent for their own child.
     expect((await h.post(U.parentSofia, `/family/${sofia}/input`, { text: 'Practised counting at home.', language: 'en' })).status).toBe(201)

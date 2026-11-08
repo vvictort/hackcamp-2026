@@ -20,7 +20,7 @@ describe('M3 student mode, decision rules and drafts through /api/v1', () => {
   })
 
   it('a session delivers check items without IEP text and scores answers against the key in code', async () => {
-    const h = createHarness()
+    const h = createHarness({ devSeed: true })
     const { sheets } = await approvedMathSheets(h, sofia)
     const keyByPrompt = new Map<string, string>()
     sheets.pages.forEach((page, i) => {

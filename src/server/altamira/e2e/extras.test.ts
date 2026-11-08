@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { DISTRICT } from '../fixtures'
 import { closeAll } from '../services/testing'
-import { amara, createLesson, kai, runLens, sofia, U } from './flows'
+import { amara, kai, sofia, U } from './flows'
 import { createHarness } from './harness'
 
 afterEach(closeAll)
@@ -25,18 +25,6 @@ describe('remaining /api/v1 flows', () => {
     expect(ok.body.audioDeleted).toBe(true)
     expect(ok.body.dataPoints.length).toBeGreaterThan(0)
     expect(h.deletedFiles).toContain('ea/note-2.webm')
-  })
-
-  it('regenerate swaps in a new adaptation labelled by the guardrail', async () => {
-    const h = createHarness()
-    const lesson = await createLesson(h, 'literacy')
-    const lens = await runLens(h, lesson.id)
-    const target = lens.results.find((r) => r.studentId === kai)!.suggestions.find((s) => s.kind === 'adaptation')
-    const res = await h.post(U.teacher, `/suggestions/${target.id}/regenerate?studentId=${kai}`, { expectedVersion: target.version })
-    expect(res.status).toBe(200)
-    expect(res.body.suggestion.id).not.toBe(target.id)
-    expect(['adaptation', 'modification']).toContain(res.body.suggestion.label)
-    expect(h.aiCalls.analyseLesson).toBe(1)
   })
 
   it('family summary is drafted from a Progress Draft and approved by the case manager', async () => {

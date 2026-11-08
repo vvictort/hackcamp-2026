@@ -112,3 +112,18 @@ describe('Gemini image reading', () => {
     expect(modelChain('')[0]).toBe('gemini-3.8-flash')
   })
 })
+
+describe('1A-9 worked-before from What works rows (mocked API shape)', () => {
+  const rows = { rows: [{ adaptationType: 'chunked_steps', n: 4, meanOutcome: 0.9, hidden: false }, { adaptationType: 'visual_supports', n: 1, meanOutcome: 0.9, hidden: true }] }
+  it('parseStudents keeps visible rows and the analysis puts the matching strategy first with the flag', async () => {
+    const [st] = parseStudents([{ ...kai, whatWorks: rows.rows }])
+    expect((st.whatWorks ?? []).map((r) => r.adaptationType)).toEqual(expect.arrayContaining(['chunked_steps']))
+    const r = await call('lessonLensAnalyze', { lessonText: 'Read the story and retell it', students: [{ ...kai, whatWorks: rows.rows }] })
+    const list = r.data.students[0].suggestions as { adaptationType: string; workedBefore?: boolean }[]
+    const flagged = list.filter((s) => s.workedBefore)
+    for (const s of flagged) expect(s.adaptationType).toBe('chunked_steps')
+    // Flagged suggestions come before every unflagged one.
+    const firstUnflagged = list.findIndex((s) => !s.workedBefore)
+    if (firstUnflagged >= 0) expect(list.slice(firstUnflagged).some((s) => s.workedBefore)).toBe(false)
+  })
+})

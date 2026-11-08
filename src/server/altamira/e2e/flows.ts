@@ -1,4 +1,3 @@
-import { FIXTURE_LESSONS } from '../ai/fixture-data'
 import { CLASS_IDS, STUDENT_IDS, USER_IDS } from '../fixtures'
 import type { Harness } from './harness'
 
@@ -8,39 +7,47 @@ export const { kai, amara, sofia } = STUDENT_IDS
 export const U = USER_IDS
 export const TODAY = '2026-11-09'
 
-export async function createLesson(h: Harness, kind: 'literacy' | 'numeracy') {
-  const classId = kind === 'literacy' ? CLASS_IDS.literacy : CLASS_IDS.numeracy
-  const source = kind === 'literacy' ? FIXTURE_LESSONS.literacy : FIXTURE_LESSONS.numeracy
-  const res = await h.post(U.teacher, `/classes/${classId}/lessons`, {
-    title: source.title,
-    sourceKind: 'text',
-    text: source.text,
-    scheduledFor: TODAY,
-  })
-  if (res.status !== 201) throw new Error(`lesson create ${res.status}: ${JSON.stringify(res.body)}`)
-  return res.body.lesson as { id: string; title: string }
-}
+/** The bundled fictional number-facts check the demo sample sheet carries (see POST /captures/sample-sheet). */
+const SAMPLE_ITEMS = [
+  { id: 'q1', prompt: '4 + 3 = ?', format: 'numeric', options: null },
+  { id: 'q2', prompt: '9 - 4 = ?', format: 'numeric', options: null },
+  { id: 'q3', prompt: 'Which is bigger, 6 or 8?', format: 'multiple_choice', options: ['6', '8'] },
+]
+const SAMPLE_KEY = [
+  { itemId: 'q1', accepted: ['7'] },
+  { itemId: 'q2', accepted: ['5'] },
+  { itemId: 'q3', accepted: ['8'] },
+]
 
-export async function runLens(h: Harness, lessonId: string) {
-  const res = await h.post(U.teacher, `/lessons/${lessonId}/lens`, {})
-  if (res.status !== 200) throw new Error(`lens ${res.status}: ${JSON.stringify(res.body)}`)
-  return res.body as { analysisId: string; results: { studentId: string; suggestions: any[]; checks: any[] }[] }
-}
-
-/** Math lesson, lens, approve every unblocked adaptation for one student, then print sheets. */
+/**
+ * A coded sheet with an answer key for one student. The removed /lessons routes are replaced by the dev-seed
+ * sample sheet (the harness must be created with devSeed: true). The lens approval itself is POST /lens/approvals.
+ */
 export async function approvedMathSheets(h: Harness, studentId: string) {
-  const lesson = await createLesson(h, 'numeracy')
-  const lens = await runLens(h, lesson.id)
-  const result = lens.results.find((r) => r.studentId === studentId)
-  if (!result) throw new Error('student missing from lens results')
-  const items = result.suggestions
-    .filter((s) => s.kind === 'adaptation' && s.status !== 'blocked')
-    .map((s) => ({ suggestionId: s.id, expectedVersion: s.version }))
-  const bulk = await h.post(U.teacher, `/students/${studentId}/suggestions/bulk-approve`, { items })
-  if (bulk.status !== 200) throw new Error(`bulk approve ${bulk.status}: ${JSON.stringify(bulk.body)}`)
-  const sheets = await h.get(U.teacher, `/lessons/${lesson.id}/sheets/${studentId}`)
-  if (sheets.status !== 200) throw new Error(`sheets ${sheets.status}: ${JSON.stringify(sheets.body)}`)
-  return { lesson, result, sheets: sheets.body as { pages: any[]; answerKey: { sheetCode: string; entries: { itemId: string; accepted: string[] }[] }[] } }
+  const res = await h.post(U.teacher, '/captures/sample-sheet', { studentId })
+  if (res.status !== 200) throw new Error(`sample sheet ${res.status}: ${JSON.stringify(res.body)}`)
+  const code = res.body.code as string
+  const row = h.school.get<{ lesson_id: string }>('SELECT lesson_id FROM sheet_codes WHERE code = ?', code)
+  if (!row) throw new Error('sheet code not stored')
+  // The sample's adaptation is saved as a draft; the teacher's approval is what makes its check usable in student mode.
+  h.studentSql(studentId).run("UPDATE suggestions SET status = 'approved' WHERE status = 'draft'")
+  const lesson = { id: row.lesson_id, title: 'Sample sheet: number facts' }
+  const pages = [{ sheetCode: code, checkItems: SAMPLE_ITEMS }]
+  const answerKey = [{ sheetCode: code, entries: SAMPLE_KEY }]
+  return { lesson, checkId: res.body.checkId as string, sheets: { pages, answerKey } }
+}
+
+/** Approves one adaptation through the Lens approval endpoint (what the dashboard posts). */
+export async function approveAdaptation(h: Harness, studentId: string, over: Record<string, unknown> = {}) {
+  const profile = await h.get(U.teacher, `/students/${studentId}`)
+  const goal = (profile.body.goals as { id: string; status: string }[]).find((g) => g.status === 'active')
+  if (!goal) throw new Error('student has no active goal')
+  return h.post(U.teacher, '/lens/approvals', {
+    studentId,
+    subject: 'math',
+    lessonText: 'Add and subtract within 10',
+    items: [{ goalId: goal.id, label: 'adapt', adaptationType: 'chunked_steps', title: 'Steps', text: 'Give a step-by-step card.', why: 'Supports the goal.', ...over }],
+  })
 }
 
 /** A minimal one-page PDF whose content stream shows each line with Tj and a line move. FICTIONAL text only. */

@@ -50,6 +50,7 @@ describe('M2 measurement core through /api/v1', () => {
 
   it('photo batch: coded sheet scored, low confidence goes to the review queue, teacher confirms', async () => {
     const h = createHarness({
+      devSeed: true,
       ai: {
         // A shaky photo: every item read with low confidence.
         scorePhotoPage: async (input) => ({ sheetCode: null, items: input.check.items.map((i) => ({ itemId: i.id, value: 1, confidence: 0.3 })) }),
