@@ -16,7 +16,7 @@
  * (CC0) from rawpixel and StockSnap.
  */
 
-import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity,
@@ -38,7 +38,7 @@ import {
 } from 'lucide-react'
 import { LogoMark } from '../components/LogoMark'
 import { Seo } from '../components/Seo'
-import { StatusBadge } from '../components/ui'
+import { StatusBadge, buttonVariants } from '../components/ui'
 import { APP_NAME } from '../constants'
 import { seo } from '../seo'
 
@@ -204,36 +204,76 @@ function Preview() {
   )
 }
 
+const SECTION_IDS = ['top', 'modules', 'how', 'control', 'team', 'faq']
+
+/** Id of the section crossing the middle of the viewport. Browser only (effects do not run in prerender). */
+function useActiveSection() {
+  const [active, setActive] = useState('')
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && setActive(e.target.id)),
+      { rootMargin: '-45% 0px -50% 0px' },
+    )
+    SECTION_IDS.forEach((id) => {
+      const el = document.getElementById(id)
+      if (el) io.observe(el)
+    })
+    return () => io.disconnect()
+  }, [])
+  return active
+}
+
+function SiteNav() {
+  const active = useActiveSection()
+  return (
+    <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6">
+      <nav aria-label="Main" className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+        <Link
+          to="/"
+          aria-label={`${APP_NAME} home`}
+          className="rounded-2xl bg-ink px-4 py-2.5 text-ink-foreground shadow-ink transition-colors hover:bg-ink-raised"
+        >
+          <Logo inverted />
+        </Link>
+
+        <ul className="hidden items-center gap-1 rounded-full bg-card/90 p-1 shadow-raised backdrop-blur md:flex">
+          {NAV.map(([href, label]) => (
+            <li key={href}>
+              <a
+                href={href}
+                aria-current={active === href.slice(1) ? 'location' : undefined}
+                className="inline-flex min-h-11 items-center rounded-full px-5 text-label font-semibold text-foreground transition-[background-color,color,translate] hover:bg-secondary active:translate-y-px aria-[current=location]:bg-primary aria-[current=location]:text-primary-foreground"
+              >
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:contents">
+            <Link to="/home" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+              Sign in
+            </Link>
+          </span>
+          <Link to="/home" className={buttonVariants({ size: 'lg' })}>
+            Get started
+          </Link>
+        </div>
+      </nav>
+    </header>
+  )
+}
+
 export default function Landing() {
   return (
     <>
       <Seo {...seo} path="/" />
       <div data-testid="static-landing" className="min-h-screen overflow-x-clip bg-background text-foreground">
-        <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6">
-          <nav aria-label="Main" className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-            <Link to="/" aria-label={`${APP_NAME} home`} className="rounded-2xl bg-ink px-4 py-2.5 text-ink-foreground shadow-ink">
-              <Logo inverted />
-            </Link>
-            <div className="hidden divide-x divide-border overflow-hidden rounded-2xl bg-card/90 shadow-raised backdrop-blur md:flex">
-              {NAV.map(([href, label]) => (
-                <a key={href} href={href} className="inline-flex min-h-12 items-center px-5 text-body font-medium transition-colors hover:bg-secondary">
-                  {label}
-                </a>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/home" className="hidden min-h-12 items-center gap-2 rounded-2xl bg-card/90 px-5 text-body font-medium shadow-raised backdrop-blur transition-colors hover:bg-secondary sm:inline-flex">
-                Sign in
-              </Link>
-              <Link to="/home" className="inline-flex min-h-12 items-center rounded-2xl bg-ink px-5 text-body font-semibold text-ink-foreground shadow-ink transition-colors hover:bg-ink-raised">
-                Get started
-              </Link>
-            </div>
-          </nav>
-        </header>
+        <SiteNav />
 
         <main>
-          <section aria-labelledby="hero-title" className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-12 px-4 pb-16 pt-20 text-center sm:px-6 sm:pt-28">
+          <section id="top" aria-labelledby="hero-title" className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-12 px-4 pb-16 pt-20 text-center sm:px-6 sm:pt-28">
             {/* Soft grid and a pale signal orb behind the headline (decorative; ink text stays 10:1+ on it). */}
             <div
               aria-hidden
