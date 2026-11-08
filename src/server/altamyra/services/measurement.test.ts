@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { GoalStatusResponse } from '../contract/api'
 import type { DataPoint, Goal, IepVersion, Objective, ReviewItem } from '../contract/student'
 import { CBIEP_SAMPLE_EXPECTED, KAI, STUDENT_IDS, USER_IDS } from '../fixtures'
-import { ACTORS, closeAll, countRows, runStudent, studentRoom } from './testing'
+import { ACTORS, closeAll, countRows, runStudent, studentRoom } from '../e2e/testing'
 import { eventValue } from './measurement'
 
 afterEach(closeAll)

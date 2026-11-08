@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { FIXTURE_NAMES } from '../fixtures'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { approveAdaptation, approvedMathSheets, kai, sofia, U } from './flows'
 import { createHarness } from './harness'
 

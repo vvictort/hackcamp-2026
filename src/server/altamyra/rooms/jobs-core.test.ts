@@ -3,7 +3,7 @@ import { opErr, opOk } from '../contract/ops'
 import type { SqlExecutor } from '../db/sql'
 import { STUDENT_IDS } from '../fixtures/school'
 import { schoolOps, studentOps } from '../services/registry'
-import { closeAll, schoolRoom, studentRoom } from '../services/testing'
+import { closeAll, schoolRoom, studentRoom } from '../e2e/testing'
 import { runRoomOp } from './core'
 import { ALTAMYRA_CRON, runAltamyraCronTask, SYSTEM_ACTOR, type JobDeps } from './jobs-core'
 

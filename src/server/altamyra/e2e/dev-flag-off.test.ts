@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Env } from '../../../../worker'
 import { productionDeps } from '../routes/defaults'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { createHarness } from './harness'
 
 afterEach(closeAll)

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createHarness } from '../e2e/harness'
 import { kai } from '../e2e/flows'
 import { CBIEP_SAMPLE_TEXT, USER_IDS } from '../fixtures'
-import { closeAll } from '../services/testing'
+import { closeAll } from '../e2e/testing'
 import { parseCbIepText } from '../services/cbiep'
 
 afterEach(closeAll)

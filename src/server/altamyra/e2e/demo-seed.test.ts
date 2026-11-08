@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { WHAT_WORKS_MIN_N } from '../services/thresholds'
 import { amara, kai, sofia } from './flows'
 import { createHarness } from './harness'

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { ACTORS, closeAll, runStudent } from '../services/testing'
+import { ACTORS, closeAll, runStudent } from './testing'
 import { kai, TODAY, U } from './flows'
 import { createHarness, type Harness } from './harness'
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { CBIEP_SAMPLE_TEXT, CLASS_IDS, SCHOOL } from '../fixtures'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { amara, approvedMathSheets, kai, sofia, U } from './flows'
 import { createHarness } from './harness'
 

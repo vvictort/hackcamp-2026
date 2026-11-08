@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { closeAll } from '../services/testing'
+import { closeAll } from '../e2e/testing'
 import { createHarness } from '../e2e/harness'
 import { amara, kai, sofia, U } from '../e2e/flows'
 

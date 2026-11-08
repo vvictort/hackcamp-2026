@@ -4,7 +4,7 @@ import { DISTRICT, SCHOOL, demoPeerIncrements } from '../fixtures'
 import { applyCounterIncrements } from '../rooms/insights-core'
 import type { InsightGroup } from './insights'
 import { parseSourceRef } from './sources'
-import { ACTORS, closeAll, insightsRoom, runInsights } from './testing'
+import { ACTORS, closeAll, insightsRoom, runInsights } from '../e2e/testing'
 
 afterEach(closeAll)
 

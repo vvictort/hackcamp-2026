@@ -3,7 +3,7 @@ import { AltamyraError } from '../contract/errors'
 import type { DataPoint, DayReview, Note, Video } from '../contract/student'
 import { STUDENT_IDS } from '../fixtures'
 import { addDays, categoryOf, dayBounds } from './day-record'
-import { ACTORS, closeAll, runStudent, studentRoom } from './testing'
+import { ACTORS, closeAll, runStudent, studentRoom } from '../e2e/testing'
 
 afterEach(closeAll)
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createHarness } from '../e2e/harness'
 import { DISTRICT, STUDENT_IDS, USER_IDS } from '../fixtures'
-import { closeAll } from '../services/testing'
+import { closeAll } from '../e2e/testing'
 
 afterEach(closeAll)
 const DEMO = 'demo-user-1'

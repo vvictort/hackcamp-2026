@@ -8,7 +8,7 @@ import { DISTRICT, SCHOOL, USER_IDS, demoPeerIncrements } from '../fixtures'
 import { createAltamyraApi } from '../routes/app'
 import type { AltamyraRouteDeps } from '../routes/deps'
 import { insightsOps, schoolOps } from '../services/registry'
-import { closeAll, insightsRoom, schoolRoom } from '../services/testing'
+import { closeAll, insightsRoom, schoolRoom } from './testing'
 
 afterEach(closeAll)
 

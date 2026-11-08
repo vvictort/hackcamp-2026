@@ -7,7 +7,7 @@ import { AMARA, KAI, seedStudent } from '../fixtures'
 import { USER_IDS } from '../fixtures/school'
 import { auditMark } from './core'
 import { CBIEP_SAMPLE_EXPECTED } from '../fixtures'
-import { ACTORS, runStudent } from '../services/testing'
+import { ACTORS, runStudent } from '../e2e/testing'
 import { confirmedDataPointsSince, counterDimensions, hasActiveConsent, insightIncrements, liveMessage, reviewTimelinessSince } from './student-core'
 
 type Sql = ReturnType<typeof createNodeSqlExecutor>

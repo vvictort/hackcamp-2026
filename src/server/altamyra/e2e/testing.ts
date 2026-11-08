@@ -8,7 +8,7 @@ import type { SqlExecutor } from '../db/sql'
 import { CLASS_IDS, DISTRICT, STUDENT_IDS, USER_IDS, seedSchool, seedStudent, studentFixture, type FixtureStudentKey } from '../fixtures'
 import { unwrapOp } from '../middleware/errors'
 import { runRoomOp } from '../rooms/core'
-import { insightsOps, schoolOps, studentOps } from './registry'
+import { insightsOps, schoolOps, studentOps } from '../services/registry'
 
 /**
  * Test-only helpers: rooms on node:sqlite seeded with the fictional fixtures,

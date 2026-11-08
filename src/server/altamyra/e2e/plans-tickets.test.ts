@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { SCHOOL, USER_IDS } from '../fixtures'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { kai, sofia } from './flows'
 import { createHarness } from './harness'
 

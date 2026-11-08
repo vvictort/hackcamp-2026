@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { sofia, U } from './flows'
 import { createHarness } from './harness'
 import photoUrl from '../../../../tests/fixtures/coded-sheet-photo.png?inline'

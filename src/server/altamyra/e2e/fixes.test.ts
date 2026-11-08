@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { CBIEP_SAMPLE_TEXT, SOFIA } from '../fixtures'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { amara, approveAdaptation, approvedMathSheets, fictionalPdf, kai, sofia, toBase64, U } from './flows'
 import { createHarness, type Harness } from './harness'
 

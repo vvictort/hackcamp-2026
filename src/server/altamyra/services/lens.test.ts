@@ -4,7 +4,7 @@ import type { LensAdaptation, LensCheck } from '../contract/ai'
 import { userActor } from '../contract/permissions'
 import type { SqlExecutor } from '../db/sql'
 import { KAI, SOFIA, STUDENT_IDS } from '../fixtures'
-import { ACTORS, closeAll, countRows, runStudent, studentRoom } from './testing'
+import { ACTORS, closeAll, countRows, runStudent, studentRoom } from '../e2e/testing'
 
 afterEach(closeAll)
 

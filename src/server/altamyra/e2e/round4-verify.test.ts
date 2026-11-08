@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FIXTURE_NAMES } from '../fixtures'
 import { getProvider } from '../ai/provider'
-import { closeAll } from '../services/testing'
+import { closeAll } from './testing'
 import { kai, U } from './flows'
 import { createHarness } from './harness'
 

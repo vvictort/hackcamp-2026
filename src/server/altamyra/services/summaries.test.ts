@@ -3,7 +3,7 @@ import { AltamyraError } from '../contract/errors'
 import type { Summary } from '../contract/student'
 import { STUDENT_IDS } from '../fixtures'
 import { isoWeekOf, periodDates, resolvePeriod, weekStartOf, type SummaryInputs } from './summaries'
-import { ACTORS, closeAll, runStudent, studentRoom } from './testing'
+import { ACTORS, closeAll, runStudent, studentRoom } from '../e2e/testing'
 
 // Pin Date so seeded data, periods and any default 'now' share one instant (not the wall clock).
 beforeEach(() => {

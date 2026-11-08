@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { KAI, STUDENT_IDS } from '../fixtures'
-import { ACTORS, closeAll, runStudent, studentRoom } from './testing'
+import { ACTORS, closeAll, runStudent, studentRoom } from '../e2e/testing'
 
 afterEach(closeAll)
 
