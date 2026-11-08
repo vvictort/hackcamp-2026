@@ -116,13 +116,19 @@ npx deepspace dev start --host 127.0.0.1 --port 5173 --secrets-config avi-local
 
 Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fictional school, three students, IEPs, lesson plans and progress data). Use **Act as** to switch between EA, teacher, case manager, parent/guardian, district lead and school administrator; the navigation and the data follow the role.
 
-Demo data is dated relative to the moment you press the button, so the demo has a current day's plans, captures and progress on any day. **Load demo data** works once per local database; to start over, stop the server and delete `.wrangler/state`, then start again.
+Demo data is dated relative to the moment you press the button, so the demo has a current day's plans, captures and progress on any day. Pressing **Load demo data** a second time answers "already seeded". To start over, use **Reset demo data** on Home (with a confirm dialog): it wipes the demo rows and loads them again dated from today. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
 
-The demo seed and the role switcher appear only with `ALTAMIRA_DEV_SEED=true` in the secrets config and are never on in a deploy.
+The demo controls (Load and Reset demo data, **Act as**) and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true` in the secrets config. They answer 404 otherwise, and the flag must never be set in a deploy.
 
-The demo controls and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`. They answer 404 otherwise, and the flag must never be set in a deploy.
+### Daily demo flow
 
-On Home, "Reset demo data" (with a confirm dialog) wipes the demo rows and loads them again dated from today, so the data is dated from today again. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
+1. **Act as** teacher. Home shows today's lesson plans and the students with no plan yet. Upload a lesson plan for a student.
+2. Review the proposed changes and approve the tailored plan. Until approved it is a draft that only the teacher and EA see. Creating a plan for a student who already has today's plan opens it for editing instead (409 "Edit it instead").
+3. **Act as** EA. Home shows the approved plan for each assigned child.
+4. Open **Capture** and add a typed note, an event, a coded-sheet photo or a video. Confirm or correct the AI score.
+5. Press **End of day review** and go through each child you helped, one by one.
+6. Open **Summaries** and approve the daily summary (the teacher or EA can edit it first).
+7. Approve the monthly summary, then **Act as** parent/guardian. The family page shows the approved monthly summary in Spanish with audio. Drafts never reach the parent.
 
 Accessibility check (axe-core on each role's screens: EA and teacher Home, Students, a student, Capture, Progress, Summaries and End of day; case manager Home, Students, Progress and Summaries; parent Family; district lead Insights; school administrator Change tickets and Roles. It switches roles with the dev role switch and fails on serious or critical issues). It needs one test account (`npx deepspace test accounts list`; create one with `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`) and the `avi-local` secrets config so the demo seed is available:
 
