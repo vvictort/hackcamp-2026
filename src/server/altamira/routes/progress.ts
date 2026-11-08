@@ -92,7 +92,7 @@ export function progressRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const body = await r.body(DraftCreateBody)
     const ctx = await r.student(studentId, draftsContext, { goalId: body.goalId, period: body.period })
     const { token } = await studentToken(r, studentId)
-    const ai = await r.ai()
+    const ai = await r.ai([studentId])
     const out = await ai.draftProgress({ studentToken: token, ...ctx })
     const known = ctx.dataPoints.map((p) => ({ id: p.id, studentId, status: 'confirmed' as const }))
     const check = checkCitations(out, known, studentId)
