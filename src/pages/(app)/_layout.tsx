@@ -31,13 +31,17 @@ export default function AppLayout() {
           when <Seo> unmounts, so every route without <Seo> sets its own. */}
       <title>{APP_NAME}</title>
       <AuthBoot>
-        <div className="flex h-screen flex-col bg-background overflow-hidden">
-          <Navigation />
-          <main className="flex-1 overflow-y-auto min-h-0">
-            <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground">Loading...</div>}>
-              <Outlet />
-            </Suspense>
-          </main>
+        {/* Grey canvas; the nav rail floats as a white card and pages lay their
+            own cards directly on the canvas (full-bleed on phones). */}
+        <div className="min-h-screen bg-background">
+          <div className="mx-auto flex min-h-screen max-w-[1480px] flex-col lg:flex-row lg:gap-8 lg:p-6">
+            <Navigation />
+            <main className="min-w-0 flex-1">
+              <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">Loading...</div>}>
+                <Outlet />
+              </Suspense>
+            </main>
+          </div>
         </div>
       </AuthBoot>
     </DeepSpaceAuthProvider>
@@ -48,9 +52,9 @@ export default function AppLayout() {
  * Waits for auth to resolve, then mounts the data layer. Distinct from the SDK's `AuthGate`.
  *
  * While the initial session check is in flight, renders a fixed full-viewport
- * panel in the theme background — visually identical to the pre-JS page
+ * panel in the page background, visually identical to the pre-JS page
  * (index.html primes <html> with the same color), so a cold load shows a
- * steady theme-colored screen until the shell appears. No spinner text: the
+ * steady background-coloured screen until the shell appears. No spinner text: the
  * check is one round-trip, and in-flow placeholders read as a layout jump.
  */
 function AuthBoot({ children }: { children: ReactNode }) {

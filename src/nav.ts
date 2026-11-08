@@ -1,12 +1,10 @@
 /**
- * Navigation Config
- *
- * Add one entry per nav item. Routes are handled by generouted
- * (file-based routing in src/pages/), this just controls what
- * appears in the navigation bar.
+ * Routed navigation entries. Navigation.tsx renders these (filtered by role
+ * and devOnly), giving each an icon from its ICONS map, with a fallback for
+ * entries `deepspace add` inserts below the marker line.
  */
 
-import type { Role } from './constants'
+import type { Role } from 'deepspace'
 
 export interface NavItem {
   path: string
@@ -18,7 +16,7 @@ export interface NavItem {
 export const nav: NavItem[] = [
   { path: '/home', label: 'Home' },
   { path: '/settings', label: 'Settings' },
-  // The /api-status debug page still exists — add
+  // The /api-status debug page still exists: add
   // `{ path: '/api-status', label: 'API Status', devOnly: true }` to surface it.
   // ── Features add nav items below this line ──
 ]

@@ -1,105 +1,187 @@
 @import "tailwindcss" source(none);
-@import "./themes.css";
 
 /* Scan local source + SDK components for Tailwind class usage */
 @source "./**/*.{ts,tsx}";
 @source "../node_modules/deepspace/dist/**/*.js";
 
 /*
- * Theming — pure shadcn/ui CSS variables with [data-theme] selectors.
- *
- * The @theme block below holds the default theme (slate). All other themes
- * live in `themes.css` as `[data-theme="<id>"]` override blocks. Switching
- * themes = changing the data-theme attribute on <html> in index.html. No
- * JS, no FOUC.
- *
- * Status colors (success, warning, info) are intentionally NOT themed —
- * they stay consistent across every preset.
+ * Altamira design system. Light theme only.
+ * Ink-first: a neutral grey canvas, white and near-black cards, big tight
+ * headings, and ONE accent (signal violet) used in small doses.
+ * Measured: ink #111 on every light surface 16:1+, secondary text #595959
+ * 6:1+, text on ink cards #B3B3B3 8:1+, signal #6C47FF is 5.27:1 on white
+ * and 3.58:1 against ink (non-text only there). Status chips are pastel fills
+ * with ink text; meaning comes from the icon and the word.
  */
 @theme {
-  /* shadcn core tokens — slate (default): neutral gray on near-black, indigo accent */
-  --color-background: #0a0a0a;
-  --color-foreground: #e8eaed;
-  --color-card: #161616;
-  --color-card-foreground: #e8eaed;
-  --color-popover: #161616;
-  --color-popover-foreground: #e8eaed;
-  --color-primary: #818cf8;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #1e1e1e;
-  --color-secondary-foreground: #e8eaed;
-  --color-muted: #1e1e1e;
-  --color-muted-foreground: #9ca3af;
-  --color-accent: #262626;
-  --color-accent-foreground: #e8eaed;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-  --color-border: rgba(60, 64, 67, 0.6);
-  --color-input: rgba(60, 64, 67, 0.6);
-  --color-ring: #818cf8;
-  --radius: 0.5rem;
+  --color-background: #F2F2F2;
+  --color-foreground: #111111;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #111111;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #111111;
+  --color-primary: #111111;
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-soft: #2A2A2A;
+  --color-secondary: #EDEDED;
+  --color-secondary-foreground: #111111;
+  --color-muted: #F2F2F2;
+  --color-muted-foreground: #595959;
+  --color-accent: #EDEDED;
+  --color-accent-foreground: #111111;
+  --color-border: #E3E3E3;
+  --color-input: #8C8C8C;
+  --color-ring: #111111;
 
-  /*
-   * Map the rounded-* utilities onto --radius so a theme (or you) can change
-   * the app's shape language in one place. At the default 0.5rem these equal
-   * Tailwind's stock values, so there is no visual change until a theme
-   * overrides --radius.
-   */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  /* The one accent. Dots, progress fills, today's date. */
+  --color-signal: #6C47FF;
 
-  /* Status colors — constant across all themes */
-  --color-success: #10b981;
-  --color-success-foreground: #ffffff;
-  --color-warning: #f59e0b;
-  --color-warning-foreground: #ffffff;
-  --color-info: #3b82f6;
-  --color-info-foreground: #ffffff;
+  /* Ink cards (and the landing footer). */
+  --color-ink: #111111;
+  --color-ink-raised: #1C1C1C;
+  --color-ink-foreground: #FFFFFF;
+  --color-ink-muted: #B3B3B3;
 
-  /*
-   * Shadows — slate (default). Each theme in themes.css tunes these.
-   *
-   * Toned down 2026-05: previous values were 8px/12px offset with
-   * 32px/40px blur which read as a heavy halo under every Card on
-   * the page. New values are Linear/Stripe-style: barely-there at
-   * rest, slightly more present on hover.
-   *
-   * IMPORTANT: starter components (`Card`, `Dialog`, `CardGrid`,
-   * `Navigation`, `Toast`) intentionally use literal shadow values
-   * via `shadow-[…]` arbitrary-value classes, NOT the
-   * `shadow-card` / `shadow-card-hover` token classes Tailwind v4
-   * generates from this @theme block. Why: Tailwind's @theme directive
-   * compiles these tokens into the utility-class definitions at build
-   * time, and runtime [data-theme] overrides don't always cancel the
-   * baked baseline cleanly — apps switching themes were getting the
-   * slate value carried forward on the compiled `shadow-card` class.
-   * Sidestepping the token system in starter components is the
-   * deterministic fix. See docs/platform/theming-shadows.md.
-   */
-  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.12);
-  --shadow-card-hover: 0 2px 8px 0 rgba(0, 0, 0, 0.16);
+  /* Status: pastel fills with ink text and an icon + word. */
+  --color-success: #A8E0CB;
+  --color-success-foreground: #111111;
+  --color-warning: #FFD866;
+  --color-warning-foreground: #111111;
+  --color-destructive: #F4A9B4;
+  --color-destructive-foreground: #111111;
+  --color-info: #B7CDF4;
+  --color-info-foreground: #111111;
 
-  /* Shell tokens: the area behind a multi-panel layout, and the raised
-     surface a page renders into. Used by templates whose (app)/_layout is a
-     shell (e.g. copilot's sidebar | panel | chat); a single-column layout
-     simply doesn't reference them. In every theme keep the panel reading as
-     elevated: dark → panel lighter than shell; light → white panel on a
-     faintly darker shell. */
-  --color-shell: #0a0a0a;
-  --color-shell-panel: #161616;
+  /* Atkinson Hyperlegible throughout (product requirement). */
+  --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Animations */
-  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  /* Type scale. rem, so the browser's text-size setting scales it.
+     hero/display are heavy and tightly tracked; body stays normal. */
+  --text-hero: 3.5rem;
+  --text-hero--line-height: 1.02;
+  --text-hero--letter-spacing: -0.04em;
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.035em;
+  --text-h1: 1.75rem;
+  --text-h1--line-height: 2.125rem;
+  --text-h1--letter-spacing: -0.025em;
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.625rem;
+  --text-h2--letter-spacing: -0.015em;
+  --text-h3: 1.0625rem;
+  --text-h3--line-height: 1.5rem;
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.75rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-label: 0.9375rem;
+  --text-label--line-height: 1.25rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  /* Text floor: 14px, including SDK components. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.25rem;
+
+  /* Shape rule: buttons and chips are pills, icon tiles 12px, cards 20px. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
 }
 
-/* Theme override blocks live in `themes.css` — imported above. */
+/*
+ * Motion. Everything that arrives or settles uses --ease-out, the same expo
+ * curve as the Lenis smooth scroll (src/pages/_app.tsx: GLIDE, 1.2s on
+ * easeOutExpo), so scrolling, entrances and feedback read as one system.
+ * Things leaving use --ease-in, a soft accelerate, and are shorter than their
+ * entrance. `static` keeps every token emitted even when only CSS or inline
+ * styles use it.
+ *
+ *   Type                              Easing         Duration
+ *   Scroll: wheel and anchor glide    expo out (JS)  1.2s (GLIDE in _app.tsx)
+ *   Entrance on load (rise, grow)     --ease-out     --duration-enter, --stagger steps
+ *   Scroll reveal (.reveal)           --ease-out     tied to scroll position, no clock
+ *   Hover, press, state, disclosure   --ease-out     --duration-feedback (Tailwind default)
+ *   Menu, popover, dialog, toast in   --ease-out     --duration-pop
+ *   ... and out                       --ease-in      --duration-exit (75% of in)
+ *   Tooltip in / out                  --ease-out/in  --duration-quick / --duration-quick-exit
+ *   Spinner, skeleton pulse (loops)   Tailwind's own, only while loading
+ */
+@theme static {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --duration-enter: 900ms;
+  --stagger: 100ms;
+  --duration-feedback: 200ms;
+  --duration-pop: 200ms;
+  --duration-exit: 150ms;
+  --duration-quick: 150ms;
+  --duration-quick-exit: 100ms;
+  --default-transition-duration: var(--duration-feedback);
+  --default-transition-timing-function: var(--ease-out);
+}
+
+/* Depth, never flat. Neutral shadows (no tint):
+   - shadow-raised: white cards, menus, round buttons.
+   - shadow-lift: hover on interactive surfaces.
+   - shadow-ink: ink cards and ink buttons (with a faint top highlight). */
+:root {
+  --shadow-raised: 0 0 0 1px rgb(17 17 17 / 0.04), 0 1px 2px rgb(17 17 17 / 0.05), 0 12px 32px -14px rgb(17 17 17 / 0.16);
+  --shadow-lift: 0 0 0 1px rgb(17 17 17 / 0.05), 0 2px 4px rgb(17 17 17 / 0.06), 0 22px 44px -18px rgb(17 17 17 / 0.26);
+  --shadow-ink: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 2px 4px rgb(17 17 17 / 0.18), 0 18px 40px -16px rgb(17 17 17 / 0.5);
+}
+@utility shadow-raised {
+  box-shadow: var(--shadow-raised);
+}
+@utility shadow-lift {
+  box-shadow: var(--shadow-lift);
+}
+@utility shadow-ink {
+  box-shadow: var(--shadow-ink);
+}
+
+/* Motion plays once on load (no endless loops, WCAG 2.2.2) and collapses to
+   instant under prefers-reduced-motion (see bottom of file). */
+@utility animate-rise {
+  animation: rise-in var(--duration-enter) var(--ease-out) both;
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+/* A bar filling from the left, once on load. */
+@utility animate-grow {
+  animation: grow-x var(--duration-enter) var(--ease-out) both;
+  transform-origin: left;
+}
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+}
+/* Scroll reveal: fades content up a little as it enters the screen. CSS only
+   (scroll-driven animation), so the prerendered page works without JS;
+   browsers without support, and anyone who prefers reduced motion, simply see
+   the content in place. */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-up var(--ease-out) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+}
 
 /*
- * Animation keyframes for shadcn components.
- * These replace the tailwindcss-animate plugin which is not compatible with Tailwind v4.
+ * Enter/exit keyframes for menus, popovers, dialogs and toasts
+ * (animate-in / animate-out plus the fade/zoom/slide modifiers below).
  */
 @keyframes animate-in {
   from { opacity: var(--tw-enter-opacity, 1); transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0) scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), var(--tw-enter-scale, 1)) rotate(var(--tw-enter-rotate, 0)); }
@@ -111,7 +193,8 @@
 
 @utility animate-in {
   animation-name: animate-in;
-  animation-duration: 150ms;
+  animation-duration: var(--duration-pop);
+  animation-timing-function: var(--ease-out);
   /* `both` prevents a one-frame flash before entry / after exit. */
   animation-fill-mode: both;
   --tw-enter-opacity: initial;
@@ -123,7 +206,8 @@
 
 @utility animate-out {
   animation-name: animate-out;
-  animation-duration: 150ms;
+  animation-duration: var(--duration-exit);
+  animation-timing-function: var(--ease-in);
   /* `both` prevents a one-frame flash before entry / after exit. */
   animation-fill-mode: both;
   --tw-exit-opacity: initial;
@@ -133,102 +217,112 @@
   --tw-exit-rotate: initial;
 }
 
+/* Tooltips are lighter than menus, so quicker. Unlayered, so it wins over the
+   animate-in / animate-out utilities. */
+[data-slot="tooltip-content"][data-open] { animation-duration: var(--duration-quick); }
+[data-slot="tooltip-content"][data-closed] { animation-duration: var(--duration-quick-exit); }
+
+/* DeepSpace's sign-in overlay (AuthOverlay) brings its own inline 400ms
+   `ease` fade and a delayed 450ms card rise. Put both on the dialog tokens:
+   overlay fades, card rises, together. Inside no-preference so the
+   reduced-motion override below still wins. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-testid="auth-overlay"],
+  [data-testid="auth-overlay"] > div {
+    animation-duration: var(--duration-pop) !important;
+    animation-timing-function: var(--ease-out) !important;
+    animation-delay: 0s !important;
+  }
+}
+
 @utility fade-in-0 { --tw-enter-opacity: 0; }
 @utility fade-out-0 { --tw-exit-opacity: 0; }
 @utility zoom-in-95 { --tw-enter-scale: .95; }
 @utility zoom-out-95 { --tw-exit-scale: .95; }
 @utility slide-in-from-top-2 { --tw-enter-translate-y: -0.5rem; }
 @utility slide-in-from-bottom-2 { --tw-enter-translate-y: 0.5rem; }
-@utility slide-in-from-left-2 { --tw-enter-translate-x: -0.5rem; }
 @utility slide-in-from-right-2 { --tw-enter-translate-x: 0.5rem; }
-@utility slide-out-to-top-2 { --tw-exit-translate-y: -0.5rem; }
-@utility slide-out-to-bottom-2 { --tw-exit-translate-y: 0.5rem; }
-@utility slide-out-to-left-2 { --tw-exit-translate-x: -0.5rem; }
 @utility slide-out-to-right-2 { --tw-exit-translate-x: 0.5rem; }
 
-
-/*
- * Custom base styles — must be in @layer base so utility classes can override.
- */
 @layer base {
   html {
-    /* Default to dark for native form controls (calendar icons, scrollbars).
-     * Light themes opt into `color-scheme: light` in themes.css. */
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html, body, #root {
     min-height: 100vh;
     background-color: var(--color-background);
-    scroll-behavior: smooth;
   }
 
   body {
-    font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
+    font-size: 1rem;
     line-height: 1.5;
+    color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-size: 14px;
-    color: var(--color-foreground);
   }
 
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-wrap: balance;
   }
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
+  code, kbd, samp {
+    font-family: var(--font-mono);
   }
 
-  ::-webkit-scrollbar-thumb {
-    border-radius: 0.25rem;
-    background-color: var(--color-border);
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-muted-foreground);
-  }
-
-  /* Selection styling */
   ::selection {
     background-color: var(--color-primary);
     color: var(--color-primary-foreground);
   }
 
-  /*
-   * Focus indication is intentionally NOT applied app-wide via a
-   * `*:focus-visible` rule. Doing so paints a colored outline onto
-   * every focusable element on the page — including programmatically
-   * focusable containers like Radix DismissableLayer wrappers,
-   * dialog overlays, and any element with `tabindex={-1}` used for
-   * scroll containment. The result reads as "the entire panel /
-   * dialog is selected" the moment a child button is clicked.
-   *
-   * Per-component focus indicators (e.g. shadcn's
-   * `focus-visible:ring-1` on Button, `focus-visible:border-ring` on
-   * Input / Textarea / Select) are sufficient for keyboard
-   * accessibility and don't bleed onto containers.
-   *
-   * If you DO need a global indicator for very keyboard-heavy apps,
-   * scope it tightly — e.g. only to interactive elements:
-   *
-   *   a:focus-visible,
-   *   button:focus-visible,
-   *   [role="button"]:focus-visible,
-   *   input:focus-visible,
-   *   select:focus-visible,
-   *   textarea:focus-visible {
-   *     outline: 2px solid var(--color-primary);
-   *     outline-offset: 2px;
-   *   }
-   *
-   * — never `*`.
-   */
+  /* Keyboard focus: one solid ring on interactive elements only (never `*`,
+     which would outline containers). Components must not set outline-none. */
+  :is(a, button, summary, input, select, textarea, [role="button"], [role="tab"],
+      [role="checkbox"], [role="switch"], [role="menuitem"], [role="option"]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* On ink surfaces the ink ring would vanish, so it turns white there. */
+  .bg-ink :is(a, button, summary, input, select, textarea, [role="button"]):focus-visible {
+    outline-color: var(--color-ink-foreground);
+  }
+
 
   /* Prevent 300ms tap delay on mobile */
   a, button, [role="button"], input, select, textarea {
     touch-action: manipulation;
+  }
+}
+
+/* FAQ disclosure: the answer opens and closes instead of jumping, in step
+   with the icon's turn. Browsers without ::details-content just jump. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (interpolate-size: allow-keywords) {
+    details { interpolate-size: allow-keywords; }
+    details::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--duration-exit) var(--ease-in), content-visibility var(--duration-exit) allow-discrete;
+    }
+    details[open]::details-content {
+      block-size: auto;
+      transition-duration: var(--duration-feedback);
+      transition-timing-function: var(--ease-out);
+    }
+  }
+}
+
+/* Smooth scrolling is Lenis (see src/pages/_app.tsx), not scroll-behavior. */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

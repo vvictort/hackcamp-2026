@@ -10,7 +10,7 @@
  *
  * Self-contained on purpose: it renders as the root error boundary, replacing
  * the app shell, so it must not depend on app providers or any component
- * library. It reads its colors from the active theme's CSS variables.
+ * library. It reads its colours from the CSS variables in styles.css.
  */
 
 import { AlertTriangle, RefreshCw } from 'lucide-react'

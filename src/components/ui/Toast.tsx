@@ -147,18 +147,14 @@ export function ToastProvider({
   const addToast = useCallback(
     (options: Omit<Toast, 'id'>) => {
       const id = Math.random().toString(36).slice(2)
-      const duration = options.duration ?? 5000
 
+      // Auto-dismiss is timed in ToastItem, so it plays the exit animation.
       setToasts((prev) => {
         const next = [...prev, { ...options, id }]
         return next.slice(-maxToasts)
       })
-
-      if (duration > 0) {
-        setTimeout(() => dismiss(id), duration)
-      }
     },
-    [dismiss, maxToasts],
+    [maxToasts],
   )
 
   const toast = useCallback(
@@ -222,15 +218,15 @@ export function ToastProvider({
 
 /**
  * Per-type visual config. Body uses the neutral popover surface — the type
- * is conveyed by a thin colored left-edge accent and the icon glyph alone,
+ * is conveyed by a filled icon chip (status fill + its foreground) and the title,
  * not by tinting the title text or stamping a chunky colored block behind
  * the icon. Cleaner read; doesn't compete with the page underneath.
  */
 const TOAST_CONFIG = {
-  success: { Icon: CheckCircleIcon, accent: 'bg-success', icon: 'text-success' },
-  error:   { Icon: AlertCircleIcon, accent: 'bg-destructive', icon: 'text-destructive' },
-  warning: { Icon: AlertTriangleIcon, accent: 'bg-warning', icon: 'text-warning' },
-  info:    { Icon: InfoIcon, accent: 'bg-info', icon: 'text-info' },
+  success: { Icon: CheckCircleIcon, chip: 'bg-success text-success-foreground' },
+  error:   { Icon: AlertCircleIcon, chip: 'bg-destructive text-destructive-foreground' },
+  warning: { Icon: AlertTriangleIcon, chip: 'bg-warning text-warning-foreground' },
+  info:    { Icon: InfoIcon, chip: 'bg-info text-info-foreground' },
 } as const
 
 interface ToastItemProps {
@@ -239,13 +235,21 @@ interface ToastItemProps {
 }
 
 function ToastItem({ toast, onDismiss }: ToastItemProps): React.ReactElement {
-  const { Icon, accent, icon } = TOAST_CONFIG[toast.type]
+  const { Icon, chip } = TOAST_CONFIG[toast.type]
   const [exiting, setExiting] = useState(false)
+
+  // Auto-dismiss takes the same exit as the close button.
+  useEffect(() => {
+    const duration = toast.duration ?? 5000
+    if (duration <= 0) return
+    const timer = setTimeout(() => setExiting(true), duration)
+    return () => clearTimeout(timer)
+  }, [toast.duration])
 
   // Animate out before removing.
   useEffect(() => {
     if (exiting) {
-      const timer = setTimeout(onDismiss, 150)
+      const timer = setTimeout(onDismiss, 150) // --duration-exit in styles.css
       return () => clearTimeout(timer)
     }
   }, [exiting, onDismiss])
@@ -256,31 +260,32 @@ function ToastItem({ toast, onDismiss }: ToastItemProps): React.ReactElement {
         pointer-events-auto
         relative flex items-start gap-2.5 min-w-[260px] max-w-[360px]
         overflow-hidden rounded-lg border border-border bg-popover
-        text-popover-foreground pl-3.5 pr-2 py-2.5 shadow-lg
+        text-popover-foreground pl-3 pr-1 py-2 shadow-raised
         ${exiting
-          ? 'animate-out fade-out-0 slide-out-to-right-2 duration-150'
-          : 'animate-in fade-in-0 slide-in-from-right-2 duration-200'
+          ? 'animate-out fade-out-0 slide-out-to-right-2'
+          : 'animate-in fade-in-0 slide-in-from-right-2'
         }
       `}
       role="alert"
     >
-      {/* Colored left-edge accent — the only chrome that reflects the type. */}
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${accent}`} aria-hidden />
-      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${icon}`} />
+      {/* The type shows as a filled icon chip; the title says it in words. */}
+      <span className={`mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-full ${chip}`} aria-hidden>
+        <Icon className="h-4 w-4" />
+      </span>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium leading-tight">{toast.title}</p>
+        <p className="pt-1.5 text-label font-semibold">{toast.title}</p>
         {toast.description && (
-          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+          <p className="mt-0.5 text-small text-muted-foreground">
             {toast.description}
           </p>
         )}
       </div>
       <button
         onClick={() => setExiting(true)}
-        className="-mr-0.5 shrink-0 cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label="Dismiss"
       >
-        <CloseIcon className="h-3.5 w-3.5" />
+        <CloseIcon className="h-5 w-5" />
       </button>
     </div>
   )

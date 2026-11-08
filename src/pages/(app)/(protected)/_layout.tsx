@@ -16,7 +16,7 @@
 import { useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { AuthGate, AuthOverlay } from 'deepspace'
-import { Button } from '@/components/ui'
+import { Button, buttonVariants } from '@/components/ui'
 
 export default function ProtectedLayout() {
   return (
@@ -30,22 +30,19 @@ function SignedOutPanel() {
   const [showAuthModal, setShowAuthModal] = useState(false)
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center px-6 py-20">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-8 text-center">
-        <h1 className="text-lg font-semibold text-foreground">Sign in to continue</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This page is only available to signed-in users.
-        </p>
-        <Button className="mt-6 w-full" onClick={() => setShowAuthModal(true)}>
-          Sign in
-        </Button>
-        <Link
-          to="/"
-          className="mt-4 inline-block text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-        >
-          Back to home
-        </Link>
-      </div>
+    <div className="flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">
+      <section className="flex max-w-md flex-col gap-5 rounded-lg bg-card p-6 shadow-raised">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-h1 font-extrabold text-foreground">Sign in to continue</h1>
+          <p className="text-body text-muted-foreground">This page is only available to signed-in users.</p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button onClick={() => setShowAuthModal(true)}>Sign in</Button>
+          <Link to="/" className={buttonVariants({ variant: 'secondary' })}>
+            Back to home
+          </Link>
+        </div>
+      </section>
 
       {showAuthModal && <AuthOverlay onClose={() => setShowAuthModal(false)} />}
     </div>

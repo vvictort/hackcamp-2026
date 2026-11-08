@@ -34,15 +34,15 @@ import {
   loggableError,
 } from 'deepspace/worker'
 import type { AgentToolAccessResult, AgentToolRouteOptions, ChatTurn } from 'deepspace/worker'
-import { schemas } from '../schemas.js'
+import { schemas } from '../../schemas.js'
 import { buildSystemPrompt } from './tools.js'
 // Type-only — TypeScript strips these at runtime, so no circular import
 // with worker.ts (which imports `registerAiChatRoutes` from this file).
-import type { Env, AppContext } from '../../worker.js'
+import type { Env, AppContext } from '../../../worker.js'
 
 type ResolveAccess = (req: Request, env: Env) => Promise<AgentToolAccessResult>
 type AccessGrant = Extract<AgentToolAccessResult, { ok: true }>
-/** `buildTools` from src/ai/tools.ts; it may ignore the context argument. */
+/** `buildTools` from src/server/ai/tools.ts; it may ignore the context argument. */
 type ToolFactory = AgentToolRouteOptions<Env>['buildTools']
 
 function recordRoomStub(env: Env): DurableObjectStub {

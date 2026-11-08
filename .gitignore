@@ -18,6 +18,8 @@ src/modals.tsx
 # Secrets (local dev vars, never commit)
 .dev.vars
 .dev.vars.*
+.env
+.env.*
 
 # Test output
 test-results/

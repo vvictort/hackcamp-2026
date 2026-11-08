@@ -12,11 +12,11 @@ import type { Hono } from 'hono'
 import { registerAgentToolRoutes, resolveAppMembership } from 'deepspace/worker'
 import type { AgentToolAccessResult, AgentToolRouteOptions, JwtClaims } from 'deepspace/worker'
 import { registerAiChatRoutes } from './chat-routes.js'
-import { resolveAgentAuth, resolveAuth } from '../server/http-routes.js'
-import type { AppContext, Env } from '../../worker.js'
+import { resolveAgentAuth, resolveAuth } from '../http-routes.js'
+import type { AppContext, Env } from '../../../worker.js'
 
 /**
- * `buildTools` from src/ai/tools.ts. Its first argument runs record tools as
+ * `buildTools` from src/server/ai/tools.ts. Its first argument runs record tools as
  * the caller and returns whole results; each tool's own result is capped for
  * the model where the SDK hands it over. Tools that need the Worker's
  * bindings take the second: the request's `env`, the verified `userId`, and
@@ -32,7 +32,7 @@ export interface AgentAuthorizationContext {
 }
 
 export interface RegisterAgentOptions {
-  /** The existing app-owned tool factory from src/ai/tools.ts. */
+  /** The existing app-owned tool factory from src/server/ai/tools.ts. */
   tools: ToolFactory
   /** Enable the website AI chat UI. Defaults to true. */
   inApp?: boolean

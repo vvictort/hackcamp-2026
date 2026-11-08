@@ -3,8 +3,8 @@
  * styled entirely with the app's semantic theme tokens. These are yours:
  * restyle or delete them freely. Build app-specific components alongside them.
  *
- * The look comes from the token values in `styles.css` / `themes.css`
- * (colors, `--radius`, shadows) — change those to change the app, without
+ * The look comes from the token values in `styles.css`
+ * (colors, radii, shadows) — change those to change the app, without
  * touching these files.
  *
  * @example
@@ -23,15 +23,11 @@ export {
   Select, SelectGroup, SelectValue, SelectTrigger, SelectContent,
   SelectLabel, SelectItem, SelectSeparator,
 } from './Select'
-export { Checkbox } from './Checkbox'
-export { Switch } from './Switch'
 export { Label } from './Label'
-
-/* Layout */
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs'
 
 /* Data display */
 export { Badge, type BadgeProps } from './Badge'
+export { StatusBadge, type StatusBadgeProps, type StatusTone } from './StatusBadge'
 export { Avatar, AvatarImage, AvatarFallback } from './Avatar'
 export { EmptyState } from './EmptyState'
 
@@ -53,4 +49,3 @@ export {
   DropdownMenuSubTrigger, DropdownMenuRadioGroup,
 } from './DropdownMenu'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './Tooltip'
-export { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './Popover'

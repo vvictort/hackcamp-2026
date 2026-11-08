@@ -12,14 +12,53 @@
  *
  * ToastProvider is local UI state (src/components/ui), not a network surface,
  * so it's safe to mount here for every page.
+ *
+ * Smooth scrolling: Lenis, once for every page. The wheel and in-page links
+ * (#faq) share one glide (GLIDE below) and links then move keyboard focus to
+ * the target. Lenis honours
+ * prefers-reduced-motion (instant, 1:1 scrolling), pauses while a dialog locks
+ * the page (autoToggle) and lets menus/lists scroll on their own
+ * (allowNestedScroll). Created in an effect, so prerendering never touches it.
  */
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
+import Lenis from 'lenis'
+import 'lenis/dist/lenis.css'
 import { Outlet, useRouteError } from 'react-router-dom'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { ToastProvider, TooltipProvider } from '@/components/ui'
 
+/* One glide for the wheel and anchor links: Lenis's own expo-out curve, the
+   same as --ease-out in styles.css (cubic-bezier(0.16, 1, 0.3, 1)). CSS
+   entrances use that curve too, so the page moves as one system. */
+const GLIDE = { duration: 1.2, easing: (t: number) => Math.min(1, 1.001 - 2 ** (-10 * t)) }
+
+function useLenis() {
+  useEffect(() => {
+    const lenis = new Lenis({ ...GLIDE, autoRaf: true, autoToggle: true, allowNestedScroll: true })
+    const onClick = (event: MouseEvent) => {
+      const link = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]')
+      const target = link && document.getElementById(link.hash.slice(1))
+      if (!link || !target || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return
+      event.preventDefault()
+      history.pushState(null, '', link.hash)
+      lenis.scrollTo(target, {
+        onComplete: () => {
+          if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1')
+          target.focus({ preventScroll: true })
+        },
+      })
+    }
+    document.addEventListener('click', onClick)
+    return () => {
+      document.removeEventListener('click', onClick)
+      lenis.destroy()
+    }
+  }, [])
+}
+
 export default function App() {
+  useLenis()
   return (
     <ToastProvider>
       {/* The single TooltipProvider: owns the hover delay for every Tooltip
@@ -50,11 +89,3 @@ export function Catch() {
   return <ErrorScreen error={error} />
 }
 
-/** Root fallback shown while Generouted loads the first lazy route module. */
-export function HydrateFallback() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-      Loading...
-    </div>
-  )
-}

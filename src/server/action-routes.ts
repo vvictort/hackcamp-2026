@@ -31,7 +31,7 @@ import type { Hono } from 'hono'
 import { apiWorkerFetch, normalizeApiError } from 'deepspace/worker'
 import type { ActionResult, ActionTools, VerifyResult } from 'deepspace/worker'
 import { actions } from '../actions/index.js'
-import { integrations } from '../integrations.js'
+import { integrations } from './integrations.js'
 import type { AppContext, Env } from '../../worker.js'
 
 type ResolveAuth = (req: Request, env: Env) => Promise<VerifyResult | null>

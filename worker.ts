@@ -1,8 +1,14 @@
 /**
  * App Worker — explicit assembly for DeepSpace app routes and Durable Objects.
  *
- * Route implementations live under src/server. Keep their registration order
- * here: specific API and WebSocket handlers must precede the SPA fallback.
+ * Backend / frontend split:
+ *   backend  = this file + src/server/** (HTTP, realtime and action routes,
+ *              AI agent and tools, integrations, jobs) + src/actions/ and
+ *              src/cron.ts (kept at the paths `deepspace add` writes to).
+ *   shared   = src/schemas.ts + src/schemas/ (record schemas, read by both).
+ *   frontend = everything else in src/ (pages, components, lib, styles).
+ * Keep route registration order here: specific API and WebSocket handlers
+ * must precede the SPA fallback.
  */
 
 import { Hono } from 'hono'
@@ -20,10 +26,10 @@ import {
 } from 'deepspace/worker'
 import type { DOBindings, DOManifest, Job, JobContext } from 'deepspace/worker'
 import { AI_CHATS_SCHEMA } from 'deepspace/schema'
-import { registerAgent } from './src/ai/agent.js'
-import { buildTools } from './src/ai/tools.js'
+import { registerAgent } from './src/server/ai/agent.js'
+import { buildTools } from './src/server/ai/tools.js'
 import { tasks as cronTasks, runTask as runCronTask } from './src/cron.js'
-import { runJob } from './src/jobs.js'
+import { runJob } from './src/server/jobs.js'
 import { schemas } from './src/schemas.js'
 import { registerActionRoutes } from './src/server/action-routes.js'
 import {
@@ -65,7 +71,7 @@ export class AppCronRoom extends CronRoom<Env> {
   }
 }
 
-/** Runs durable background work defined in src/jobs.ts. */
+/** Runs durable background work defined in src/server/jobs.ts. */
 export class AppJobRoom extends JobRoom<Env> {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env, {
