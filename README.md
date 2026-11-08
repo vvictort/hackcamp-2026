@@ -2,16 +2,20 @@
 
 A living IEP for designated students in BC public schools, who always have an education assistant (EA).
 
-Teachers and EAs adapt every lesson to each student's IEP goals and keep a daily record of progress, mostly after hours. Altamyra turns that into one short daily loop and drafts the summaries, so people only review and approve.
+Teachers and EAs adapt every lesson to each student's IEP goals and keep a daily record of progress, mostly after hours. Altamyra turns that into one short daily loop and drafts the summaries, so people only review and approve. Built at HackCamp 2026.
 
-Built at HackCamp 2026.
+**Contents:** [Product](#product) · [Tech stack](#tech-stack) · [Project layout](#project-layout) · [Run locally](#run-locally) · [Languages](#languages) · [Lesson Lens](#lesson-lens-on-maritime) · [Teamwork and Entire](#working-together) · [Design](#design) · [More docs](#more-docs)
 
-## The daily loop
+## Product
 
-1. The **teacher** uploads the lesson plan, reviews the proposed changes per student (Lesson Lens) and approves the tailored lesson plan.
-2. The **EA** sees the approved plan for each assigned child on opening the app.
-3. The EA teaches. During the day the EA (and the teacher if needed) captures observations: photographed coded sheets, video, typed notes and events (prompt levels, counters, timers, voice notes). Each AI-scored capture is confirmed or corrected by whoever made it.
-4. At the end of the day the EA goes through each child they helped, one by one, in a short **End of day review** that completes that day's record.
+### Daily loop
+
+| Step | Who | What happens |
+| --- | --- | --- |
+| 1. Plan | Teacher | Uploads the lesson plan, reviews the per-student changes proposed by Lesson Lens, approves the tailored plan |
+| 2. Teach | EA | Opens the app, sees the approved plan for each assigned child |
+| 3. Capture | EA (and teacher) | Photos of coded sheets, video, typed notes, events (prompt levels, counters, timers, voice notes). Whoever captured it confirms or corrects the AI score |
+| 4. Review | EA | A short end-of-day review of each child, which completes that day's record |
 
 ### Summaries
 
@@ -19,87 +23,65 @@ Built at HackCamp 2026.
 | --- | --- |
 | Daily | EA and teacher |
 | Weekly | Case manager (whole caseload) |
-| Monthly | Parent or guardian (in the family's language, with audio) and district lead (anonymized aggregates, groups under 10 hidden) |
-
-Only the EA and the teacher can view drafts, edit and approve summaries. The EA or the teacher approves the monthly summary. No other role edits any summary.
-
-**AI approval rule:** anything written or edited by AI (proposed lesson changes, tailored plans, AI-scored captures, summaries, translations, audio scripts) is a draft that only the EA or teacher sees until one of them approves it. The backend enforces this, not just the screens.
-
-### IEP change tickets
-
-The case manager imports an IEP and confirms its measurable objectives. Later changes go through a change ticket the case manager submits. The school administrator reviews it and applies or declines it.
+| Monthly | Parent or guardian (family's language, with audio); district lead (anonymized, groups under 10 hidden) |
 
 ### Roles
 
-- **EA** (assigned students): full IEP, original / proposed / tailored lesson plans, capture, end-of-day review, progress timeline, monthly approval.
-- **Teacher** (own classes): the same, plus add and edit lesson plans, and a flag for students without a plan today.
-- **Case manager** (caseload): import and view IEPs, submit change tickets, view lesson plans and progress, weekly summary.
-- **Parent or guardian** (own child): the monthly summary, and consent for voice notes and videos.
-- **District lead**: the monthly anonymized district summary only.
-- **School administrator**: reviews IEP change tickets and assigns roles.
+| Role | Sees and does |
+| --- | --- |
+| EA (assigned students) | Full IEP, lesson plans, capture, end-of-day review, progress, monthly approval |
+| Teacher (own classes) | The same, plus add and edit lesson plans |
+| Case manager (caseload) | Import IEPs, submit change tickets, weekly summary |
+| School administrator | Reviews and applies IEP change tickets, assigns roles |
+| Parent or guardian (own child) | Monthly summary, consent for voice notes and videos |
+| District lead | Monthly anonymized district summary only |
 
-### Principles the product holds to
+### Rules the product holds to
 
-- The AI suggests; an EA or teacher approves before anyone else sees it.
-- MyEducation BC stays the legal IEP record. Altamyra is the working layer around it.
-- Student names are removed before anything reaches an AI model.
-- Data is stored in Canada. No real student data before district privacy approval.
-- Accessible by default: Atkinson Hyperlegible, WCAG 2.2 AA, status shown by icon and word, never colour alone.
+- **Approval:** anything AI writes or edits (plans, scores, summaries, translations, audio scripts) is a draft only the EA or teacher sees until one approves it. The backend enforces this, not just the screens.
+- **Names:** student names are removed before anything reaches an AI model.
+- **Records:** MyEducation BC stays the official IEP record; Altamyra is the working layer around it.
+- **Data:** fictional data only until district privacy approval; stored in Canada.
+- **Accessibility:** Atkinson Hyperlegible, WCAG 2.2 AA, status shown by icon and word, never colour alone.
 
-### Current state
-
-Everything runs in a local demo on fictional data only. **Settings** (profile, preferences, text size, signed-in devices) and **36 interface languages** are available to every role. Lesson Lens is powered by an AI agent on Maritime (see [Lesson Lens on Maritime](#lesson-lens-on-maritime)).
+Everything runs in a local demo on fictional data. Settings (profile, preferences, text size, signed-in devices) and the 36 interface languages work for every role.
 
 ## Tech stack
 
-- **Platform:** [DeepSpace](https://docs.deep.space) SDK (`deepspace`), a real-time collaborative app framework on Cloudflare Workers with auth, record storage, server actions and one-command deploys
-- **Frontend:** React 19, TypeScript, Vite, React Router 7 with file-based routes (Generouted)
-- **Styling:** Tailwind CSS v4 with design tokens in `src/styles.css`; Base UI primitives; `class-variance-authority` and `tailwind-merge`; `lucide-react` icons; Atkinson Hyperlegible font
-- **Backend:** a Cloudflare Worker (`worker.ts`) using Hono, with Durable Objects for record rooms
-- **AI and integrations:** DeepSpace's integration proxy (Claude, used for translation); the Vercel AI SDK for the in-app agent
-- **Lesson Lens agent:** a zero-dependency Node service on [Maritime](https://maritime.sh) calling Google Gemini (see [Lesson Lens on Maritime](#lesson-lens-on-maritime))
-- **Motion:** plain CSS and Tailwind only (shared timing tokens, no animation libraries), plus Lenis for smooth scrolling; everything is off under `prefers-reduced-motion`
-- **Languages:** 36 interface languages, machine-translated on first use and cached (see [Languages](#languages))
-- **Testing and tooling:** Vitest (unit), Playwright (smoke, API and end-to-end), ESLint, `tsc`
-- **Agent workflow:** [Entire](https://docs.entire.com) for session capture, a code graph and shared project memory (see [Built with agents](#built-with-agents-entire))
+| Layer | What we use |
+| --- | --- |
+| Platform | [DeepSpace](https://docs.deep.space) SDK on Cloudflare Workers: auth, record storage, server actions, deploys |
+| Frontend | React 19, TypeScript, Vite, React Router 7 (file-based routes), Tailwind CSS v4, Base UI, Atkinson Hyperlegible |
+| Backend | Cloudflare Worker (`worker.ts`) with Hono; SQLite Durable Objects for the `/api/v1` domain (`src/server/altamira/`) |
+| AI | Gemini through the Lesson Lens agent on [Maritime](https://maritime.sh); Claude (via DeepSpace) for interface translation; fixture provider when no key is set |
+| Motion | Plain CSS and Tailwind, shared timing tokens, Lenis smooth scroll; off under `prefers-reduced-motion` |
+| Testing | Vitest (unit), Playwright (smoke, API, end-to-end), axe-core accessibility, ESLint, `tsc` |
+| Agent workflow | [Entire](https://docs.entire.com): session capture, code graph, shared project memory |
 
-## How the project is organized
+## Project layout
 
 ```
-worker.ts               Worker entry: registers routes and Durable Objects
-wrangler.toml           Cloudflare config
-prerender.ts            Build-time prerender of the static landing page
-public/                 Static assets (favicon, images, illustrations)
-tests/                  Playwright suites (smoke, api, collab)
-agent/                  Lesson Lens AI agent deployed on Maritime (Node, Gemini; own README)
-.entire/                Entire config and the agent guide (Graph and Brain)
+worker.ts                Worker entry: registers routes and Durable Objects
+agent/                   Lesson Lens agent for Maritime (Node, Gemini; own README)
+docs/                    Product analysis, BC IEP policy, decision records, agent workflow
+scripts/                 i18n-sync.mjs (writes the translation files)
+tests/                   Playwright suites, a11y (axe) and fixtures
+public/                  Static assets
+.entire/                 Entire config, redaction rules, agent guide
 src/
-  main.tsx              App entry
-  constants.ts          App name and other constants
-  nav.ts                Navigation items
-  seo.ts                Page metadata
-  styles.css            Design tokens, motion utilities, base styles
-  pages/                File-based routes
-    index.tsx             Landing page (static, prerendered, no providers)
-    _app.tsx              Root shell
-    (app)/                Dynamic app routes (mounts auth and data providers)
-      home.tsx              Role home
-      sign-in.tsx, sign-up.tsx
-      (protected)/          Routes that require sign-in (Settings, API status)
-  components/
-    ui/                   Design-system primitives (Button, Card, Select, Progress, ...)
-    auth/                 Sign-in and sign-up building blocks
-    altamira/             Example data for the dashboard
-    Navigation.tsx, LogoMark.tsx, Seo.tsx, ErrorScreen.tsx
-  i18n/                 Language provider, t() helper, language list, English strings
-  lib/                  Shared hooks and utilities (classroom data, Lesson Lens, sessions, positions)
-  schemas.ts, schemas/  Collection schemas and permissions (shared by worker and app)
-  actions/              Server actions (Lesson Lens: de-identify, call the agent, save suggestions)
-  server/               Backend modules: HTTP, realtime and action routes, i18n route,
-                        AI agent and tools, integrations billing, jobs
+  pages/                 File-based routes: landing (static), (app)/ home, sign-in/up,
+                         (protected)/ capture, end-of-day, students, progress, summaries,
+                         family, insights, admin, settings
+  components/            ui/ (design system), auth/, capture/, lens/, students/
+  lib/                   Shared hooks; lib/altamira/ holds the API clients
+  i18n/                  Language provider, en/*.ts strings, locales/*.json translations
+  schemas/, schemas.ts   Record collections and permissions (shared by worker and app)
+  actions/               Server actions (Lesson Lens)
+  server/                HTTP, realtime and action routes, i18n route, AI tools,
+                         altamira/ = the /api/v1 domain backend (own README)
 ```
 
-Backend and frontend split: the backend is `worker.ts`, `src/server/**`, `src/actions/` and `src/cron.ts`; the shared layer is `src/schemas*`; everything else under `src/` is frontend.
+Backend: `worker.ts`, `src/server/**`, `src/actions/`. Shared: `src/schemas*`. Everything else under `src/` is frontend.
 
 ## Run locally
 
@@ -108,37 +90,30 @@ npm ci
 npx deepspace login
 ```
 
-Create a secrets config named `avi-local` (any name works; use it with `--secrets-config`). Set `ALTAMIRA_DEV_SEED=true`. `GEMINI_API_KEY`, `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN` are optional: without a Gemini key the AI features use the built-in fixture provider. Never commit or print secret values, and do not edit `.dev.vars` (`deepspace dev` rewrites it from the secret store).
+Create a secrets config (any name; below it is `avi-local`) with `ALTAMIRA_DEV_SEED=true`. `GEMINI_API_KEY`, `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN` are optional: without a Gemini key the AI features use the built-in fixture provider. Never commit or print secrets, and never edit `.dev.vars` (DeepSpace rewrites it from the secret store).
 
 ```sh
 npx deepspace dev start --host 127.0.0.1 --port 5173 --secrets-config avi-local
 ```
 
-Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fictional school, three students, IEPs, lesson plans and progress data). Use **Act as** to switch between EA, teacher, case manager, parent/guardian, district lead and school administrator; the navigation and the data follow the role.
+Open http://127.0.0.1:5173, sign in, and on Home press **Load demo data** (a fictional school, three students, IEPs, lesson plans, progress). Use **Act as** to switch between the six roles; navigation and data follow the role.
 
-Demo data is dated relative to the moment you press the button, so the demo has a current day's plans, captures and progress on any day. Pressing **Load demo data** a second time answers "already seeded". To start over, use **Reset demo data** on Home (with a confirm dialog): it wipes the demo rows and loads them again dated from today. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
+| Demo control (Home) | What it does |
+| --- | --- |
+| **Load demo data** | Seeds the fictional school, dated from now. A second press answers "already seeded" |
+| **Reset demo data** | Wipes the demo rows and reseeds them dated from today (`POST /api/v1/dev/seed` with `{"reset": true}`) |
+| **Run full demo day** | Adds one fictional student (IEP in `docs/demo/sample-iep-sd23.txt`) and runs a whole school day through the real API, acting as each role in turn, with a link to each result. Live Gemini if `GEMINI_API_KEY` is set (up to a minute), fixtures otherwise (`POST /api/v1/dev/demo-day`) |
 
-**Run full demo day** (same panel) adds one new fictional student (grade 3, autism, full-time EA, Punjabi-speaking family; the IEP is `docs/demo/sample-iep-sd23.txt`) and runs a whole school day through the real `/api/v1` routes, acting as the parent, case manager, teacher, EA, school administrator and district lead in turn: consent, IEP import and objective confirmation, a tailored lesson plan, EA capture and end of day review, daily, weekly and monthly summaries with the approval rule checked, an IEP change ticket, and the district view. It uses live Gemini when `GEMINI_API_KEY` is set and the fixture provider otherwise, takes up to a minute with live AI, and lists each step with a link to the page that shows its result. A failed step is shown and the rest still run. Each press adds another student. The API call is `POST /api/v1/dev/demo-day`.
+The demo controls and `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`; they answer 404 otherwise. Never set it in a deploy.
 
-The demo controls (Load and Reset demo data, Run full demo day, **Act as**) and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true` in the secrets config. They answer 404 otherwise, and the flag must never be set in a deploy.
+### Try the daily flow
 
-### Daily demo flow
+1. **Act as** teacher: upload a lesson plan, review the proposed changes, approve the tailored plan.
+2. **Act as** EA: see the approved plan, open **Capture**, add a note, event, photo or video, confirm the AI score.
+3. Run **End of day review**, then approve the daily summary in **Summaries**.
+4. Approve the monthly summary, then **Act as** parent: the family page shows it in Spanish with audio. Drafts never reach the parent.
 
-1. **Act as** teacher. Home shows today's lesson plans and the students with no plan yet. Upload a lesson plan for a student.
-2. Review the proposed changes and approve the tailored plan. Until approved it is a draft that only the teacher and EA see. Creating a plan for a student who already has today's plan opens it for editing instead (409 "Edit it instead").
-3. **Act as** EA. Home shows the approved plan for each assigned child.
-4. Open **Capture** and add a typed note, an event, a coded-sheet photo or a video. Confirm or correct the AI score.
-5. Press **End of day review** and go through each child you helped, one by one.
-6. Open **Summaries** and approve the daily summary (the teacher or EA can edit it first).
-7. Approve the monthly summary, then **Act as** parent/guardian. The family page shows the approved monthly summary in Spanish with audio. Drafts never reach the parent.
-
-Accessibility check (axe-core on each role's screens: EA and teacher Home, Students, a student, Capture, Progress, Summaries and End of day; case manager Home, Students, Progress and Summaries; parent Family; district lead Insights; school administrator Change tickets and Roles. It switches roles with the dev role switch and fails on serious or critical issues). It needs one test account (`npx deepspace test accounts list`; create one with `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`) and the `avi-local` secrets config so the demo seed is available:
-
-```sh
-npx deepspace test run tests/a11y/axe.spec.ts --port 5197 --secrets-config avi-local
-```
-
-Other commands:
+### Commands
 
 ```sh
 npm run build        # production build and prerender
@@ -146,113 +121,102 @@ npm run type-check   # tsc --noEmit
 npm run lint         # eslint
 npm run test:unit    # vitest
 npm run test         # Playwright suites via deepspace
-npx deepspace deploy # deploy to <app>.app.space
+npm run i18n:sync    # refresh translation files (see Languages)
+npx deepspace deploy # deploy to <app>.app.space (commit first)
 ```
 
-Version control lives in the app's DeepSpace cloud repo by default (`npx deepspace push`). Commit before you deploy.
-
-## Working on this project together
-
-Each teammate works in their own clone with their own Claude Code (or another coding agent). Setup, once per person:
-
-**1. GitHub** (repo owner adds you as a collaborator on `vvictort/hackcamp-2026`). Entire's mirror access follows these permissions too.
+Accessibility check (axe-core, every role's screens; needs one test account from `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`):
 
 ```sh
-git clone git@github.com:vvictort/hackcamp-2026.git && cd hackcamp-2026 && npm install
+npx deepspace test run tests/a11y/axe.spec.ts --port 5197 --secrets-config avi-local
 ```
 
-**2. DeepSpace app** (repo owner adds you; this is also what gives you Lesson Lens):
+## Languages
 
-```sh
-npx deepspace app collaborators add teammate@example.com        # owner runs this
-npx deepspace app collaborators invites                          # teammate: list, then accept the invite
-npx deepspace auth login && npm run dev                          # teammate: secrets load automatically
-```
+The interface shows in 36 languages (English plus 35) from a language picker on the landing, sign-in, dashboard and Settings pages. There is no i18n library, only a small system in `src/i18n/`.
 
-`npm run dev` pulls the app's secrets, including `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN`, so
-**Get suggestions** works locally without a Maritime account. Collaborators get owner-level access: they can
-read every app secret in plain text and deploy to the live URL (billed to the owner), so only add people you trust.
+| Piece | Role |
+| --- | --- |
+| `src/i18n/en/*.ts` | The only English source. Shown with `t('key')` or `<T k="key" />` (inline `<hl>`, `<b>` tags). Brand names use `{app}` |
+| `src/i18n/locales/<lang>.json` | Committed machine translations; they load instantly, with no AI call |
+| `/api/i18n/:lang` | Fallback route that translates the English catalogue with Claude for languages or strings missing from the files, then caches it. It accepts no text, so student names and record data never reach the translator |
+| Lesson Lens | Not translated afterwards: the agent writes its suggestions in the teacher's language |
 
-**3. Entire**: follow [Set up Entire](#set-up-entire-each-teammate-once) below, then restart Claude Code. Your
-sessions are captured on your machine and linked to your commits; your agent reads the shared project rules
-from Brain (`entire brain brief "<task>"`) and the routine in `.entire/agent-guide.md`. A rule anyone adds with
-`entire brain remember` syncs to everyone.
-
-**4. Maritime**: nothing to set up. The Lesson Lens agent runs in the owner's Maritime account, and the app
-reaches it through the shared secrets from step 2. To change the agent, edit `agent/`, test it locally
-(`node --test agent/`, or `PORT=8799 node agent/server.mjs`), push, and ask the owner to redeploy
-(steps in [agent/README.md](agent/README.md)). Your own Maritime account is only needed to run a separate copy.
-
-House rules for every teammate and every agent (they are also in Entire Brain):
-
-- Use fictional or de-identified student data only. Never paste real student information or any secret into an agent prompt: sessions are recorded.
-- App settings go in `npx deepspace secrets set KEY=value`, never in `.dev.vars` (DeepSpace rewrites it on every run). Then restart the dev server.
-- Several agents may share a clone: commit only your own files (`git add <paths>`, not `git add -A`), keep one dev server per clone, and commit without a `Co-authored-by` trailer.
-- Keep Entire's checkpoint push policy on `manual`: this repository is public.
-- `CLAUDE.md` and `AGENTS.md` are git-ignored, so each clone has its own. The shared rules live in Entire Brain and `.entire/agent-guide.md`.
+**After changing English text:** run `npm run i18n:sync` (app running, signed in to DeepSpace) and commit the changed `locales/` files. Until then, new or edited strings show in English. To add a language, add one line to `src/i18n/languages.ts`. Translations are machine-made and not reviewed by native speakers. See [decision 0010](docs/decisions/0010-committed-machine-translations.md).
 
 ## Lesson Lens on Maritime
 
-Lesson Lens suggestions come from an AI agent hosted on [Maritime](https://maritime.sh) (`agent/`), a small
-Node server that calls Google Gemini (`gemini-3.5-flash-lite`) and falls back to a rules engine if Gemini is
-unavailable. Each teacher's approvals and rejections are kept in the agent's persistent `/data` and used as
-examples next time, so suggestions adapt to the teacher.
+Suggestions come from an AI agent in `agent/`: a small Node server on [Maritime](https://maritime.sh) that calls Gemini (`gemini-3.5-flash-lite`) and falls back to a rules engine. Each teacher's approvals and rejections are kept in the agent's `/data` and used as examples next time.
 
-How it fits together:
+1. A teacher clicks **Get suggestions** on a class in Today (optionally pasting lesson details).
+2. The `lessonLensSuggest` action (`src/actions/lesson-lens.ts`) loads that teacher's own class and students on the server, replaces every student name with "Student A, B…" (also inside pasted text), sends goal ids as `g1, g2…`, hashes the teacher id, and sends the teacher's language.
+3. It calls Maritime's chat API with a `deploy`-scoped key. The reply is validated strictly, names are put back inside the app, and suggestions are saved as pending.
+4. The teacher approves or rejects each one. Approving a **modification** asks for confirmation, because it changes the learning outcome. Decisions go back to the agent with names removed.
 
-1. On the dashboard, a teacher clicks **Get suggestions** on a class in Today (optionally pasting lesson details).
-2. The `lessonLensSuggest` server action (`src/actions/lesson-lens.ts`) loads that teacher's own class and
-   students on the server, replaces every student name with "Student A, B…" (accent-, case- and
-   hyphen-insensitive, also inside pasted text), sends goal ids as `g1, g2…`, and hashes the teacher id.
-3. It calls Maritime's chat API (`POST https://api.maritime.sh/api/agents/<id>/chat`) with a `deploy`-scoped key.
-4. The reply is validated strictly (known students and goals only, `adaptation` or `modification`, length
-   limits), names are put back inside the app, and suggestions are saved as pending.
-5. The teacher approves or rejects each one in the Lesson Lens card. Approving a **modification** asks for
-   confirmation first, because it changes the learning outcome. Decisions are sent back to the agent (names removed).
-
-Configuration lives in DeepSpace's secret store, which `npm run dev` and deploys both read. Don't edit
-`.dev.vars`: DeepSpace regenerates it on every dev, test and deploy run. Restart the dev server after changing:
+Configure it in DeepSpace's secret store, then restart the dev server:
 
 ```sh
 npx deepspace secrets set MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
 read -rs MK && printf %s "$MK" | npx deepspace secrets set MARITIME_AGENT_TOKEN --stdin; unset MK   # mk_ key, deploy scope
 ```
 
-Without them, **Get suggestions** shows "Lesson Lens isn't connected yet." Deploying and testing the agent:
-see [agent/README.md](agent/README.md).
+Without them, **Get suggestions** says "Lesson Lens isn't connected yet." Deploy and test steps: [agent/README.md](agent/README.md).
 
-## Built with agents: Entire
+## Working together
 
-Altamyra was built by several Claude Code agents working in parallel. [Entire](https://docs.entire.com) keeps their work connected:
+Each teammate uses their own clone and their own Claude Code. Setup, once per person:
 
-- **Sessions:** each Claude Code session in this repo is captured as a checkpoint and linked to its commit (the `Entire-Checkpoint:` trailer). Transcripts stay on the developer's machine: the checkpoint push policy is `manual`, because this repository is public. Review a checkpoint with `entire checkpoint explain` before publishing it with `entire checkpoint push`.
-- **Graph:** a code map agents query before editing (`entire graph query ...`).
-- **Brain:** shared project memory synced through entire.com. It holds the rules every agent follows: product rules, privacy (fictional data only, names removed before any AI), the brand coming from `APP_NAME`, the design system, accessibility, motion, the backend/frontend layout and the git process. Agents read it with `entire brain brief "<task>"`; add a rule with `entire brain remember "<rule>" --kind convention --path project.<area>.<name> --agent none`.
-- **Agent guide:** `.entire/agent-guide.md` tells every coding agent to run `brain brief` and `graph query` before working.
+| Step | What to do |
+| --- | --- |
+| 1. GitHub | The owner adds you as a collaborator on `vvictort/hackcamp-2026`, then `git clone … && npm install` |
+| 2. DeepSpace | The owner runs `npx deepspace app collaborators add <email>`. You accept with `npx deepspace app collaborators invites`, then `npx deepspace auth login && npm run dev`. Secrets, including Maritime's, load automatically. Collaborators can read every app secret and deploy to the live URL, so add only people you trust |
+| 3. Entire | Follow [Set up Entire](#set-up-entire), then restart Claude Code |
+| 4. Maritime | Nothing to set up; the agent runs in the owner's account. To change it, edit `agent/`, test (`node --test agent/`), push, and ask the owner to redeploy |
 
-The repository is mirrored on entire.com (`entire` remote); GitHub stays `origin`.
+**House rules** (also in Entire Brain):
 
-### Set up Entire (each teammate, once)
+- Fictional or de-identified data only. Never paste real student information or a secret into an agent prompt: sessions are recorded.
+- App settings go in `npx deepspace secrets set`, never `.dev.vars`.
+- Several agents may share a clone: commit only your own files (`git add <paths>`, not `-A`), keep one dev server per clone, and commit without a `Co-authored-by` trailer.
+- Never push Entire checkpoints to the public repo (see below).
 
-You need to be a collaborator on the GitHub repository.
+### Entire
+
+[Entire](https://docs.entire.com) keeps the agents' work connected:
+
+| Feature | What it gives you |
+| --- | --- |
+| Sessions | Each Claude Code session is captured as a checkpoint linked to its commit. Redaction is on (emails, phone numbers, `.entire/redactors/`) |
+| Checkpoints | Configured in `.entire/settings.json` to go to the private repo `vvictort/hackcamp-2026-checkpoints` (ask the owner for access). This repo is public, so keep the push policy `manual` and never push transcripts here |
+| Graph | Code map: `entire graph query …` |
+| Brain | Shared project memory: `entire brain brief "<task>"`; add a rule with `entire brain remember "<rule>" --path project.<area>.<name> --agent none` |
+| Agent guide | `.entire/agent-guide.md` tells every agent to use Brain and Graph before working |
+
+#### Set up Entire
 
 ```sh
 curl -fsSL https://entire.com/install.sh | bash      # macOS: brew install --cask entireio/tap/entire
-entire login                                          # use the same provider as your Entire account
-# WSL/Linux without a keyring: echo '{"token_store": "file"}' > ~/.config/entire/config.json, then log in again
+entire login                                          # WSL/Linux without a keyring: echo '{"token_store": "file"}' > ~/.config/entire/config.json, then log in again
 entire enable -y --agent claude-code                  # or codex, cursor, copilot-cli, opencode
-entire configure --checkpoint-push-policy manual      # keep transcripts off the public repo
+entire configure --checkpoint-push-policy manual
 entire repo remote add entire --cluster aws-us-east-2.entire.io && git fetch entire
 entire plugin install graph && entire graph setup
 entire plugin install brain && entire brain setup && entire brain connect   # answer no to backfill
 ```
 
-The first commit after `entire enable` may ask to link it to session context: answer `a` (always). Restart Claude Code afterwards so capture covers the session.
-
-## Languages
-
-The interface shows in 36 languages, chosen from a language picker. English text lives in `src/i18n/en.ts`; other languages are translated automatically the first time someone picks them and cached in the `settings` collection. Only that fixed English catalogue is ever sent to the model, never student names or any record data. To add a language, add one line to `src/i18n/languages.ts`. To add text, add a key to `src/i18n/en.ts` and use `t('key')`.
+The first commit after `entire enable` may ask to link session context: answer `a` (always). Restart Claude Code afterwards.
 
 ## Design
 
-Ink-first and light only: a soft grey canvas, white and near-black cards, big tightly tracked headings, one violet accent used sparingly, and no decorative dots. Tokens and shape rules are documented at the top of `src/styles.css`. Reusable pieces live in `src/components/ui`; use them instead of hand-rolling cards and buttons.
+Ink-first and light only: a soft grey canvas, white and near-black cards, tightly tracked headings, one violet accent used sparingly, no decorative dots. Tokens and shape rules are at the top of `src/styles.css`. Reuse the pieces in `src/components/ui` instead of hand-rolling cards and buttons.
+
+## More docs
+
+| File | What it is |
+| --- | --- |
+| [docs/product-analysis.md](docs/product-analysis.md) | The problem, modules, personas, rules, and what is built |
+| [docs/policy/bc-iep.md](docs/policy/bc-iep.md) | Sourced summary of BC IEP and reporting policy |
+| [docs/decisions/](docs/decisions/README.md) | Architecture decision records |
+| [docs/agent-workflow.md](docs/agent-workflow.md) | How agents and humans work in this repo |
+| [src/server/altamira/README.md](src/server/altamira/README.md) | The `/api/v1` backend: folders, roles, capabilities |
+| [agent/README.md](agent/README.md) | Deploying and testing the Lesson Lens agent |
