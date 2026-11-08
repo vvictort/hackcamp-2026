@@ -1,5 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Mail } from 'lucide-react'
 import { signIn, useAuth } from 'deepspace'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { OAuthButtons } from '@/components/auth/OAuthButtons'
@@ -15,20 +17,22 @@ function validateEmail(v: string) {
 }
 const validatePassword = (v: string) => (v ? '' : 'Enter your password.')
 
-/** Only same-origin paths, so ?next= can't send anyone off-site. */
+/** Only same-origin paths: never `//host` or `/\\host` (browsers read both
+ *  as another origin), and never back to an auth page, which would loop. */
 function safeNext(raw: string | null) {
-  return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/home'
+  return raw && /^\/(?![/\\]|sign-)/.test(raw) ? raw : '/home'
 }
 
 export default function SignInPage() {
   const { isLoaded, isSignedIn } = useAuth()
   const [params] = useSearchParams()
-  const nextParam = params.get('next')
-  const next = safeNext(nextParam)
-  const carry = nextParam ? `?next=${encodeURIComponent(next)}` : ''
+  const next = safeNext(params.get('next'))
   const navigate = useNavigate()
   const toast = useToast()
 
+  // Two steps so the first screen stays calm: Google/GitHub (how teachers get
+  // accounts), then email + password only for those who ask for it.
+  const [emailStep, setEmailStep] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   // Errors show after a field's first blur (or a submit), then track edits live.
@@ -36,6 +40,14 @@ export default function SignInPage() {
   const [pending, setPending] = useState(false)
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
+  const toEmailRef = useRef<HTMLButtonElement>(null)
+
+  // Swap steps, then move focus into the new content so keyboard and screen
+  // reader users are not dropped on <body>.
+  const showEmail = (on: boolean) => {
+    flushSync(() => setEmailStep(on))
+    ;(on ? emailRef : toEmailRef).current?.focus()
+  }
 
   const emailError = touched.email ? validateEmail(email) : ''
   const passwordError = touched.password ? validatePassword(password) : ''
@@ -76,29 +88,24 @@ export default function SignInPage() {
 
   return (
     <AuthLayout
-      title="Sign in"
-      description="Welcome back. Sign in to see your class."
+      title={emailStep ? 'Sign in with email' : 'Sign in'}
+      description={emailStep ? 'For accounts that already have a password.' : 'Welcome back. Sign in to see your class.'}
       className="px-4 py-6 sm:px-6 lg:py-6"
       footer={
         <p>
           New to {APP_NAME}?{' '}
-          <Link to={`/sign-up${carry}`} className="font-semibold text-foreground underline underline-offset-4 hover:text-signal">
+          <Link
+            to={`/sign-up?next=${encodeURIComponent(next)}`}
+            className="py-3 font-semibold text-foreground underline underline-offset-4 hover:text-signal"
+          >
             Create an account
           </Link>
         </p>
       }
     >
-      <OAuthButtons disabled={pending} onError={(m) => toast.error("Couldn't open sign-in.", m)} />
-
-      <div className="flex items-center gap-3 text-small text-muted-foreground">
-        <span aria-hidden className="h-px flex-1 bg-border" />
-        or sign in with email
-        <span aria-hidden className="h-px flex-1 bg-border" />
-      </div>
-
-      <form noValidate onSubmit={onSubmit} aria-label="Sign in with email" className="flex flex-col gap-6">
-        <div className="stagger-rise flex flex-col gap-4">
-          <FormField label="Email" required hint={`The email on your ${APP_NAME} account.`} error={emailError}>
+      {emailStep ? (
+        <form noValidate onSubmit={onSubmit} aria-label="Sign in with email" className="stagger-rise flex flex-col gap-4">
+          <FormField label="Email" required error={emailError}>
             <Input
               ref={emailRef}
               type="email"
@@ -111,7 +118,7 @@ export default function SignInPage() {
               onBlur={() => setTouched((t) => ({ ...t, email: true }))}
             />
           </FormField>
-          <FormField label="Password" required hint="Passwords are case-sensitive." error={passwordError}>
+          <FormField label="Password" required error={passwordError}>
             <PasswordInput
               ref={passwordRef}
               name="password"
@@ -121,18 +128,25 @@ export default function SignInPage() {
               onBlur={() => setTouched((t) => ({ ...t, password: true }))}
             />
           </FormField>
-          <Button type="submit" size="lg" className="w-full" loading={pending}>
-            {pending ? 'Signing in…' : 'Sign in'}
+          <div className="flex flex-col items-center gap-3">
+            <Button type="submit" size="lg" className="w-full" loading={pending}>
+              {pending ? 'Signing in…' : 'Sign in'}
+            </Button>
+            <Button variant="link" disabled={pending} onClick={() => showEmail(false)}>
+              <ArrowLeft aria-hidden />
+              Use Google or GitHub instead
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="stagger-rise flex flex-col items-center gap-3">
+          <OAuthButtons className="w-full" onError={(m) => toast.error("Couldn't open sign-in.", m)} />
+          <Button ref={toEmailRef} variant="link" onClick={() => showEmail(true)}>
+            <Mail aria-hidden />
+            Sign in with email
           </Button>
         </div>
-        <p className="text-small text-muted-foreground">
-          Email sign-in works for existing accounts. New teachers can continue with Google or GitHub, or{' '}
-          <Link to={`/sign-up${carry}`} className="font-semibold text-foreground underline underline-offset-4 hover:text-signal">
-            create an account
-          </Link>
-          .
-        </p>
-      </form>
+      )}
     </AuthLayout>
   )
 }
