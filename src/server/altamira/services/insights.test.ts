@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { userActor } from '../contract/permissions'
-import { DISTRICT, SCHOOL } from '../fixtures'
+import { DISTRICT, SCHOOL, demoPeerIncrements } from '../fixtures'
 import type { InsightGroup } from './insights'
 import { parseSourceRef } from './sources'
 import { ACTORS, closeAll, insightsRoom, runInsights } from './testing'
@@ -107,5 +107,17 @@ describe('district monthly narrative (template text, not AI)', () => {
     expect(narrative(sql, '2026-10').text).toContain('Reading')
     expect(narrative(sql, '2026-10').text).not.toContain('Math')
     expect(narrative(sql).period).toBe('2026-11')
+  })
+})
+
+describe('district monthly narrative with demo peers', () => {
+  it('reads sensibly from aggregates and hides the small demo groups', () => {
+    const sql = insightsRoom()
+    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: demoPeerIncrements('2026-11') }, ACTORS.system)
+    const n = runInsights<{ monthlyNarrative: { period: string | null; text: string } }>(sql, 'insights.get', { districtId: DISTRICT.id }, ACTORS.districtLead).monthlyNarrative
+    expect(n.period).toBe('2026-11')
+    expect(n.text).toContain('Reading: 14 students')
+    expect(n.text).toContain('Math: 12 students')
+    expect(n.text).not.toMatch(/Writing|Science|demopeer/)
   })
 })
