@@ -34,7 +34,7 @@ export function AimlineChart({ data, unit }: { data: ChartInput; unit: string })
         <span>{t('students.chart.legendAim')}</span>
       </p>
       <details className="text-small">
-        <summary className="cursor-pointer font-semibold">{t('students.chart.table')}</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center font-semibold">{t('students.chart.table')}</summary>
         <table className="mt-2 w-full max-w-md text-start">
           <thead>
             <tr>

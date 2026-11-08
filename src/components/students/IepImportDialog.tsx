@@ -142,7 +142,7 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(64rem,calc(100vw-2rem))]">
         <DialogHeader>
           <DialogTitle>{t('students.import.title')}</DialogTitle>
           <DialogDescription>{t(result ? 'students.import.reviewHelp' : 'students.import.help')}</DialogDescription>

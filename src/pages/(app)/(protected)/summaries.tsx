@@ -121,7 +121,7 @@ function StaffSummaries() {
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div role="tablist" aria-label={t('app.summaries.title')} className="flex gap-2">
+        <div role="tablist" aria-label={t('app.summaries.title')} className="flex flex-wrap gap-2">
           {SUMMARY_KINDS.map((k) => (
             <Button key={k} role="tab" aria-selected={k === kind} variant={k === kind ? 'default' : 'outline'} onClick={() => update({ kind: k })}>
               {t(`app.summaries.kind.${k}`)}
@@ -129,7 +129,7 @@ function StaffSummaries() {
           ))}
         </div>
         {students.length > 1 && (
-          <FormField label={t('app.summaries.student')} className="w-56">
+          <FormField label={t('app.summaries.student')} className="w-full sm:w-56">
             {(c) => (
               <Select value={studentId} onValueChange={(v) => v && update({ student: v })}>
                 <SelectTrigger id={c.id} aria-label={t('app.summaries.student')}>

@@ -47,9 +47,11 @@ export default function AppLayout() {
           {bare ? (
             <main className="min-h-screen">{outlet}</main>
           ) : (
-            <div className="mx-auto flex min-h-screen max-w-370 flex-col lg:flex-row lg:gap-8 lg:p-6">
+            // Phones: top bar + a floating tab-bar island, so <main> clears the
+            // island (60px + 12px gap + home-indicator inset). From md the rail sits beside it.
+            <div className="mx-auto flex min-h-screen max-w-370 flex-col md:flex-row md:gap-6 md:p-4 lg:gap-8 lg:p-6">
               <Navigation />
-              <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">{outlet}</main>
+              <main className="min-w-0 flex-1 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:p-0 md:pt-1">{outlet}</main>
             </div>
           )}
         </div>

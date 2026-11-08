@@ -17,7 +17,7 @@ export function PageHeader({
   titleClassName?: string
 }) {
   return (
-    <header className={cn('animate-rise flex flex-wrap items-start justify-between gap-6 lg:pt-1', className)}>
+    <header className={cn('animate-rise flex flex-wrap items-start justify-between gap-6 md:pt-1', className)}>
       <div className="flex flex-col gap-2">
         <h1 className={cn('text-display font-extrabold', titleClassName)}>{title}</h1>
         {description && <p className="max-w-[60ch] text-body-lg text-muted-foreground">{description}</p>}
