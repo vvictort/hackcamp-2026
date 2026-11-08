@@ -12,7 +12,8 @@ import { userActor, type Actor } from '../contract/permissions'
 export const SYSTEM_ACTOR: Actor = userActor('system:jobs')
 
 export const ALTAMIRA_CRON = {
-  dataNeeded: 'altamira.data-needed',
+  // CronRoom only accepts lowercase letters, digits and hyphens in task names.
+  dataNeeded: 'altamira-data-needed',
 } as const
 
 /** Which op each cron task runs, and in which room kind. */
