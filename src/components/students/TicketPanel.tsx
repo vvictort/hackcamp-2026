@@ -55,6 +55,7 @@ export function TicketPanel({ studentId, targets }: { studentId: string; targets
 
   return (
     <Card title={s('ticket.title')}>
+      <p className="text-small text-muted-foreground">{s('ticket.confirmedNote')}</p>
       <div>
         <Button variant="outline" onClick={() => setOpen(true)}><MessageSquarePlus aria-hidden />{s('ticket.suggest')}</Button>
       </div>
