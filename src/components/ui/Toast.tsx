@@ -24,7 +24,6 @@ import React, {
   type ReactNode,
 } from 'react'
 import { cn } from '@/lib/utils'
-import { buttonVariants } from './Button'
 
 // ============================================================================
 // Types
@@ -57,7 +56,7 @@ interface ToastContextValue {
 
 function CheckCircleIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
       <polyline points="22 4 12 14.01 9 11.01" />
     </svg>
@@ -66,7 +65,7 @@ function CheckCircleIcon({ className }: { className?: string }) {
 
 function AlertCircleIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -76,7 +75,7 @@ function AlertCircleIcon({ className }: { className?: string }) {
 
 function AlertTriangleIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -86,7 +85,7 @@ function AlertTriangleIcon({ className }: { className?: string }) {
 
 function InfoIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="16" x2="12" y2="12" />
       <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -96,7 +95,7 @@ function InfoIcon({ className }: { className?: string }) {
 
 function CloseIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -184,34 +183,41 @@ export function ToastProvider({
     [addToast],
   )
 
-  const positionClasses: Record<string, string> = {
-    'top-right': 'top-4 right-4',
-    'top-left': 'top-4 left-4',
-    'bottom-right': 'bottom-4 right-4',
-    'bottom-left': 'bottom-4 left-4',
-    'top-center': 'top-4 left-1/2 -translate-x-1/2',
-    'bottom-center': 'bottom-4 left-1/2 -translate-x-1/2',
-  }
-
   return (
     <ToastContext.Provider
       value={{ toasts, toast, success, error, warning, info, dismiss, dismissAll }}
     >
       {children}
 
-      {/* Toast viewport. `pointer-events-none` is load-bearing: this is a
-          fixed z-100 layer over one corner of every page, so without it the
-          container (and every toast in it) silently eats clicks on whatever
-          sits underneath. Each toast re-enables events for itself. */}
+      {/* Toast viewport: fixed, outside every page's flow, so a toast never
+          pushes content. `pointer-events-none` is load-bearing: this layer sits
+          over one corner of every page, so without it the container silently
+          eats clicks underneath. Each toast re-enables events for itself. */}
       <div
-        className={`pointer-events-none fixed z-[100] flex flex-col gap-2 ${positionClasses[position]}`}
+        className={cn(
+          'pointer-events-none fixed z-[100] flex max-w-[calc(100vw-2rem)] flex-col gap-2',
+          POSITION[position].viewport,
+        )}
       >
         {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
+          <ToastItem key={t.id} toast={t} position={position} onDismiss={() => dismiss(t.id)} />
         ))}
       </div>
     </ToastContext.Provider>
   )
+}
+
+type ToastPosition = NonNullable<ToastProviderProps['position']>
+
+/** Where the viewport sits, and the edge each toast slides in from (1rem,
+ *  --duration-pop on --ease-out) and back out to (--duration-exit, --ease-in). */
+const POSITION: Record<ToastPosition, { viewport: string; enter: string; exit: string }> = {
+  'top-right': { viewport: 'top-4 right-4', enter: '[--tw-enter-translate-x:1rem]', exit: '[--tw-exit-translate-x:1rem]' },
+  'bottom-right': { viewport: 'bottom-4 right-4', enter: '[--tw-enter-translate-x:1rem]', exit: '[--tw-exit-translate-x:1rem]' },
+  'top-left': { viewport: 'top-4 left-4', enter: '[--tw-enter-translate-x:-1rem]', exit: '[--tw-exit-translate-x:-1rem]' },
+  'bottom-left': { viewport: 'bottom-4 left-4', enter: '[--tw-enter-translate-x:-1rem]', exit: '[--tw-exit-translate-x:-1rem]' },
+  'top-center': { viewport: 'top-4 left-1/2 -translate-x-1/2', enter: '[--tw-enter-translate-y:-1rem]', exit: '[--tw-exit-translate-y:-1rem]' },
+  'bottom-center': { viewport: 'bottom-4 left-1/2 -translate-x-1/2', enter: '[--tw-enter-translate-y:1rem]', exit: '[--tw-exit-translate-y:1rem]' },
 }
 
 // ============================================================================
@@ -219,25 +225,26 @@ export function ToastProvider({
 // ============================================================================
 
 /**
- * Per-type visual config. Body uses the neutral popover surface — the type
- * is conveyed by a filled icon chip (status fill + its foreground) and the title,
- * not by tinting the title text or stamping a chunky colored block behind
- * the icon. Cleaner read; doesn't compete with the page underneath.
+ * Per-type look: the whole toast takes its status fill with ink text
+ * (10:1+ on every fill), and the icon plus a word say the type, so colour is
+ * never the only cue.
  */
 const TOAST_CONFIG = {
-  success: { Icon: CheckCircleIcon, chip: 'bg-success text-success-foreground' },
-  error:   { Icon: AlertCircleIcon, chip: 'bg-destructive text-destructive-foreground' },
-  warning: { Icon: AlertTriangleIcon, chip: 'bg-warning text-warning-foreground' },
-  info:    { Icon: InfoIcon, chip: 'bg-info text-info-foreground' },
+  success: { Icon: CheckCircleIcon, word: 'Success', fill: 'bg-success text-success-foreground' },
+  error:   { Icon: AlertCircleIcon, word: 'Error', fill: 'bg-destructive text-destructive-foreground' },
+  warning: { Icon: AlertTriangleIcon, word: 'Warning', fill: 'bg-warning text-warning-foreground' },
+  info:    { Icon: InfoIcon, word: 'Info', fill: 'bg-info text-info-foreground' },
 } as const
 
 interface ToastItemProps {
   toast: Toast
+  position: ToastPosition
   onDismiss: () => void
 }
 
-function ToastItem({ toast, onDismiss }: ToastItemProps): React.ReactElement {
-  const { Icon, chip } = TOAST_CONFIG[toast.type]
+function ToastItem({ toast, position, onDismiss }: ToastItemProps): React.ReactElement {
+  const { Icon, word, fill } = TOAST_CONFIG[toast.type]
+  const motion = POSITION[position]
   const [exiting, setExiting] = useState(false)
 
   // Auto-dismiss takes the same exit as the close button.
@@ -259,30 +266,25 @@ function ToastItem({ toast, onDismiss }: ToastItemProps): React.ReactElement {
   return (
     <div
       className={cn(
-        'pointer-events-auto relative flex min-w-65 max-w-90 items-start gap-2.5 overflow-hidden rounded-lg border border-border bg-popover py-2 pl-3 pr-1 text-popover-foreground shadow-raised',
-        exiting ? 'animate-out fade-out-0 slide-out-to-right-2' : 'animate-in fade-in-0 slide-in-from-right-2',
+        'pointer-events-auto flex w-90 max-w-full items-start gap-3 rounded-lg py-2 pl-4 pr-1 shadow-lift',
+        fill,
+        exiting ? cn('animate-out fade-out-0', motion.exit) : cn('animate-in fade-in-0', motion.enter),
       )}
       role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
     >
-      {/* The type shows as a filled icon chip; the title says it in words. */}
-      <span className={`mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-full ${chip}`} aria-hidden>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="pt-1.5 text-label font-semibold">{toast.title}</p>
-        {toast.description && (
-          <p className="mt-0.5 text-small text-muted-foreground">
-            {toast.description}
-          </p>
-        )}
+      <Icon className="mt-2.5 size-5 shrink-0" />
+      <div className="min-w-0 flex-1 py-2">
+        <p className="text-small font-bold">{word}</p>
+        <p className="text-label font-semibold">{toast.title}</p>
+        {toast.description && <p className="mt-0.5 text-small">{toast.description}</p>}
       </div>
       <button
         type="button"
         onClick={() => setExiting(true)}
-        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-muted-foreground')}
+        className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-foreground/10"
         aria-label="Dismiss"
       >
-        <CloseIcon className="h-5 w-5" />
+        <CloseIcon className="size-5" />
       </button>
     </div>
   )

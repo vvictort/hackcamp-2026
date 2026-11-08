@@ -16,7 +16,8 @@ export { cn } from '@/lib/utils'
 
 /* Form */
 export { Button, buttonVariants, Spinner, type ButtonProps } from './Button'
-export { Input } from './Input'
+export { Input, PasswordInput } from './Input'
+export { FormField, type FormFieldControlProps } from './FormField'
 export { Textarea } from './Textarea'
 export { SearchInput } from './SearchInput'
 export {

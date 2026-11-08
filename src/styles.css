@@ -53,6 +53,9 @@
   --color-warning-foreground: #111111;
   --color-destructive: #F4A9B4;
   --color-destructive-foreground: #111111;
+  /* The pastel fill is too light for text or a field border on white, so
+     error text, icons and invalid-field borders use this: 6.6:1 on white. */
+  --color-destructive-strong: #B42318;
   --color-info: #B7CDF4;
   --color-info-foreground: #111111;
 
