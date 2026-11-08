@@ -2,6 +2,7 @@ import { AI_SCHEMAS, type AiFunctionName, type AiProvider, type AiProviderName }
 import type { MediaRef } from '../../contract/common'
 import { AiNotConfiguredError, AiOutputError } from '../errors'
 import { createFixtureProvider } from './fixture'
+import { coerceToSchema, toGeminiSchema } from './gemini-schema'
 
 /**
  * Gemini through Google AI Studio REST (plain fetch, no SDK). Inputs arrive
@@ -76,8 +77,8 @@ function buildParts(fn: AiFunctionName, input: unknown): Part[] {
 }
 
 function extractText(body: unknown): string {
-  const parts = (body as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates?.[0]?.content?.parts
-  const text = parts?.map((p) => p.text ?? '').join('')
+  const parts = (body as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] })?.candidates?.[0]?.content?.parts
+  const text = parts?.filter((p) => !p.thought).map((p) => p.text ?? '').join('')
   if (!text) throw new GeminiError('Gemini returned no content')
   return text
 }
@@ -105,32 +106,55 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
   let lastSource: 'gemini' | 'fixture' = 'gemini'
   const log = (model: string, what: string | number) => console.warn(`[altamira-ai] ${model} ${what}`)
 
+  /** Per-attempt diagnostic: model, status, elapsed ms, reason. Never the key, prompt or student text. */
+  const diag = (model: string, status: number | string, t0: number, reason: string) =>
+    console.warn(`[altamira-ai] attempt model=${model} status=${status} ms=${Date.now() - t0} reason=${reason}`)
+
+  const thinkingFor = (model: string) => (/^gemini-2\.5/.test(model) ? { thinkingBudget: 512 } : { thinkingLevel: 'low' })
+
   /** Text, 'next' (try another model), or throws GeminiError for a fatal status (400/401/403 and other 4xx). */
   async function attempt(model: string, fn: AiFunctionName, input: unknown, budgetMs: number): Promise<string | 'next'> {
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(timeoutMs, budgetMs)))
-    try {
-      const res = await doFetch(`${BASE_URL}/${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': options.apiKey },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: buildParts(fn, input) }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
-        }),
-        signal: ctrl.signal,
-      })
-      if (FALL_OVER_STATUS.has(res.status) || res.status >= 500) {
-        log(model, res.status)
+    const t0 = Date.now()
+    let degraded = false
+    for (;;) {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(timeoutMs, budgetMs - (Date.now() - t0))))
+      try {
+        const generationConfig: Record<string, unknown> = { responseMimeType: 'application/json', temperature: 0.2 }
+        if (!degraded) {
+          generationConfig.responseSchema = toGeminiSchema(AI_SCHEMAS[fn].output)
+          generationConfig.thinkingConfig = thinkingFor(model)
+        }
+        const res = await doFetch(`${BASE_URL}/${encodeURIComponent(model)}:generateContent`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': options.apiKey },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: buildParts(fn, input) }], generationConfig }),
+          signal: ctrl.signal,
+        })
+        if (FALL_OVER_STATUS.has(res.status) || res.status >= 500) {
+          diag(model, res.status, t0, `http_${res.status}`)
+          return 'next'
+        }
+        if (res.status === 400 && !degraded) {
+          // Model may reject responseSchema or thinkingConfig: retry once with the plain request.
+          diag(model, 400, t0, 'http_400 retry_plain')
+          degraded = true
+          continue
+        }
+        if (!res.ok) {
+          diag(model, res.status, t0, `http_${res.status}`)
+          throw new GeminiError(`Gemini ${model} answered HTTP ${res.status}`, res.status)
+        }
+        const text = extractText(await res.json())
+        diag(model, res.status, t0, 'ok')
+        return text
+      } catch (err) {
+        if (err instanceof GeminiError && err.status) throw err
+        diag(model, ctrl.signal.aborted ? 'timeout' : 'error', t0, ctrl.signal.aborted ? 'timeout' : 'network')
         return 'next'
+      } finally {
+        clearTimeout(timer)
       }
-      if (!res.ok) throw new GeminiError(`Gemini ${model} answered HTTP ${res.status}`, res.status)
-      return extractText(await res.json())
-    } catch (err) {
-      if (err instanceof GeminiError && err.status) throw err
-      log(model, ctrl.signal.aborted ? 'timeout' : 'error')
-      return 'next'
-    } finally {
-      clearTimeout(timer)
     }
   }
 
@@ -151,13 +175,13 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
       try {
         json = parseJsonLoose(text)
       } catch {
-        log(model, 'unparseable')
+        log(model, 'reason=parse')
         lastIssue = new AiOutputError(fn, ['response is not JSON'])
         continue
       }
-      const out = AI_SCHEMAS[fn].output.safeParse(json)
+      const out = AI_SCHEMAS[fn].output.safeParse(coerceToSchema(json, toGeminiSchema(AI_SCHEMAS[fn].output)))
       if (!out.success) {
-        log(model, 'off-schema')
+        log(model, `reason=schema ${[...new Set(out.error.issues.slice(0, 3).map((i) => i.path.join('.') || '(root)'))].join(',')}`)
         lastIssue = new AiOutputError(fn, out.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`))
         continue
       }
