@@ -9,7 +9,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { useAuthProfileReady } from 'deepspace'
 import { ApiError, apiGet, apiPost, type MeResponse } from './api'
 
-export const ALTAMIRA_ROLES = ['case_manager', 'teacher', 'ea', 'parent', 'student', 'district_lead'] as const
+export const ALTAMIRA_ROLES = ['ea', 'teacher', 'case_manager', 'parent', 'district_lead', 'school_admin'] as const
 export type AltamiraRole = (typeof ALTAMIRA_ROLES)[number]
 
 type State = {
@@ -29,8 +29,7 @@ const set = (next: Partial<State>) => {
 /** Role implied by memberships when no dev role is recorded. */
 export function roleFromMe(me: MeResponse): AltamiraRole | null {
   const roles = me.memberships.map((m) => m.role)
-  for (const r of ['case_manager', 'teacher', 'ea', 'district_lead'] as const) if (roles.includes(r)) return r
-  if (roles.includes('school_admin')) return 'case_manager'
+  for (const r of ['ea', 'teacher', 'case_manager', 'district_lead', 'school_admin'] as const) if (roles.includes(r)) return r
   return me.parentOf.length ? 'parent' : null
 }
 
