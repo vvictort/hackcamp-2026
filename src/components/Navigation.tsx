@@ -2,7 +2,7 @@
  * App navigation: a slim icon sidebar on large screens and a top bar on small
  * ones, rendered ONCE (one grid that becomes a column at lg), so each control
  * and test id exists a single time. Routed items come from src/nav.ts;
- * planned modules without a page show an "Example only" note. Sign-in links
+ * every item links to a built page, filtered by the Altamira role. Sign-in links
  * to /sign-in?next=<current path>, sign-out from the account menu.
  * Keep the data-testid hooks (`app-navigation`, `nav-sign-in-button`,
  * `nav-user-name`, `nav-user-email`) and the "Account menu" button name: the
@@ -12,9 +12,11 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
 import {
-  Activity,
+  Camera,
+  ChartColumn,
+  ClipboardCheck,
   FileText,
-  Handshake,
+  HandHelping,
   House,
   LayoutGrid,
   LogIn,
@@ -22,10 +24,12 @@ import {
   ScanSearch,
   Settings,
   UsersRound,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { nav } from '../nav'
 import { endSession } from '@/lib/session'
+import { useAltamiraMe } from '@/lib/altamira/role'
 import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
 import { Logo } from './LogoMark'
@@ -45,37 +49,36 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  useToast,
 } from './ui'
 
-type Item = { label: MessageKey; Icon: LucideIcon; to?: string }
+type Item = { label: MessageKey; Icon: LucideIcon; to: string }
 
 /** Icons for routed entries in src/nav.ts; new entries fall back to LayoutGrid. */
-const ICONS: Record<string, LucideIcon> = { '/home': House, '/settings': Settings }
-
-/** Modules without a page yet: shown after Home, they explain instead of navigating. */
-const PLANNED: Item[] = [
-  { label: 'app.nav.students', Icon: UsersRound },
-  { label: 'app.nav.lessonLens', Icon: ScanSearch },
-  { label: 'app.nav.pulse', Icon: Activity },
-  { label: 'app.nav.progressDrafts', Icon: FileText },
-  { label: 'app.nav.team', Icon: Handshake },
-]
+const ICONS: Record<string, LucideIcon> = {
+  '/home': House,
+  '/students': UsersRound,
+  '/lesson-lens': ScanSearch,
+  '/capture': Camera,
+  '/review': ClipboardCheck,
+  '/ea': HandHelping,
+  '/drafts': FileText,
+  '/family': Users,
+  '/insights': ChartColumn,
+  '/settings': Settings,
+}
 
 export default function Navigation() {
   const { isLoaded, isSignedIn, user, userLoading } = useAuthProfileReady({ requireUser: true })
   const location = useLocation()
-  const { info } = useToast()
   const { t } = useLang()
+  const { role } = useAltamiraMe()
   const profileReady = !isSignedIn || (!userLoading && !!user)
-  const role = user?.role
-  const [first, ...rest] = nav
-    .filter((n) => (!n.devOnly || import.meta.env.DEV) && (!n.roles || (role !== undefined && (n.roles as string[]).includes(role))))
+  const items = nav
+    .filter((n) => (!n.devOnly || import.meta.env.DEV) && (!n.roles || (role !== null && n.roles.includes(role))))
     .map<Item>((n) => ({ label: n.label, to: n.path, Icon: ICONS[n.path] ?? LayoutGrid }))
-  const items = first ? [first, ...PLANNED, ...rest] : PLANNED
 
   const navItem = (item: Item) => {
-    const active = !!item.to && location.pathname.startsWith(item.to)
+    const active = location.pathname.startsWith(item.to)
     const className = cn(
       'inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,box-shadow,color]',
       active
@@ -83,19 +86,10 @@ export default function Navigation() {
         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
     )
     const icon = <item.Icon className="size-5.5" strokeWidth={1.9} aria-hidden />
-    const control = item.to ? (
+    const control = (
       <Link to={item.to} aria-label={t(item.label)} aria-current={active ? 'page' : undefined} className={className}>
         {icon}
       </Link>
-    ) : (
-      <button
-        type="button"
-        aria-label={t(item.label)}
-        className={className}
-        onClick={() => info(t('app.nav.exampleOnly'), t('app.nav.notBuilt', { label: t(item.label) }))}
-      >
-        {icon}
-      </button>
     )
     return (
       <li key={item.label}>
