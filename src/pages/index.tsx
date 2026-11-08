@@ -439,9 +439,6 @@ export default function Landing() {
                 </Link>
               </nav>
             </div>
-            <p className="relative text-small text-ink-muted">
-              Made at HackCamp 2026. Data stored in Canada. Photos: public domain (CC0) from rawpixel and StockSnap.
-            </p>
           </div>
         </footer>
       </div>

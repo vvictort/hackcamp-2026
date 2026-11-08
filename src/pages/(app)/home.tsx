@@ -27,12 +27,12 @@ function Card({ children, dark, className, title }: { children: ReactNode; dark?
     <section
       aria-labelledby={id}
       className={cn(
-        'flex min-w-0 flex-col gap-6 rounded-lg p-6 sm:p-8',
+        'flex min-w-0 flex-col gap-4 rounded-lg p-5 sm:p-6',
         dark ? 'bg-ink text-ink-foreground shadow-ink' : 'bg-card shadow-raised',
         className,
       )}
     >
-      <h2 id={id} className="text-h1 font-extrabold">
+      <h2 id={id} className="text-h2 font-extrabold">
         {title}
       </h2>
       {children}
@@ -88,8 +88,8 @@ export default function HomePage() {
   const pulsePct = Math.round((pulseDone / pulseGoal) * 100)
 
   return (
-    <div className="flex flex-col gap-10 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">
-      <header className="flex flex-wrap items-start justify-between gap-6">
+    <div className="flex flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:px-0 lg:py-0">
+      <header className="flex flex-wrap items-start justify-between gap-6 lg:pt-1">
         <div className="flex flex-col gap-3">
           <h1 className="text-display font-extrabold sm:text-hero">Good morning{firstName && `, ${firstName}`}.</h1>
           <p className="max-w-[60ch] text-body-lg text-muted-foreground">
@@ -102,15 +102,15 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:gap-8 xl:grid-cols-12">
+      <div className="grid gap-4 md:grid-cols-2 lg:gap-5 xl:grid-cols-12">
         <Card title="Today" className="md:col-span-2 xl:col-span-7 xl:row-span-2">
-          <ol className="flex flex-col gap-2">
+          <ol className="flex flex-1 flex-col justify-between gap-2">
             {CLASSES.map((c) => {
               const current = c.status === 'next'
               return (
                 <li
                   key={c.time}
-                  className={cn('grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 rounded-md px-4 py-4', current && 'bg-secondary')}
+                  className={cn('grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 rounded-md px-3 py-3', current && 'bg-secondary')}
                 >
                   <span className={cn('text-label tabular-nums', current ? 'font-bold' : 'text-muted-foreground')}>{c.time}</span>
                   <div className="flex flex-col gap-1">
@@ -132,7 +132,7 @@ export default function HomePage() {
         </Card>
 
         <Card dark title="Lesson Lens" className="xl:col-span-5">
-          <p className="-mt-3 text-body text-ink-muted">{SUGGESTIONS.length} suggestions to review</p>
+          <p className="-mt-2 text-body text-ink-muted">{SUGGESTIONS.length} suggestions to review</p>
           <ul className="flex flex-col divide-y divide-white/10">
             {SUGGESTIONS.map((s) => {
               const modification = s.kind === 'modification'
@@ -148,7 +148,7 @@ export default function HomePage() {
         </Card>
 
         <Card title="Pulse this week" className="xl:col-span-5">
-          <p className="text-display font-extrabold tabular-nums">
+          <p className="text-h1 font-extrabold tabular-nums">
             {pulseDone}
             <span className="text-muted-foreground">/{pulseGoal}</span>
           </p>
@@ -174,7 +174,7 @@ export default function HomePage() {
             {DRAFTS.map((d) => {
               const student = studentById(d.studentId)
               return (
-                <li key={d.studentId} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+                <li key={d.studentId} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">
                     <p className="text-body font-bold">{student.name}</p>
                     <p className="text-small text-muted-foreground">{d.due}</p>
@@ -197,7 +197,7 @@ export default function HomePage() {
         </Card>
 
         <Card title="Coming up" className="md:col-span-2 xl:col-span-5">
-          <ul className="flex flex-col gap-4">
+          <ul className="flex flex-col gap-3">
             {COMING_UP.map((e) => (
               <li key={e.date} className="flex items-center gap-4">
                 <span className="flex w-16 shrink-0 flex-col items-center rounded-md bg-secondary py-2 leading-tight">
@@ -210,8 +210,6 @@ export default function HomePage() {
           </ul>
         </Card>
       </div>
-
-      <p className="text-small text-muted-foreground">Example data. All students shown are fictional.</p>
     </div>
   )
 }
