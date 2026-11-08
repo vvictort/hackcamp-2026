@@ -66,7 +66,7 @@ Everything runs in a local demo on fictional data. Settings (profile, preference
 
 | Layer | What we use |
 | --- | --- |
-| Platform | [DeepSpace](https://docs.deep.space) SDK on Cloudflare Workers: auth, record storage, server actions, deploys |
+| Platform | [DeepSpace](https://docs.deep.space) SDK on Cloudflare Workers: auth, record storage, deploys |
 | Frontend | React 19, TypeScript, Vite, React Router 7 (file-based routes), Tailwind CSS v4, Base UI, Atkinson Hyperlegible |
 | Backend | Cloudflare Worker (`worker.ts`) with Hono; SQLite Durable Objects for the `/api/v1` domain (`src/server/altamyra/`) |
 | AI | One de-identifying pipeline (`src/server/altamyra/ai/`): Lesson Lens goes to the agent on [Maritime](https://maritime.sh), which calls Gemini; everything else (and Lesson Lens when the agent fails) calls Gemini directly; fixture provider when no key is set. Claude (via DeepSpace) for interface translation |
@@ -92,12 +92,11 @@ src/
   lib/                   Shared hooks; lib/altamyra/ holds the API clients
   i18n/                  Language provider, en/*.ts strings, locales/*.json translations
   schemas/, schemas.ts   Record collections and permissions (shared by worker and app)
-  actions/               Server action map (empty; AI runs in /api/v1)
-  server/                HTTP, realtime and action routes, i18n route, AI tools,
+  server/                HTTP and realtime routes, i18n route, AI tools,
                          altamyra/ = the /api/v1 domain backend (own README)
 ```
 
-Backend: `worker.ts`, `src/server/**`, `src/actions/`. Shared: `src/schemas*`. Everything else under `src/` is frontend.
+Backend: `worker.ts`, `src/server/**`, `src/cron.ts`. Shared: `src/schemas*`. Everything else under `src/` is frontend.
 
 How the pieces connect; student names never leave the app boundary.
 

@@ -2,9 +2,9 @@
  * App Worker — explicit assembly for DeepSpace app routes and Durable Objects.
  *
  * Backend / frontend split:
- *   backend  = this file + src/server/** (HTTP, realtime and action routes,
- *              AI agent and tools, integrations, jobs) + src/actions/ and
- *              src/cron.ts (kept at the paths `deepspace add` writes to).
+ *   backend  = this file + src/server/** (HTTP and realtime routes, AI agent
+ *              and tools, integrations, jobs) + src/cron.ts (kept at the path
+ *              `deepspace add` writes to).
  *   shared   = src/schemas.ts + src/schemas/ (record schemas, read by both).
  *   frontend = everything else in src/ (pages, components, lib, styles).
  * Keep route registration order here: specific API and WebSocket handlers
@@ -31,13 +31,11 @@ import { buildTools } from './src/server/ai/tools.js'
 import { tasks as cronTasks, runTask as runCronTask } from './src/cron.js'
 import { runJob } from './src/server/jobs.js'
 import { schemas } from './src/schemas.js'
-import { registerActionRoutes } from './src/server/action-routes.js'
 import { registerI18nRoutes } from './src/server/i18n-routes.js'
 import {
   registerAuthAndIntegrationRoutes,
   registerPlatformProxyRoutes,
   registerStaticRoutes,
-  resolveAuth,
 } from './src/server/http-routes.js'
 import { registerRealtimeRoutes } from './src/server/realtime-routes.js'
 import { registerAltamyraRoutes } from './src/server/altamyra/routes/index.js'
@@ -165,7 +163,6 @@ app.use('*', async (c, next) => {
 // follows its special cases, AI precedes platform proxies, and static is last.
 registerAuthAndIntegrationRoutes(app)
 registerRealtimeRoutes(app)
-registerActionRoutes(app, resolveAuth)
 registerI18nRoutes(app)
 // Every scaffold exposes selected tools through HTTP, MCP and browser tools.
 // Only copilot owns the collections needed for the in-app chat UI.
