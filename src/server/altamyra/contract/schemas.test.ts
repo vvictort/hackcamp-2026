@@ -6,10 +6,8 @@ import { PROMPT_LEVELS, promptLevelFromValue, promptLevelValue } from './enums'
 import { AdaptationSuggestion, Suggestion } from './student'
 
 describe('AI contracts', () => {
-  it('cover all seven AI functions', () => {
-    expect(Object.keys(AI_SCHEMAS).sort()).toEqual(
-      ['analyseLesson', 'draftProgress', 'lensForStudent', 'parseVoiceNote', 'proposeObjectives', 'scorePhotoPage', 'summariseForFamily'],
-    )
+  it('cover all five AI functions', () => {
+    expect(Object.keys(AI_SCHEMAS).sort()).toEqual(['analyseLesson', 'lensForStudent', 'parseVoiceNote', 'proposeObjectives', 'scorePhotoPage'])
   })
 
   it('proposeObjectives can say a goal is unmeasurable', () => {

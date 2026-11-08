@@ -17,7 +17,5 @@ export function createVertexProvider(): AiProvider {
     lensForStudent: fail,
     scorePhotoPage: fail,
     parseVoiceNote: fail,
-    draftProgress: fail,
-    summariseForFamily: fail,
   }
 }

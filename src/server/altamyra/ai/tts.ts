@@ -1,11 +1,13 @@
+import { generate, GeminiError, parseModels } from './providers/gemini'
+
 /**
  * Gemini text-to-speech through AI Studio REST (fetch, no SDK). Returns a WAV
  * file. Models are tried in order with the same fall-over rules as the text chain.
  */
+
 export const DEFAULT_TTS_MODELS = 'gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts,gemini-3.1-flash-tts-preview'
 export const TTS_TIMEOUT_MS = 25_000
 export const TTS_TOTAL_TIMEOUT_MS = 40_000
-const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 const VOICE = 'Kore'
 
 export type TtsEnv = { GEMINI_API_KEY?: string; ALTAMYRA_GEMINI_TTS_MODELS?: string }
@@ -41,46 +43,25 @@ export async function synthesizeSpeech(
 ): Promise<Uint8Array | null> {
   const key = env.GEMINI_API_KEY?.trim()
   if (!key) return null
-  const models = (env.ALTAMYRA_GEMINI_TTS_MODELS ?? '').split(',').map((m) => m.trim()).filter(Boolean)
-  const chain = models.length ? models : DEFAULT_TTS_MODELS.split(',')
-  const doFetch = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
-  const deadline = Date.now() + (opts.totalTimeoutMs ?? TTS_TOTAL_TIMEOUT_MS)
-  for (const model of chain) {
-    const budget = deadline - Date.now()
-    if (budget <= 0) break
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(opts.timeoutMs ?? TTS_TIMEOUT_MS, budget)))
-    try {
-      const res = await doFetch(`${BASE_URL}/${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text }] }],
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } },
-          },
-        }),
-        signal: ctrl.signal,
-      })
-      if (!res.ok) {
-        console.warn(`[altamyra-tts] ${model} ${res.status}`)
-        if ([400, 401, 403].includes(res.status)) return null
-        continue
-      }
-      const body = (await res.json()) as { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[] }
-      const inline = body.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData
-      if (!inline?.data) continue
-      const bytes = fromBase64(inline.data)
-      const mime = (inline.mimeType ?? '').toLowerCase()
-      if (mime.includes('wav')) return bytes
-      const rate = Number(/rate=(\d+)/.exec(mime)?.[1] ?? 24000)
-      return pcmToWav(bytes, rate)
-    } catch {
-      console.warn(`[altamyra-tts] ${model} ${ctrl.signal.aborted ? 'timeout' : 'error'}`)
-    } finally {
-      clearTimeout(timer)
-    }
+  try {
+    return await generate({
+      apiKey: key,
+      models: parseModels(env.ALTAMYRA_GEMINI_TTS_MODELS, DEFAULT_TTS_MODELS),
+      timeoutMs: opts.timeoutMs ?? TTS_TIMEOUT_MS,
+      totalTimeoutMs: opts.totalTimeoutMs ?? TTS_TOTAL_TIMEOUT_MS,
+      fetch: opts.fetch,
+      parts: [{ text }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } } },
+      read: (parts) => {
+        const inline = parts.find((p) => p.inlineData?.data)?.inlineData
+        if (!inline?.data) throw new GeminiError('Gemini returned no audio')
+        const bytes = fromBase64(inline.data)
+        const mime = (inline.mimeType ?? '').toLowerCase()
+        if (mime.includes('wav')) return bytes
+        return pcmToWav(bytes, Number(/rate=(\d+)/.exec(mime)?.[1] ?? 24000))
+      },
+    })
+  } catch {
+    return null
   }
-  return null
 }

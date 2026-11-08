@@ -119,7 +119,7 @@ describe('fixture provider', () => {
     expect(vague.measurable).toBe(false)
   })
 
-  it('scores photo pages, voice notes, drafts and summaries into valid outputs', async () => {
+  it('scores photo pages and voice notes into valid outputs', async () => {
     const photo = await fixture.scorePhotoPage({
       image: { fileKey: 'captures/b1/sheet-code-K7Q4-L1.jpg', contentType: 'image/jpeg' },
       check: { checkId: 'c', items: [{ id: 'q1', prompt: '3 + 4?', format: 'numeric', options: null }], answerKey: [{ itemId: 'q1', accepted: ['7'] }], rubric: null },
@@ -139,30 +139,5 @@ describe('fixture provider', () => {
       }),
     )
     expect(voice.events.map((e) => e.kind)).toEqual(['prompt_level', 'counter', 'timer'])
-
-    const draft = AI_SCHEMAS.draftProgress.output.parse(
-      await fixture.draftProgress({
-        studentToken: 'S-X',
-        period: 'T1',
-        goal: { goalId: 'g', area: 'Math', text: 'Add to 20' },
-        objective: { metricType: 'accuracy', unit: '% correct', target: 80 },
-        dataPoints: [
-          { id: 'p2', value: 70, unit: '% correct', recordedAt: '2026-10-14T00:00:00Z', source: 'student' },
-          { id: 'p1', value: 60, unit: '% correct', recordedAt: '2026-10-07T00:00:00Z', source: 'photo' },
-        ],
-        proficiencySuggestion: null,
-      }),
-    )
-    expect(draft.sentences[1].text).toBe('Results grew from 60 % correct to 70 % correct.')
-    expect(draft.sentences.flatMap((s) => s.citations).every((id) => ['p1', 'p2'].includes(id))).toBe(true)
-
-    const empty = await fixture.draftProgress({ studentToken: 'S-X', period: 'T1', goal: { goalId: 'g', area: 'a', text: 't' }, objective: null, dataPoints: [], proficiencySuggestion: null })
-    expect(empty.sentences).toEqual([])
-
-    const fr = await fixture.summariseForFamily({ studentToken: 'S-X', language: 'fr', draft })
-    expect(fr.language).toBe('fr')
-    const pa = await fixture.summariseForFamily({ studentToken: 'S-X', language: 'pa', draft })
-    expect(pa.language).toBe('en')
-    expect(AI_SCHEMAS.summariseForFamily.output.safeParse(pa).success).toBe(true)
   })
 })

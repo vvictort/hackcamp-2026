@@ -4,7 +4,8 @@ import type { Env } from '../../../../worker'
 import { createAi, type AiFunctions } from '../ai/functions'
 import type { Roster, RosterStudent } from '../ai/deidentify'
 import { teacherHash } from '../ai/providers/maritime'
-import { createFixtureSummaryProvider, createSummaryAi, summaryProviderFromEnv, type SummaryAi } from '../ai/summaries'
+import { createFixtureSummaryProvider, createSummaryAi, type SummaryAi } from '../ai/summaries'
+import { issuesOf } from '../contract/issues'
 import type { AltamyraRoomRpc, RoomOp } from '../contract/ops'
 import { can, type Actor, type CanOptions, type Capability } from '../contract/permissions'
 import { createAltamyraMiddleware, type AltamyraContext, type AltamyraEnv } from '../middleware/auth'
@@ -15,9 +16,6 @@ import type { AltamyraRouteDeps } from './deps'
 
 /** Shared plumbing for every route module: middleware, room calls, validation. */
 export type Kit = ReturnType<typeof createKit>
-
-const issues = (error: z.ZodError) =>
-  error.issues.map((i) => `${i.path.map(String).join('.') || 'body'}: ${i.message}`).join('; ')
 
 export function createKit(deps: AltamyraRouteDeps) {
   const mw = createAltamyraMiddleware({
@@ -88,13 +86,13 @@ export class Req {
       }
     }
     const parsed = schema.safeParse(raw)
-    if (!parsed.success) throw new HttpError('bad_request', issues(parsed.error))
+    if (!parsed.success) throw new HttpError('bad_request', issuesOf(parsed.error, 'body').join('; '))
     return parsed.data
   }
 
   query<S extends z.ZodType>(schema: S, raw: Record<string, unknown> = this.c.req.query()): z.output<S> {
     const parsed = schema.safeParse(raw)
-    if (!parsed.success) throw new HttpError('bad_request', issues(parsed.error))
+    if (!parsed.success) throw new HttpError('bad_request', issuesOf(parsed.error, 'body').join('; '))
     return parsed.data
   }
 
@@ -141,12 +139,9 @@ export class Req {
     return createAi({ provider: this.deps.aiProvider(this.env, await teacherHash(this.actor.userId)), roster: await this.deidRoster(studentIds) })
   }
 
-  /**
-   * The summary drafting AI (Gemini via AI Studio, fixture without a key), on the
-   * same de-identification roster. `fixture` forces the deterministic provider (the fallback when Gemini fails).
-   */
+  /** The summary drafting AI on the same de-identification roster. `fixture` forces the deterministic provider (the fallback when Gemini fails). */
   async summaryAi(studentIds: readonly string[], fixture = false): Promise<SummaryAi> {
-    const provider = fixture ? createFixtureSummaryProvider() : summaryProviderFromEnv(this.env as unknown as Parameters<typeof summaryProviderFromEnv>[0])
+    const provider = fixture ? createFixtureSummaryProvider() : this.deps.summaryProvider(this.env)
     return createSummaryAi({ provider, roster: await this.deidRoster(studentIds) })
   }
 

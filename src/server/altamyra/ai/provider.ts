@@ -12,8 +12,8 @@ export type AiEnv = GeminiEnv & MaritimeEnv & { ALTAMYRA_AI_PROVIDER?: string }
  */
 export function getProvider(env: AiEnv = {}, teacher = 'anonymous'): AiProvider {
   const raw = (env.ALTAMYRA_AI_PROVIDER ?? '').trim().toLowerCase()
-  if (raw && raw !== 'gemini' && !(AI_PROVIDER_NAMES as readonly string[]).includes(raw)) {
-    throw new Error(`Unknown ALTAMYRA_AI_PROVIDER "${raw}"; expected one of ${[...AI_PROVIDER_NAMES, 'gemini'].join(', ')}`)
+  if (raw && !(AI_PROVIDER_NAMES as readonly string[]).includes(raw)) {
+    throw new Error(`Unknown ALTAMYRA_AI_PROVIDER "${raw}"; expected one of ${AI_PROVIDER_NAMES.join(', ')}`)
   }
   if (raw === 'fixture') return createFixtureProvider()
   const base = raw === 'vertex' ? createVertexProvider() : env.GEMINI_API_KEY?.trim() ? geminiFromEnv(env) : createFixtureProvider()

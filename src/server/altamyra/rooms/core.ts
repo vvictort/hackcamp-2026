@@ -1,5 +1,6 @@
 import { isAltamyraError } from '../contract/errors'
 import { z } from 'zod'
+import { issuesOf } from '../contract/issues'
 import { defineOp, opErr, opOk, type OpRegistry, type OpResult, type RoomName } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
 import { appendAudit } from '../db/audit'
@@ -103,9 +104,6 @@ export const devRoleSwitch = defineOp({
 const totalChanges = (sql: SqlExecutor): number =>
   Number(sql.get<{ n: number }>('SELECT total_changes() AS n')?.n ?? 0)
 
-const formatIssues = (error: { issues: { path: PropertyKey[]; message: string }[] }): string =>
-  error.issues.map((i) => `${i.path.map(String).join('.') || 'args'}: ${i.message}`).join('; ')
-
 /**
  * Looks the op up, validates args, and runs it inside one transaction.
  * An AltamyraError thrown by the op rolls everything back (audit row included)
@@ -132,7 +130,7 @@ export function runRoomOp(
   let parsedArgs: unknown = args
   if (op.args) {
     const parsed = op.args.safeParse(args)
-    if (!parsed.success) return opErr('bad_request', formatIssues(parsed.error))
+    if (!parsed.success) return opErr('bad_request', issuesOf(parsed.error, 'args').join('; '))
     parsedArgs = parsed.data
   }
 

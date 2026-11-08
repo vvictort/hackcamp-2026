@@ -3,7 +3,8 @@ import type { Env } from '../../../../worker'
 import { fixtureRoster } from '../ai/fixture-data'
 import { unitInterval } from '../ai/hash'
 import { createFixtureProvider } from '../ai/providers/fixture'
-import type { AiFunctionName, AiProvider } from '../contract/ai'
+import { createFixtureSummaryProvider } from '../ai/summaries-provider'
+import { AI_SCHEMAS, type AiFunctionName, type AiProvider } from '../contract/ai'
 import type { AltamyraRoomRpc, OpRegistry, RoomName } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
 import type { SqlExecutor } from '../db/sql'
@@ -25,15 +26,7 @@ import { sheetCodeFromFileKey, type AltamyraRouteDeps } from '../routes/deps'
  * cross the room boundary through structuredClone, as Durable Object RPC does.
  */
 
-const AI_FUNCTIONS: AiFunctionName[] = [
-  'proposeObjectives',
-  'analyseLesson',
-  'lensForStudent',
-  'scorePhotoPage',
-  'parseVoiceNote',
-  'draftProgress',
-  'summariseForFamily',
-]
+const AI_FUNCTIONS = Object.keys(AI_SCHEMAS) as AiFunctionName[]
 
 const KEY_BY_ID: Record<string, FixtureStudentKey> = Object.fromEntries(
   Object.entries(STUDENT_IDS).map(([key, id]) => [id, key as FixtureStudentKey]),
@@ -109,6 +102,7 @@ export function createHarness(options: HarnessOptions = {}) {
     rooms: { student: (_env, id) => studentRpc(id), school: () => schoolRpc, insights: () => insightsRpc },
     resolveUserId: async (req) => req.headers.get('x-test-user'),
     aiProvider: () => provider,
+    summaryProvider: () => createFixtureSummaryProvider(),
     roster: () => fixtureRoster(),
     // Reproducible server-side seeds that never fall in the random review sample, unless a test asks for one.
     sampleSeed: () => {
