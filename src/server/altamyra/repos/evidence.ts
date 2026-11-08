@@ -2,7 +2,7 @@ import { FAMILY_VISIBLE_STATUSES } from '../contract/enums'
 import { DataPoint, Decision, ReviewItem } from '../contract/student'
 import { sqlList } from '../db/mapping'
 import type { SqlExecutor, SqlParam } from '../db/sql'
-import type { Point } from '../services/analytics'
+import type { Point } from '../contract/student'
 import { findById, insertEntity, parseRow, parseRows } from './base'
 
 type Row = Record<string, unknown>

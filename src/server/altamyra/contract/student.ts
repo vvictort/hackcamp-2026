@@ -403,3 +403,5 @@ export const STUDENT_TABLES = [
   'audit_log',
 ] as const
 export type StudentTable = (typeof STUDENT_TABLES)[number]
+
+export type Point = { at: string; value: number; source?: DataPointSource }

@@ -1,4 +1,5 @@
-import { PROMPT_LEVELS, type AdaptationType, type DataPointSource, type PromptLevel } from '../contract/enums'
+import { PROMPT_LEVELS, type AdaptationType, type PromptLevel } from '../contract/enums'
+import type { Point } from '../contract/student'
 import {
   BASELINE_POINTS,
   CURRENT_POINTS,
@@ -21,8 +22,6 @@ import {
  * "Analytics, decision rules and jobs"). Callers pass only confirmed and
  * auto-confirmed, non-superseded points.
  */
-
-export type Point = { at: string; value: number; source?: DataPointSource }
 
 export type ObjectiveTarget = { baseline: number | null; target: number; reviewDate: string | null }
 

@@ -9,8 +9,8 @@ import {
   median,
   whatWorks,
   type Aimline,
-  type Point,
 } from './analytics'
+import type { Point } from '../contract/student'
 import { WHAT_WORKS_MIN_N } from './thresholds'
 
 const DAY = 24 * 60 * 60 * 1000
