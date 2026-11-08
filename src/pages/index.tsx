@@ -204,7 +204,10 @@ function Preview() {
   )
 }
 
-const SECTION_IDS = ['top', 'modules', 'how', 'control', 'team', 'faq']
+// Only sections that have a nav link (plus 'top' to clear it at the hero). The
+// highlight changes only when one of these crosses the middle of the screen,
+// so it stays on the last link through unlinked sections (control, team).
+const SECTION_IDS = ['top', 'modules', 'how', 'faq']
 
 /** Id of the section crossing the middle of the viewport. Browser only (effects do not run in prerender). */
 function useActiveSection() {
