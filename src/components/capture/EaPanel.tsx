@@ -13,10 +13,15 @@ import {
   PROMPT_LEVELS,
   type PromptLevel,
 } from "@/server/altamira/contract/enums";
-import { ApiError, recordEvent, sendVoiceNote } from "@/lib/altamira/capture-api";
+import {
+  ApiError,
+  recordEvent,
+  sendVoiceNote,
+} from "@/lib/altamira/capture-api";
 import { getCaptureObjectives } from "@/lib/altamira/practice-api";
 import { capture } from "@/i18n/en/capture";
 import { useCt, type CaptureKey } from "./useCt";
+import { useVoiceConsent } from "./useVoiceConsent";
 
 type Goal = { objective: { id: string }; label: string; metricType: string };
 type Kind = "prompt_level" | "counter" | "timer";
@@ -313,6 +318,7 @@ function VoiceNote({ studentId }: { studentId: string }) {
   const [status, setStatus] = useState<Saved>(null);
   const [busy, setBusy] = useState(false);
   const rec = useRef<MediaRecorder | null>(null);
+  const consent = useVoiceConsent(studentId);
 
   async function send(blob: Blob) {
     setBusy(true);
@@ -322,10 +328,13 @@ function VoiceNote({ studentId }: { studentId: string }) {
       setStatus({ ok: true, text: msg });
       toast.success(msg);
     } catch (err) {
-      const noConsent = err instanceof ApiError && err.code === "consent_required";
+      const noConsent =
+        err instanceof ApiError && err.code === "consent_required";
       setStatus({
         ok: false,
-        text: ct(noConsent ? "capture.ea.voiceNoConsent" : "capture.ea.voiceFailed"),
+        text: ct(
+          noConsent ? "capture.ea.voiceNoConsent" : "capture.ea.voiceFailed",
+        ),
       });
     } finally {
       setBusy(false);
@@ -365,22 +374,28 @@ function VoiceNote({ studentId }: { studentId: string }) {
   return (
     <Card title={ct("capture.ea.voice")}>
       <p className="text-muted-foreground">{ct("capture.ea.voiceHint")}</p>
-      <div className="flex flex-wrap items-center gap-3">
-        {!recording ? (
-          <Button className={BIG} onClick={start} loading={busy}>
-            <Mic aria-hidden />
-            {ct("capture.ea.record")}
-          </Button>
-        ) : (
-          <Button variant="destructive" className={BIG} onClick={stop}>
-            <Square aria-hidden />
-            {ct("capture.ea.stopRecording")}
-          </Button>
-        )}
-        {recording && (
-          <StatusBadge tone="info">{ct("capture.ea.recording")}</StatusBadge>
-        )}
-      </div>
+      {consent === "denied" ? (
+        <StatusBadge tone="warning">
+          {ct("capture.ea.voiceNeedsConsent")}
+        </StatusBadge>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          {!recording ? (
+            <Button className={BIG} onClick={start} loading={busy}>
+              <Mic aria-hidden />
+              {ct("capture.ea.record")}
+            </Button>
+          ) : (
+            <Button variant="destructive" className={BIG} onClick={stop}>
+              <Square aria-hidden />
+              {ct("capture.ea.stopRecording")}
+            </Button>
+          )}
+          {recording && (
+            <StatusBadge tone="info">{ct("capture.ea.recording")}</StatusBadge>
+          )}
+        </div>
+      )}
       <SavedStatus saved={status} />
     </Card>
   );

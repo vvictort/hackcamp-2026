@@ -123,6 +123,7 @@ export const capture = {
   'capture.ea.voiceFailed': 'The voice note could not be processed. Type it below instead.',
   'capture.ea.voiceUnsupported': 'This browser cannot record audio. Type the note below.',
   'capture.ea.voiceDenied': 'Microphone access was refused. Type the note below.',
+  'capture.ea.voiceNeedsConsent': 'Needs parent consent',
   'capture.ea.voiceNoConsent': 'The family has not allowed voice notes.',
 
   'capture.page.title': 'Capture',
