@@ -10,7 +10,7 @@
  */
 
 import { Link, useLocation } from 'react-router-dom'
-import { useAuthProfileReady, signOut } from 'deepspace'
+import { useAuthProfileReady } from 'deepspace'
 import {
   Activity,
   FileText,
@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { nav } from '../nav'
+import { endSession } from '@/lib/session'
 import { Logo } from './LogoMark'
 import { cn, initialOf } from '../lib/utils'
 import {
@@ -131,7 +132,7 @@ export default function Navigation() {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => signOut()}>
+          <DropdownMenuItem onClick={() => endSession()}>
             <LogOut aria-hidden />
             Sign out
           </DropdownMenuItem>

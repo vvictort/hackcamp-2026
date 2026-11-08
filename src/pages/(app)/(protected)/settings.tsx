@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { signOut, useMutations, useQuery, useUser } from 'deepspace'
+import { useMutations, useQuery, useUser } from 'deepspace'
 import { MonitorSmartphone } from 'lucide-react'
 import {
   Avatar,
@@ -24,6 +24,8 @@ import {
   SelectValue,
   useToast,
 } from '@/components/ui'
+import { SessionsPanel } from '@/components/SessionsPanel'
+import { endSession } from '@/lib/session'
 import { initialOf } from '@/lib/utils'
 
 interface Profile {
@@ -46,6 +48,7 @@ const SECTIONS = [
   { id: 'profile', label: 'Profile' },
   { id: 'school', label: 'School and position' },
   { id: 'prefs', label: 'Preferences' },
+  { id: 'devices', label: 'Signed-in devices' },
   { id: 'a11y', label: 'Accessibility' },
 ] as const
 type Section = (typeof SECTIONS)[number]['id']
@@ -154,7 +157,7 @@ export default function SettingsPage() {
                   <Field label="Email" value={user?.email ?? 'Not set'} />
                   <Field label="Access level" value={role} />
                 </dl>
-                <Button variant="secondary" className="self-start" onClick={() => signOut()}>
+                <Button variant="secondary" className="self-start" onClick={() => endSession()}>
                   Sign out
                 </Button>
               </>
@@ -215,6 +218,7 @@ export default function SettingsPage() {
               </form>
             )}
 
+            {section === 'devices' && <SessionsPanel />}
             {section === 'a11y' && (
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">

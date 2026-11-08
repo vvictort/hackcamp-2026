@@ -1,6 +1,7 @@
 /**
  * "Signed-in devices": every active session for the current user, with the
  * ability to sign one out, sign out all the others, or sign out everywhere.
+ * Renders content only; the Settings panel supplies the card and title.
  * Sessions are the auth server's (Better Auth) own records, so a person only
  * ever sees and revokes their own.
  */
@@ -8,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { authClient, useSession } from 'deepspace'
 import { Monitor, Smartphone } from 'lucide-react'
-import { Button, Card, Spinner, useToast } from '@/components/ui'
+import { Button, Spinner, useToast } from '@/components/ui'
 import { endSession } from '@/lib/session'
 
 interface SessionRow {
@@ -34,15 +35,20 @@ export function SessionsPanel() {
   const { error } = useToast()
   const currentToken = data?.session?.token
   const [rows, setRows] = useState<SessionRow[] | null>(null)
+  const [unavailable, setUnavailable] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const res = await authClient.listSessions()
-    if (res.error) {
+    try {
+      const res = await authClient.listSessions()
+      if (res.error) throw new Error('refused')
+      setUnavailable(false)
+      setRows(((res.data ?? []) as SessionRow[]).sort((a, b) => +new Date(b.updatedAt ?? 0) - +new Date(a.updatedAt ?? 0)))
+    } catch {
+      // No toast: a failing list would repeat on every retry. Show it inline instead.
+      setUnavailable(true)
       setRows([])
-      return
     }
-    setRows(((res.data ?? []) as SessionRow[]).sort((a, b) => +new Date(b.updatedAt ?? 0) - +new Date(a.updatedAt ?? 0)))
   }, [])
 
   useEffect(() => {
@@ -65,11 +71,15 @@ export function SessionsPanel() {
   const others = (rows ?? []).filter((r) => r.token !== currentToken)
 
   return (
-    <Card title="Signed-in devices">
+    <>
       <p className="text-body text-muted-foreground">
         These are the browsers and devices currently signed in to your account. Sign out any you do not recognise.
       </p>
-      {rows === null ? (
+      {unavailable ? (
+        <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-body text-muted-foreground">
+          Device list isn&apos;t available right now. You can still sign out everywhere below.
+        </p>
+      ) : rows === null ? (
         <p className="flex items-center gap-2 text-body text-muted-foreground">
           <Spinner /> Loading
         </p>
@@ -125,6 +135,6 @@ export function SessionsPanel() {
           Sign out everywhere
         </Button>
       </div>
-    </Card>
+    </>
   )
 }
