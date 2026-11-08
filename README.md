@@ -251,6 +251,7 @@ Each teammate uses their own clone and their own Claude Code. Setup, once per pe
 | Feature | What it gives you |
 | --- | --- |
 | Sessions | Each Claude Code session is captured as a checkpoint linked to its commit. Redaction is on (emails, phone numbers, `.entire/redactors/`) |
+| Commits | Entire's git hook links each commit to its session automatically (`Entire-Checkpoint` trailer). Nothing to run by hand. Checkpoints stay local until someone runs `entire checkpoint push` |
 | Checkpoints | Configured in `.entire/settings.json` to go to the private repo `vvictort/hackcamp-2026-checkpoints` (ask the owner for access). This repo is public, so keep the push policy `manual` and never push transcripts here |
 | Graph | Code map: `entire graph query …` |
 | Brain | Shared project memory: `entire brain brief "<task>"`; add a rule with `entire brain remember "<rule>" --path project.<area>.<name> --agent none` |
