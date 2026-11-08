@@ -3,7 +3,7 @@ import type { Hono } from 'hono'
 import { ACTOR_ROLES, type ActorRole } from '../contract/permissions'
 import type { Env } from '../../../../worker'
 import { hasGeminiKey } from '../ai/provider'
-import { DEMO_IEP_SD23_TEXT, DEMO_LESSON, DEMO_PUNJABI_SAMPLE, DEMO_STUDENT, DEMO_PARENT } from '../fixtures/demo-iep-sd23'
+import { DEMO_IEP_SD23_TEXT, DEMO_LESSON, DEMO_TRANSLATION_SAMPLE, DEMO_STUDENT, DEMO_PARENT } from '../fixtures/demo-iep-sd23'
 import { devDemoStudent } from '../fixtures/demo-day'
 import { USER_IDS } from '../fixtures/school'
 import type { AltamyraEnv } from '../middleware/auth'
@@ -122,10 +122,8 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
         monthly?: any
         ticketIep?: number
       } = {}
-      const objectiveFor = (metrics: string[]) => {
-        const list = need(ctx.objectives, 'Confirming the objectives')
-        return list.find((o) => metrics.includes(o.metricType)) ?? list[0]
-      }
+      /** The first confirmed objective of one of these metric types, or undefined. Live AI may propose other types than the fixture. */
+      const objectiveFor = (metrics: string[]): any | undefined => need(ctx.objectives, 'Confirming the objectives').find((o) => metrics.includes(o.metricType))
       const eventBase = { classId: null, lessonId: null }
 
       // ---------- setup: the school and the new student ----------
@@ -200,13 +198,24 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
         return 'Typed note saved to today.'
       })
       await step('ea', 'Log a prompt level, a count and a timed break', '/capture', async () => {
-        const events = [
-          { kind: 'prompt_level', objectiveId: objectiveFor(['prompt_level']).id, promptLevel: 'gesture', ...eventBase },
-          { kind: 'counter', objectiveId: objectiveFor(['frequency', 'rate']).id, count: 5, ...eventBase },
-          { kind: 'timer', objectiveId: objectiveFor(['duration', 'latency']).id, durationSeconds: 240, ...eventBase },
+        // Each event kind only feeds objectives of matching metric types (services/measurement.ts EVENT_METRICS).
+        const planned = [
+          { what: 'a gesture prompt', objective: objectiveFor(['prompt_level']), event: { kind: 'prompt_level', promptLevel: 'gesture' } },
+          { what: 'a count of 5', objective: objectiveFor(['frequency', 'rate']), event: { kind: 'counter', count: 5 } },
+          { what: 'a 4 minute return to task', objective: objectiveFor(['duration', 'latency']), event: { kind: 'timer', durationSeconds: 240 } },
         ]
-        for (const event of events) ok(await call('ea', 'POST', `/students/${studentId}/events`, event), `${event.kind} event`)
-        return 'Saved a gesture prompt, a count of 5 and a 4 minute return to task.'
+        const saved: string[] = []
+        const skipped: string[] = []
+        for (const p of planned) {
+          if (!p.objective) {
+            skipped.push(p.what)
+            continue
+          }
+          ok(await call('ea', 'POST', `/students/${studentId}/events`, { ...p.event, objectiveId: p.objective.id, ...eventBase }), `${p.event.kind} event`)
+          saved.push(p.what)
+        }
+        if (!saved.length) throw new Error('No confirmed objective takes a prompt level, a count or a timer.')
+        return `Saved ${saved.join(', ')}.${skipped.length ? ` Skipped ${skipped.join(', ')}: no confirmed objective of that type.` : ''}`
       })
       await step('ea', 'Send a voice note', '/capture', async () => {
         // Real recordings go to the AI; with Gemini on there is no audio to send, so only the fixture provider runs this step.
@@ -262,16 +271,16 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
         ctx.weekly = ok(await call('teacher', 'POST', `/students/${studentId}/summaries/generate`, { kind: 'weekly' }), 'weekly').summary
         return `Weekly draft for ${ctx.weekly.period}.`
       })
-      await step('teacher', 'Draft the monthly family summary (Punjabi)', '/summaries', async () => {
+      await step('teacher', `Draft the monthly family summary (${DEMO_STUDENT.homeLanguageName})`, '/summaries', async () => {
         let monthly = ok(await call('teacher', 'POST', `/students/${studentId}/summaries/generate`, { kind: 'monthly', language: DEMO_STUDENT.homeLanguage }), 'monthly').summary
-        let note = 'The AI wrote the Punjabi version.'
+        let note = `The AI wrote the ${DEMO_STUDENT.homeLanguageName} version.`
         if (!monthly.translatedText) {
-          // The offline fixture only writes English: the teacher adds a short Punjabi sample, as a real teacher fixes a translation.
+          // The offline fixture only writes English: the teacher adds a short sample translation, as a real teacher fixes a translation.
           monthly = ok(
-            await call('teacher', 'PATCH', `/summaries/${monthly.id}`, { studentId, text: monthly.text, translatedText: DEMO_PUNJABI_SAMPLE, language: DEMO_STUDENT.homeLanguage, version: monthly.version }),
+            await call('teacher', 'PATCH', `/summaries/${monthly.id}`, { studentId, text: monthly.text, translatedText: DEMO_TRANSLATION_SAMPLE, language: DEMO_STUDENT.homeLanguage, version: monthly.version }),
             'add translation',
           ).summary
-          note = 'The offline AI writes English only, so the teacher added a short Punjabi sample.'
+          note = `The offline AI writes English only, so the teacher added a short ${DEMO_STUDENT.homeLanguageName} sample.`
         }
         ctx.monthly = monthly
         return `Monthly draft for ${monthly.period}. ${note}`
@@ -304,7 +313,7 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
         const approved = ok(await call('teacher', 'POST', `/summaries/${monthly.id}/approve`, { studentId, version: monthly.version }), 'approve monthly').summary
         return `The monthly summary is ${approved.status}.`
       })
-      await step('parent', 'Read the monthly summary in Punjabi', '/family', async () => {
+      await step('parent', `Read the monthly summary in ${DEMO_STUDENT.homeLanguageName}`, '/family', async () => {
         const monthly = need(ctx.monthly, 'The monthly draft')
         const list = ok(await call('parent', 'GET', `/family/${studentId}/summaries`), 'parent list').summaries as any[]
         const seen = list.find((s) => s.id === monthly.id)
