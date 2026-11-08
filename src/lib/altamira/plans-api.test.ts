@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { acceptedChanges, approvePlan, canApprove, createPlan, editChange, getStudentPlans, missingPlan, pickPlan, titleFromText, todayIso, toggleChange, updatePlan, type LessonPlan } from './plans-api'
+import { PlanConflictError, acceptedChanges, approvePlan, canApprove, createPlan, editChange, getStudentPlans, missingPlan, pickPlan, titleFromText, todayIso, toggleChange, updatePlan, type LessonPlan } from './plans-api'
 
 const plan = (o: Partial<LessonPlan>): LessonPlan => ({ id: 'p', studentId: 's', date: '2026-11-08', title: 't', originalText: 'o', proposed: [], tailoredText: 'x', status: 'draft', approvedBy: null, approvedAt: null, version: 1, ...o })
 
@@ -57,5 +57,21 @@ describe('plans-api calls', () => {
     expect(JSON.parse(String(calls[2][1].body))).toEqual({ studentId: 's1', version: 2, tailoredText: 'n' })
     expect(calls[3][0]).toBe('/api/v1/lesson-plans/p1/approve')
     expect(JSON.parse(String(calls[3][1].body))).toEqual({ studentId: 's1', version: 3 })
+  })
+})
+
+describe('createPlan conflict', () => {
+  it('surfaces 409 as a typed conflict with the server message', async () => {
+    const msg = 'This student already has a plan for that day. Edit it instead.'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 'version_conflict', message: msg } }), { status: 409, headers: { 'content-type': 'application/json' } })))
+    const err = await createPlan('s1', { title: 't', text: 'x' }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PlanConflictError)
+    expect((err as PlanConflictError).message).toBe(msg)
+    expect((err as PlanConflictError).code).toBe('version_conflict')
+  })
+  it('leaves other errors untyped', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
+    const err = await createPlan('s1', { title: 't', text: 'x' }).catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(PlanConflictError)
   })
 })

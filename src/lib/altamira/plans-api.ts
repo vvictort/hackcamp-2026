@@ -1,4 +1,4 @@
-import { apiFetch } from './students-api'
+import { ApiError, apiFetch } from './students-api'
 
 const seg = encodeURIComponent
 
@@ -22,8 +22,21 @@ export type TodayPlans = { date: string; students: { studentId: string; label: s
 export const getTodayPlans = () => apiFetch<TodayPlans>('/lesson-plans/today')
 export const getStudentPlans = (studentId: string, date?: string) =>
   apiFetch<{ plans: LessonPlan[] }>(`/students/${seg(studentId)}/lesson-plans`, { query: { date } })
-export const createPlan = (studentId: string, body: { title: string; text: string; date?: string }) =>
-  apiFetch<{ plan: LessonPlan }>(`/students/${seg(studentId)}/lesson-plans`, { method: 'POST', body })
+/** Create returned 409: the student already has a plan for that day. Show the existing one instead. */
+export class PlanConflictError extends ApiError {
+  constructor(code: string, message: string) {
+    super(409, code, message)
+    this.name = 'PlanConflictError'
+  }
+}
+export const createPlan = async (studentId: string, body: { title: string; text: string; date?: string }) => {
+  try {
+    return await apiFetch<{ plan: LessonPlan }>(`/students/${seg(studentId)}/lesson-plans`, { method: 'POST', body })
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) throw new PlanConflictError(e.code, e.message)
+    throw e
+  }
+}
 export type PlanPatch = { title?: string; originalText?: string; proposed?: ProposedChange[]; tailoredText?: string }
 export const updatePlan = (planId: string, studentId: string, version: number, patch: PlanPatch) =>
   apiFetch<{ plan: LessonPlan }>(`/lesson-plans/${seg(planId)}`, { method: 'PATCH', body: { studentId, version, ...patch } })
