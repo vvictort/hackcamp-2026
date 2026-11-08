@@ -159,7 +159,7 @@ test('gemini path: few-shot feedback in, sanitized suggestions out, rules on fai
     assertShape(body, KNOWN)
     assert.deepEqual(body.suggestions.map((s) => s.goalId), ['g-math', 'g-reg1', 'g-reg2'])
     assert.equal(seen.key, 'fake-key')
-    assert.match(seen.url, /gemini-2\.5-flash:generateContent$/)
+    assert.match(seen.url, /gemini-3\.8-flash:generateContent$/)
     assert.equal(seen.body.generationConfig.responseMimeType, 'application/json')
     assert.ok(seen.body.generationConfig.responseSchema)
     assert.ok(JSON.stringify(seen.body).includes('Teacher liked the cube bins.'), 'few-shot memory sent')

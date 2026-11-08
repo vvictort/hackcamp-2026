@@ -7,7 +7,7 @@ It runs on [Maritime](https://maritime.sh) as a custom container.
 - `POST /chat` takes `{ "message": "<JSON string>" }` and replies with `{ "response": "..." }` well inside Maritime's 30 s limit.
   - `{"task":"lesson-lens", ...}` returns a JSON string `{ "suggestions": [...], "source": "gemini" | "rules" }`. There are at most 2 suggestions per student, `text` and `why` are at most 300 characters, and `kind` is `modification` only when the learning outcome changes.
   - `{"task":"feedback", ...}` returns `ok` and stores the decision in `$DATA_DIR/<teacher>.json` (the 50 most recent). The latest approved and rejected items go to Gemini as examples on that teacher's next lesson-lens call.
-- It calls Gemini over REST (`GEMINI_API_KEY`, `GEMINI_MODEL`, default `gemini-2.5-flash`) with a 20 s timeout. With no key, or if the call fails, a keyword rules engine answers with `source: "rules"`.
+- It calls Gemini over REST (`GEMINI_API_KEY`, `GEMINI_MODEL`, default `gemini-3.8-flash`) with a 20 s timeout. With no key, or if the call fails, a keyword rules engine answers with `source: "rules"`.
 - If `AGENT_TOKEN` is set, `/chat` needs `Authorization: Bearer <AGENT_TOKEN>`. `/health` stays open.
 - Privacy: it only sees pseudonyms ("Student A") and an opaque teacher hash. The app keeps names, ids and emails to itself. The server never logs request bodies, the token or the key.
 
@@ -17,7 +17,7 @@ It runs on [Maritime](https://maritime.sh) as a custom container.
 | `DATA_DIR` | `/data` | Maritime keeps `/data` across sleep, restart and redeploy. |
 | `AGENT_TOKEN` | unset | Secret. |
 | `GEMINI_API_KEY` | unset | Secret. |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Google has deprecated it: new keys may get a 404 (the agent then answers with `rules`), and from 1 December 2026 it routes to `gemini-3.5-flash-lite`. Set a current model here if `source` stays `rules`. |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Google no longer serves `gemini-2.5-flash` to new keys (404), so the agent would silently answer with `rules`. If `source` stays `rules`, check the model name first. |
 
 ## Run and test locally
 
