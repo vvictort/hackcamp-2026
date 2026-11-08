@@ -3,6 +3,7 @@ vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
 import {
   ApiError,
+  captureErrorKind,
   confirmReview,
   correctDataPoint,
   fileKeyOfSourceRef,
@@ -11,6 +12,9 @@ import {
   photoMedia,
   pollBatch,
   recordEvent,
+  sendNote,
+  sendVideo,
+  videoFileKey,
   sendVoiceNote,
   uploadPhotos,
 } from './capture-api'
@@ -112,5 +116,32 @@ describe('EA events', () => {
     await sendVoiceNote('s1', new Blob(['note'], { type: 'text/plain' }), null, 8)
     c = lastCall()
     expect(c.body.audio.fileKey).toBe('voice/8.txt')
+  })
+})
+
+describe('typed notes and videos', () => {
+  it('posts a trimmed note, objective optional', async () => {
+    reply({ note: { id: 'n1' } }, 201)
+    await sendNote('s1', '  Did well  ')
+    expect(lastCall().url).toBe('/api/v1/students/s1/notes')
+    expect(lastCall().body).toEqual({ text: 'Did well' })
+    reply({ note: { id: 'n2' } }, 201)
+    await sendNote('s1', 'x', 'o1')
+    expect(lastCall().body).toEqual({ text: 'x', objectiveId: 'o1' })
+  })
+  it('sends a video with its type and size', async () => {
+    reply({ video: { id: 'v1' } }, 201)
+    await sendVideo('s1', new Blob(['abc'], { type: 'video/webm' }), 'o1', 7)
+    const { url, body } = lastCall()
+    expect(url).toBe('/api/v1/students/s1/videos')
+    expect(body).toMatchObject({ contentType: 'video/webm', sizeBytes: 3, objectiveId: 'o1' })
+    expect(body.video.fileKey).toBe('videos/7.webm')
+    expect(videoFileKey(1, 'video/quicktime')).toBe('videos/1.mov')
+  })
+  it('spots the consent refusal', async () => {
+    reply({ error: { code: 'consent_required', message: 'no' } }, 403)
+    const err = await sendVideo('s1', new Blob(['a'], { type: 'video/mp4' })).catch((e) => e)
+    expect(captureErrorKind(err)).toBe('consent')
+    expect(captureErrorKind(new Error('x'))).toBe('other')
   })
 })

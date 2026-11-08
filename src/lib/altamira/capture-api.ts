@@ -145,3 +145,54 @@ export async function sendVoiceNote(studentId: string, audio: Blob, classId: str
   const media: MediaRef = { fileKey: `voice/${now}.${ext}`, contentType: audio.type || 'audio/webm', bytesBase64: await blobToBase64(audio) }
   return request<Out<typeof VoiceNoteResponseS>>('POST', `/students/${enc(studentId)}/voice-notes`, { audio: media, classId })
 }
+
+// ---------- typed notes and videos ----------
+
+export const MAX_VIDEO_BYTES = 25 * 1024 * 1024
+
+/** A typed observation, saved to today's record. objectiveId is optional. */
+export const sendNote = (studentId: string, text: string, objectiveId: string | null = null) =>
+  request<{ note: { id: string } }>('POST', `/students/${enc(studentId)}/notes`, {
+    text: text.trim(),
+    ...(objectiveId ? { objectiveId } : {}),
+  })
+
+export function videoFileKey(now = Date.now(), contentType = 'video/mp4'): string {
+  const ext = contentType.includes('quicktime') ? 'mov' : contentType.includes('webm') ? 'webm' : 'mp4'
+  return `videos/${now}.${ext}`
+}
+
+/** Sends the video inline (same pattern as voice notes). A 403 consent_required means the family has not allowed videos. */
+export async function sendVideo(studentId: string, video: Blob, objectiveId: string | null = null, now = Date.now()) {
+  const contentType = video.type || 'video/mp4'
+  const media: MediaRef = { fileKey: videoFileKey(now, contentType), contentType, bytesBase64: await blobToBase64(video) }
+  return request<{ video: { id: string } }>('POST', `/students/${enc(studentId)}/videos`, {
+    contentType,
+    sizeBytes: video.size,
+    video: media,
+    ...(objectiveId ? { objectiveId } : {}),
+  })
+}
+
+/** Why a capture call failed, in the words the screen shows. */
+export function captureErrorKind(err: unknown): 'consent' | 'other' {
+  return err instanceof ApiError && err.status === 403 && err.code === 'consent_required' ? 'consent' : 'other'
+}
+
+// ---------- last student ----------
+
+const LAST_KEY = 'altamira.capture.lastStudent'
+export function rememberStudent(id: string): void {
+  try {
+    localStorage.setItem(LAST_KEY, id)
+  } catch {
+    /* storage can be blocked; the page still works */
+  }
+}
+export function lastStudent(): string {
+  try {
+    return localStorage.getItem(LAST_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}

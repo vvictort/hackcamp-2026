@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Camera, FlaskConical } from 'lucide-react'
 import { Button, buttonVariants, Card, FormField, Input, StatusBadge, type FormFieldControlProps } from '@/components/ui'
 import type { CaptureBatch } from '@/server/altamira/contract/school'
@@ -45,10 +44,11 @@ async function describePages(batch: CaptureBatch): Promise<Scored[]> {
   return out
 }
 
-export function PhotoCapture() {
+export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?: string; onScored?: () => void } = {}) {
   const ct = useCt()
   const { students, state, reload } = useStudents()
-  const [studentId, setStudentId] = useState('')
+  const [pickedStudent, setStudentId] = useState('')
+  const studentId = fixedStudent ?? pickedStudent
   const [code, setCode] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -82,6 +82,7 @@ export function PhotoCapture() {
       const created = await uploadPhotos([media])
       const done = created.batch.status === 'processing' ? await pollBatch(created.batch.id) : created
       setResults(await describePages(done.batch))
+      onScored?.()
     } catch {
       setErrors({ submit: ct('capture.photo.failed') })
     } finally {
@@ -152,9 +153,9 @@ export function PhotoCapture() {
         </ul>
         <div className="flex flex-wrap gap-3">
           {results.some((r) => r.points.some((p) => p.status === 'pending_review')) && (
-            <Link to="/review" className={buttonVariants({ size: 'lg' })}>
+            <a href="#to-confirm" className={buttonVariants({ size: 'lg' })}>
               {ct('capture.photo.goReview')}
-            </Link>
+            </a>
           )}
           <Button variant="secondary" size="lg" onClick={reset}>
             {ct('capture.photo.another')}
@@ -167,7 +168,7 @@ export function PhotoCapture() {
     <Card>
       <form onSubmit={submit} noValidate className="flex flex-col gap-5">
         {state === 'ready' && students.length === 0 && <p>{ct('capture.common.noStudents')}</p>}
-        <StudentSelect students={students} value={studentId} onChange={setStudentId} />
+        {fixedStudent === undefined && <StudentSelect students={students} value={studentId} onChange={setStudentId} />}
         <FormField label={ct('capture.photo.sheetCode')} required hint={ct('capture.photo.sheetCodeHint')} error={errors.code}>
           {(control: FormFieldControlProps) => (
             <Input {...control} value={code} onChange={(e) => {
