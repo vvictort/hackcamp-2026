@@ -85,7 +85,7 @@ describe('removed insight features', () => {
   it('have no digest, decision job or draft ops', () => {
     const sql = studentRoom('kai')
     for (const op of ['digest.weekly', 'decisions.evaluate', 'drafts.save', 'drafts.update', 'drafts.markUsed', 'drafts.context', 'drafts.get']) {
-      expect(() => runStudent(sql, op, { studentId: kai }, ACTORS.caseManager)).toThrow(/no op/)
+      expect(() => runStudent(sql, op, { studentId: kai }, ACTORS.caseManager)).toThrow(/Unknown student op/)
     }
   })
 })

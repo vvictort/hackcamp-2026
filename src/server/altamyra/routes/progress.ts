@@ -1,7 +1,7 @@
 import type { Hono } from 'hono'
 import { AimlineResponse, ProficiencyResponse, ProficiencySetBody, WhatWorksResponse } from '../contract/api'
 import type { AltamyraEnv } from '../middleware/auth'
-import { aimlineGet, proficiencySet, whatWorksGet } from '../services/insight'
+import { aimlineGet, proficiencySet, whatWorksGet } from '../services/progress'
 import type { Kit } from './context'
 
 /** Insight views and proficiency. */

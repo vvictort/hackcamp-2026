@@ -159,4 +159,4 @@ export const proficiencySet = defineOp({
   },
 })
 
-export const insightOpList = [aimlineGet, whatWorksGet, dataNeededScan, proficiencySet]
+export const progressOpList = [aimlineGet, whatWorksGet, dataNeededScan, proficiencySet]

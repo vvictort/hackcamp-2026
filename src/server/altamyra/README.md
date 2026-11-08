@@ -31,6 +31,7 @@ Six roles: `case_manager`, `teacher`, `ea`, `parent`, `district_lead`, `school_a
 | `review.confirm` | teacher, EA, own captures only (`/review-queue`, `/data-points/:id/correct`) |
 | `summary.view` | teacher and EA (drafts too), case manager and parent (approved only) |
 | `summary.edit`, `summary.approve` | teacher, EA |
+| `summary.caseload` | case manager: approved weekly summaries across the caseload (`/me/weekly`) |
 | `progress.view` | case manager, teacher, EA |
 | `consent.manage` | parent (own child): `voice_note` and `video` |
 | `insights.view` | district lead (anonymized, groups under 10 suppressed) |

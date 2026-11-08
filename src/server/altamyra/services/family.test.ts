@@ -68,7 +68,7 @@ describe('removed features', () => {
   it('have no ops', () => {
     const sql = studentRoom('kai')
     for (const op of ['parentInput.create', 'parentInput.list', 'todayView.get', 'handoffs.create', 'handoffs.get', 'drafts.save', 'proposals.create', 'digest.weekly', 'sessions.start', 'family.progress']) {
-      expect(() => runStudent(sql, op, { studentId: kai }, ACTORS.teacher)).toThrow(/no op/)
+      expect(() => runStudent(sql, op, { studentId: kai }, ACTORS.teacher)).toThrow(/Unknown student op/)
     }
   })
 })
