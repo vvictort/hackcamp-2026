@@ -2,6 +2,7 @@ import type { OpRegistry, RoomOp, RoomName } from '../contract/ops'
 import { familyOpList } from './family'
 import { insightOpList } from './insight'
 import { insightsOpList } from './insights'
+import { integrationSchoolOps, integrationStudentOps } from './integration'
 import { lensOpList } from './lens'
 import { measurementOpList } from './measurement'
 import { schoolOpList } from './school'
@@ -29,8 +30,9 @@ export const studentOps: OpRegistry = registry('student', [
   ...studentModeOpList,
   ...insightOpList,
   ...familyOpList,
+  ...integrationStudentOps,
 ])
 
-export const schoolOps: OpRegistry = registry('school', schoolOpList)
+export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...integrationSchoolOps])
 
 export const insightsOps: OpRegistry = registry('insights', insightsOpList)
