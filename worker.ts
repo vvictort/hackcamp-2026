@@ -39,6 +39,7 @@ import {
   resolveAuth,
 } from './src/server/http-routes.js'
 import { registerRealtimeRoutes } from './src/server/realtime-routes.js'
+import { registerAltamiraRoutes } from './src/server/altamira/routes/index.js'
 import {
   AltamiraInsightsRoom,
   AltamiraSchoolRoom,
@@ -167,10 +168,8 @@ registerAgent(app, {
   inApp: schemas.some((schema) => schema.name === AI_CHATS_SCHEMA.name),
 })
 registerPlatformProxyRoutes(app)
-// TODO(Integrator): Altamira /api/v1 routes register HERE, before the SPA
-// fallback in registerStaticRoutes:
-//   import { registerAltamiraRoutes } from './src/server/altamira/routes/index.js'
-//   registerAltamiraRoutes(app)
+// Altamira /api/v1 routes, before the SPA fallback in registerStaticRoutes.
+registerAltamiraRoutes(app)
 registerStaticRoutes(app)
 
 // Hono registers ONE error handler (last onError wins), and its default is
