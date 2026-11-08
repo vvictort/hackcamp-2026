@@ -53,8 +53,15 @@ function parseLessonLens(req) {
     subject: str(req.subject, 80),
     lesson: str(req.lesson, 200),
     details: str(req.details, 4000),
+    language: checkLanguage(req.language),
     students,
   }
+}
+
+// Only a plain language name reaches the prompt ("Punjabi (Gurmukhi)"), never free text.
+const LANGUAGE_RE = /^[A-Za-z][A-Za-z ()-]{1,39}$/
+function checkLanguage(l) {
+  return typeof l === 'string' && LANGUAGE_RE.test(l.trim()) ? l.trim() : 'English'
 }
 
 function checkTeacher(t) {
@@ -178,6 +185,12 @@ const RESPONSE_SCHEMA = {
   required: ['suggestions'],
 }
 
+// Gemini writes "text" and "why" in the teacher's language. Keys, goal ids and kind stay exactly as given.
+const languageRule = (language) =>
+  language === 'English'
+    ? ''
+    : `Write "text" and "why" in ${language}. Keep studentKey, goalId and kind exactly as given: studentKey values such as "Student A" and the kind values "adaptation" and "modification" are never translated.\n`
+
 async function geminiSuggest(l, memory) {
   const teacherFeedback = memory.filter((m) => m.decision === 'approved' || m.decision === 'rejected')
     .slice(-FEW_SHOT).map(({ kind, text, decision }) => ({ kind, text, decision }))
@@ -186,7 +199,7 @@ async function geminiSuggest(l, memory) {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
+      systemInstruction: { parts: [{ text: languageRule(l.language) + SYSTEM }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
     }),

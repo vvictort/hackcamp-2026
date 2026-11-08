@@ -117,4 +117,11 @@ describe('lesson lens: reply validation', () => {
     expect(parseReply({ response: '{"nope":1}' }, map)).toBeNull()
     expect(parseReply(null, map)).toBeNull()
   })
+
+  it('asks the agent to write in the teacher\'s language, but not for English', () => {
+    const base = { teacher: 'hash', subject: 'Numeracy', lesson: 'Arrays', inClass: [kai], roster: [kai] }
+    expect(buildRequest({ ...base, language: 'French' }).request.language).toBe('French')
+    expect(buildRequest({ ...base, language: 'English' }).request.language).toBeUndefined()
+    expect(buildRequest(base).request.language).toBeUndefined()
+  })
 })

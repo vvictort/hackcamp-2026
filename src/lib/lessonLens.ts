@@ -54,7 +54,7 @@ const ERRORS: Record<string, MessageKey> = {
 
 export function useLessonLens() {
   const { user } = useUser()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const toast = useToast()
   const ownerId = user?.id ?? ''
   const rows = useQuery<SuggestionRow>('suggestions', { where: { ownerId, state: 'pending' } })
@@ -89,7 +89,7 @@ export function useLessonLens() {
     async (id: string, details?: string) => {
       setSuggesting(id)
       try {
-        const r = await callAction<{ created: number; source: string }>('lessonLensSuggest', { classBlockId: id, details })
+        const r = await callAction<{ created: number; source: string }>('lessonLensSuggest', { classBlockId: id, details, language: lang })
         if (!r.success) return fail(r.code)
         const n = r.data.created
         if (n === 0) toast.info(t('app.home.lensNoneTitle'), t('app.home.lensNoneBody'))
@@ -98,7 +98,7 @@ export function useLessonLens() {
         setSuggesting(null)
       }
     },
-    [fail, toast, t],
+    [fail, toast, t, lang],
   )
 
   const decide = useCallback(

@@ -6,6 +6,7 @@ It runs on [Maritime](https://maritime.sh) as a custom container.
 - `GET /health` returns `200`.
 - `POST /chat` takes `{ "message": "<JSON string>" }` and replies with `{ "response": "..." }` well inside Maritime's 30 s limit.
   - `{"task":"lesson-lens", ...}` returns a JSON string `{ "suggestions": [...], "source": "gemini" | "rules" }`. There are at most 2 suggestions per student, `text` and `why` are at most 300 characters, and `kind` is `modification` only when the learning outcome changes.
+  - Optional `"language"` in a lesson-lens request is a plain language name such as `"French"` or `"Punjabi (Gurmukhi)"`. Gemini then writes `text` and `why` in that language; `studentKey`, `goalId` and `kind` are never translated. Anything that is not a plain name is ignored (English). The keyword fallback always answers in English.
   - `{"task":"feedback", ...}` returns `ok` and stores the decision in `$DATA_DIR/<teacher>.json` (the 50 most recent). The latest approved and rejected items go to Gemini as examples on that teacher's next lesson-lens call.
 - It calls Gemini over REST (`GEMINI_API_KEY`, `GEMINI_MODEL`, default `gemini-3.5-flash-lite`) with a 20 s timeout. With no key, or if the call fails, a keyword rules engine answers with `source: "rules"`.
 - Optional `AGENT_TOKEN`: if set, `/chat` needs `Authorization: Bearer <AGENT_TOKEN>` (`/health` stays open). Only for a self-hosted, publicly exposed copy; leave it unset on Maritime (see below).

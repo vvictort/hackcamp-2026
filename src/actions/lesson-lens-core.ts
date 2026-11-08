@@ -31,6 +31,8 @@ export interface LensRequest {
   subject: string
   lesson: string
   details?: string
+  /** English name of the teacher's language (e.g. "French"); omitted for English. The agent writes its suggestions in it. */
+  language?: string
   students: { key: string; goals: LensGoal[] }[]
 }
 
@@ -113,6 +115,7 @@ export function buildRequest(input: {
   subject: string
   lesson: string
   details?: string
+  language?: string
   inClass: LensStudent[]
   roster: LensStudent[]
 }): { request: LensRequest; map: LensMap } {
@@ -137,6 +140,7 @@ export function buildRequest(input: {
     subject: scrub(input.subject),
     lesson: scrub(input.lesson),
     ...(details ? { details } : {}),
+    ...(input.language && input.language !== 'English' ? { language: input.language } : {}),
     students: [...keys].map(([key, s]) => ({
       key,
       goals: s.goals.map((g) => {

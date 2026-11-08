@@ -20,6 +20,7 @@ import {
   type LensGoal,
   type LensStudent,
 } from './lesson-lens-core'
+import { findLanguage } from '../i18n/languages'
 
 declare module '../../worker' {
   interface Env {
@@ -79,6 +80,8 @@ const lessonLensSuggest: ActionHandler<Env> = async ({ userId, params, tools, en
   const classBlockId = params.classBlockId
   if (typeof classBlockId !== 'string' || !classBlockId) return fail('bad_request', 'classBlockId is required.')
   const details = typeof params.details === 'string' ? params.details : undefined
+  // The client sends a language code; only a known one becomes a name the agent will use.
+  const language = findLanguage(typeof params.language === 'string' ? params.language : undefined)?.name
 
   const block = await tools.get<ClassRow>('classBlocks', classBlockId)
   if (!block.success || block.data.record.data.ownerId !== userId) return fail('not_found', 'Class not found.')
@@ -94,6 +97,7 @@ const lessonLensSuggest: ActionHandler<Env> = async ({ userId, params, tools, en
     subject: cls.subject ?? '',
     lesson: cls.lesson ?? '',
     details,
+    language,
     inClass,
     roster,
   })
