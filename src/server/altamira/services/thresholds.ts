@@ -68,10 +68,8 @@ export const DIGEST_WINDOW_DAYS = 7
 
 // ---------- student mode ----------
 
-/** BC schools: "today" (EA scope, Today View) is the school's calendar day. */
+/** BC schools: "today" is the school's calendar day. */
 export const SCHOOL_TIME_ZONE = 'America/Vancouver'
 
-/** Assumption: student-mode sessions time out after 30 minutes (PRD: "time out automatically"). */
-export const STUDENT_SESSION_MINUTES = 30
 /** Assumption: break timer length when the IEP lists a break support. */
 export const BREAK_TIMER_MINUTES = 5

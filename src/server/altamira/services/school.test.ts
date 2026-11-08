@@ -2,10 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { MeResponse } from '../contract/api'
 import { AltamiraError } from '../contract/errors'
 import { userActor } from '../contract/permissions'
-import type { Lesson, LessonAnalysis, SheetCode, ShareToken } from '../contract/school'
+import type { Lesson, LessonAnalysis, SheetCode } from '../contract/school'
 import { CLASS_IDS, FIXTURE_NAMES, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures'
 import { ACTORS, closeAll, countRows, runSchool, schoolRoom } from './testing'
-import { hashToken, newToken } from './tokens'
 
 afterEach(closeAll)
 
@@ -67,7 +66,7 @@ describe('lessons and the cached analysis (PRD 1A-2)', () => {
   it('teachers create lessons; EAs cannot', () => {
     const { sql, lesson: l } = lesson()
     expect(l.createdBy).toBe(USER_IDS.teacher)
-    expect(() => runSchool(sql, 'lessons.create', { classId: CLASS_IDS.literacy, title: 'x', sourceKind: 'text', text: 'y' }, ACTORS.ea)).toThrow(/lesson.augment/)
+    expect(() => runSchool(sql, 'lessons.create', { classId: CLASS_IDS.literacy, title: 'x', sourceKind: 'text', text: 'y' }, ACTORS.ea)).toThrow(/lesson_plan.edit/)
     expect(runSchool<{ subject: string }>(sql, 'lessons.get', { lessonId: l.id }, ACTORS.ea).subject).toBe('literacy')
   })
 
@@ -95,44 +94,25 @@ describe('sheet codes (no names)', () => {
   })
 })
 
-describe('share tokens', () => {
-  it('stores only the hash, resolves until expiry, then answers 410', async () => {
+describe('memberships.list (school administrator Roles page)', () => {
+  it('lists every role holder with scope, parents included', () => {
     const sql = schoolRoom()
-    const token = newToken()
-    const tokenHash = await hashToken(token)
-    expect(tokenHash).toHaveLength(64)
-    const { shareToken } = runSchool<{ shareToken: ShareToken }>(
-      sql,
-      'shareTokens.create',
-      { kind: 'today_view', studentId: STUDENT_IDS.kai, tokenHash, ttlHours: 2, now: '2026-11-02T08:00:00.000Z' },
-      ACTORS.teacher,
-    )
-    expect(shareToken.expiresAt).toBe('2026-11-02T10:00:00.000Z')
-    expect(JSON.stringify(sql.all('SELECT * FROM share_tokens'))).not.toContain(token)
-    expect(runSchool<{ studentId: string }>(sql, 'shareTokens.resolve', { tokenHash, now: '2026-11-02T09:00:00.000Z' }, ACTORS.system).studentId).toBe(STUDENT_IDS.kai)
-    try {
-      runSchool(sql, 'shareTokens.resolve', { tokenHash, now: '2026-11-02T10:00:00.000Z' }, ACTORS.system)
-      expect.unreachable()
-    } catch (e) {
-      expect((e as AltamiraError).status).toBe(410)
+    const { memberships } = runSchool<{ memberships: { userId: string; displayName: string; role: string; studentId: string | null; classId: string | null }[] }>(sql, 'memberships.list', { schoolId: SCHOOL.id }, admin)
+    const roles = new Set(memberships.map((m) => m.role))
+    expect([...roles].sort()).toEqual(['case_manager', 'district_lead', 'ea', 'parent', 'school_admin', 'teacher'])
+    const ea = memberships.filter((m) => m.role === 'ea')
+    expect(ea.map((m) => m.studentId).sort()).toEqual([STUDENT_IDS.kai, STUDENT_IDS.sofia].sort())
+    expect(ea[0]).toMatchObject({ userId: USER_IDS.ea, displayName: 'Priya Sandhu', classId: null })
+    expect(memberships.find((m) => m.role === 'teacher')?.classId).not.toBeNull()
+    expect(memberships.find((m) => m.role === 'parent')).toMatchObject({ classId: null })
+  })
+
+  it('refuses everyone but the school administrator of that school', () => {
+    const sql = schoolRoom()
+    for (const actor of [ACTORS.caseManager, ACTORS.teacher, ACTORS.ea, ACTORS.parentKai, ACTORS.districtLead]) {
+      expect(() => runSchool(sql, 'memberships.list', { schoolId: SCHOOL.id }, actor)).toThrow(AltamiraError)
     }
-    expect(runSchool<{ expired: string[] }>(sql, 'shareTokens.expire', { now: '2026-11-03T00:00:00.000Z' }, ACTORS.system).expired).toEqual([shareToken.id])
-  })
-
-  it('only case managers and teachers create Today View links', async () => {
-    const sql = schoolRoom()
-    const tokenHash = await hashToken(newToken())
-    expect(() => runSchool(sql, 'shareTokens.create', { kind: 'today_view', studentId: STUDENT_IDS.kai, tokenHash }, ACTORS.ea)).toThrow(AltamiraError)
-    const session = runSchool<{ shareToken: ShareToken }>(sql, 'shareTokens.create', { kind: 'student_session', studentId: STUDENT_IDS.kai, tokenHash, now: '2026-11-02T08:00:00.000Z' }, ACTORS.ea)
-    expect(session.shareToken.expiresAt).toBe('2026-11-02T08:30:00.000Z')
-  })
-
-  it('a revoked link answers 410', async () => {
-    const sql = schoolRoom()
-    const tokenHash = await hashToken(newToken())
-    const { shareToken } = runSchool<{ shareToken: ShareToken }>(sql, 'shareTokens.create', { kind: 'today_view', studentId: STUDENT_IDS.kai, tokenHash }, ACTORS.teacher)
-    runSchool(sql, 'shareTokens.expire', { id: shareToken.id }, ACTORS.teacher)
-    expect(() => runSchool(sql, 'shareTokens.resolve', { tokenHash }, ACTORS.system)).toThrow(/expired/)
+    expect(() => runSchool(sql, 'memberships.list', { schoolId: 'other-school' }, admin)).toThrow(AltamiraError)
   })
 })
 

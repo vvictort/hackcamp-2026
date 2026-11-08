@@ -1,5 +1,5 @@
 import type { OpRegistry, RoomOp, RoomName } from '../contract/ops'
-import { devLinkStudent, studentDevSeedDemo } from '../fixtures/demo'
+import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
 import { comingUpOpList } from './coming-up'
 import { deidSchoolRoster, deidStudentNames } from './deid'
 import { familyOpList } from './family'
@@ -9,7 +9,6 @@ import { integrationSchoolOps, integrationStudentOps } from './integration'
 import { lensOpList } from './lens'
 import { measurementOpList } from './measurement'
 import { schoolOpList } from './school'
-import { studentModeOpList } from './student-mode'
 
 /**
  * Room op registries, one per room kind. Each room's run(opName, args, actor)
@@ -30,7 +29,6 @@ function registry(room: RoomName, ops: readonly RoomOp[]): OpRegistry {
 export const studentOps: OpRegistry = registry('student', [
   ...lensOpList,
   ...measurementOpList,
-  ...studentModeOpList,
   ...insightOpList,
   ...familyOpList,
   ...integrationStudentOps,
@@ -39,6 +37,6 @@ export const studentOps: OpRegistry = registry('student', [
   deidStudentNames,
 ])
 
-export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...integrationSchoolOps, deidSchoolRoster, devLinkStudent])
+export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...integrationSchoolOps, deidSchoolRoster, devResetSchool])
 
 export const insightsOps: OpRegistry = registry('insights', insightsOpList)

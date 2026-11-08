@@ -67,30 +67,18 @@ export const profileGet = defineOp({
   capability: 'iep.view',
   args: StudentArgs.extend({ displayToken: z.string(), grade: z.string() }),
   run(sql, args, actor): StudentProfileResponse {
-    const allowed = authorize(actor, 'iep.view', args.studentId)
+    authorize(actor, 'iep.view', args.studentId)
     const iep = currentIep(sql)
-    if (allowed.filter === 'all') {
-      return {
-        view: 'full',
-        id: args.studentId,
-        displayToken: args.displayToken,
-        grade: args.grade,
-        iepVersion: iep?.version ?? null,
-        sections: iep?.sections ?? null,
-        modificationSubjects: iep?.modificationSubjects ?? [],
-        goals: currentGoals(sql),
-      }
+    return {
+      view: 'full',
+      id: args.studentId,
+      displayToken: args.displayToken,
+      grade: args.grade,
+      iepVersion: iep?.version ?? null,
+      sections: iep?.sections ?? null,
+      modificationSubjects: iep?.modificationSubjects ?? [],
+      goals: currentGoals(sql),
     }
-    if (allowed.filter === 'supports_only' || allowed.filter === 'supports_applied') {
-      // EA and student mode: supports only, never IEP text (PRD "Student mode never shows IEP text").
-      return {
-        view: 'supports',
-        id: args.studentId,
-        firstName: iep ? (iep.sections.student.preferredName ?? iep.sections.student.firstName) : null,
-        supports: iep?.sections.supports ?? [],
-      }
-    }
-    throw new AltamiraError('forbidden', 'use the Today View for this link')
   },
 })
 
@@ -98,10 +86,10 @@ export const profileGet = defineOp({
 export const lensContext = defineOp({
   name: 'lens.context',
   room: 'student',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({ studentToken: z.string().min(1), grade: z.string().min(1) }),
   run(sql, args, actor) {
-    authorize(actor, 'lesson.augment', args.studentId)
+    authorize(actor, 'lesson_plan.edit', args.studentId)
     const iep = requireCurrentIep(sql)
     const profile: DeidentifiedProfile = {
       studentToken: args.studentToken,
@@ -134,7 +122,7 @@ export const lensContext = defineOp({
 export const lensSaveRun = defineOp({
   name: 'lens.saveRun',
   room: 'student',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({
     lessonId: Id,
     analysisId: Id,
@@ -144,7 +132,7 @@ export const lensSaveRun = defineOp({
     checks: z.array(LensCheck).max(3),
   }).extend(Now.shape),
   run(sql, args, actor): LensStudentResult {
-    authorize(actor, 'lesson.augment', args.studentId)
+    authorize(actor, 'lesson_plan.edit', args.studentId)
     const iep = requireCurrentIep(sql)
     const at = nowIso(args.now)
     const run: LensRun = { id: newId(), lessonId: args.lessonId, analysisId: args.analysisId, createdBy: actor.userId, createdAt: at }
@@ -209,11 +197,10 @@ export const lensSaveRun = defineOp({
 export const lensGet = defineOp({
   name: 'lens.get',
   room: 'student',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({ lessonId: Id }),
   run(sql, args, actor): LensStudentResult | null {
-    const allowed = authorize(actor, 'lesson.augment', args.studentId, { access: 'read' })
-    if (allowed.filter === 'supports_applied') throw new AltamiraError('forbidden', 'student mode receives items through sessions')
+    const allowed = authorize(actor, 'lesson_plan.edit', args.studentId, { access: 'read' })
     const run = lens.latestLensRun(sql, args.lessonId)
     if (!run) return null
     const all = lens.suggestionsForRun(sql, run.id)
@@ -383,11 +370,10 @@ export const suggestionsReject = defineOp({
 export const checksList = defineOp({
   name: 'checks.list',
   room: 'student',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({ lessonId: Id.optional() }),
   run(sql, args, actor): { checks: Check[] } {
-    const allowed = authorize(actor, 'lesson.augment', args.studentId, { access: 'read' })
-    if (allowed.filter === 'supports_applied') throw new AltamiraError('forbidden', 'student mode receives items through sessions')
+    const allowed = authorize(actor, 'lesson_plan.edit', args.studentId, { access: 'read' })
     let checks: Check[]
     if (args.lessonId) {
       const run = lens.latestLensRun(sql, args.lessonId)
@@ -410,10 +396,10 @@ const allSuggestionIds = (sql: SqlExecutor) => sql.all<{ id: string }>('SELECT i
 export const checksRemove = defineOp({
   name: 'checks.remove',
   room: 'student',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({ checkId: Id }).extend(ExpectedVersion.shape).extend(Now.shape),
   run(sql, args, actor): { check: Check } {
-    authorize(actor, 'lesson.augment', args.studentId)
+    authorize(actor, 'lesson_plan.edit', args.studentId)
     const c = lens.checkById(sql, args.checkId)
     if (!c) throw new AltamiraError('not_found', `check ${args.checkId} not found`)
     updateVersioned(sql, 'checks', c.id, args.expectedVersion, { status: 'removed' })
@@ -541,8 +527,7 @@ export const lensUsageList = defineOp({
   capability: 'progress.view',
   args: StudentArgs,
   run(sql, args, actor) {
-    const allowed = authorize(actor, 'progress.view', args.studentId)
-    if (allowed.filter === 'self_simplified') throw new AltamiraError('forbidden', 'student mode shows progress through sessions')
+    authorize(actor, 'progress.view', args.studentId)
     const rows = sql.all<{ id: string; at: string }>(
       `SELECT s.id AS id, u.at AS at FROM usage_events u JOIN suggestions s ON s.id = u.suggestion_id
        WHERE s.kind = 'adaptation' ORDER BY u.at DESC, u.rowid DESC LIMIT 100`,

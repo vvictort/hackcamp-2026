@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { GoalStatusResponse } from '../contract/api'
-import type { DataPoint, Goal, IepVersion, Objective, Proposal, ReviewItem } from '../contract/student'
+import type { DataPoint, Goal, IepVersion, Objective, ReviewItem } from '../contract/student'
 import { CBIEP_SAMPLE_EXPECTED, KAI, STUDENT_IDS, USER_IDS } from '../fixtures'
 import { ACTORS, closeAll, countRows, runStudent, studentRoom } from './testing'
 import { eventValue } from './measurement'
@@ -16,7 +16,7 @@ const eaCounter = 'd9000000-0000-4000-8000-0000000a2000'
 describe('IEP import and confirmation', () => {
   it('imports a pending version that only takes force once a case manager confirms it', () => {
     const sql = studentRoom()
-    expect(() => runStudent(sql, 'iep.import', { studentId: kai, sections: CBIEP_SAMPLE_EXPECTED }, ACTORS.teacher)).toThrow(/propose_only/)
+    expect(() => runStudent(sql, 'iep.import', { studentId: kai, sections: CBIEP_SAMPLE_EXPECTED }, ACTORS.teacher)).toThrow(/iep.import refused/)
     const imported = runStudent<{ iep: IepVersion; goals: Goal[] }>(sql, 'iep.import', { studentId: kai, sections: CBIEP_SAMPLE_EXPECTED }, ACTORS.caseManager)
     expect(imported.iep).toMatchObject({ version: 1, confirmedAt: null })
     expect(imported.goals).toHaveLength(2)
@@ -42,10 +42,10 @@ describe('IEP import and confirmation', () => {
 })
 
 describe('objectives', () => {
-  it('case manager confirms; teacher is told to propose', () => {
+  it('only the case manager confirms objectives', () => {
     const sql = studentRoom('amara')
     const objectiveId = '0b000000-0000-4000-8000-0000000000b1'
-    expect(() => runStudent(sql, 'objectives.confirm', { studentId: STUDENT_IDS.amara, objectiveId, expectedVersion: 1 }, ACTORS.teacher)).toThrow(/use objective.propose/)
+    expect(() => runStudent(sql, 'objectives.confirm', { studentId: STUDENT_IDS.amara, objectiveId, expectedVersion: 1 }, ACTORS.teacher)).toThrow(/objective.confirm refused/)
     const res = runStudent<{ objective: Objective }>(
       sql,
       'objectives.confirm',
@@ -82,25 +82,6 @@ describe('objectives', () => {
       ACTORS.caseManager,
     )
     expect(ok.objective.status).toBe('confirmed')
-  })
-})
-
-describe('teacher proposals', () => {
-  it('reach the case manager with their evidence and are resolved by the case manager', () => {
-    const sql = studentRoom('kai')
-    const { proposal } = runStudent<{ proposal: Proposal }>(
-      sql,
-      'proposals.create',
-      { studentId: kai, target: 'iep', change: { goalId: KAI.goals[1].id, newText: 'Use break card 4 times a day' }, evidenceIds: [eaCounter] },
-      ACTORS.teacher,
-    )
-    expect(proposal.evidenceIds).toEqual([eaCounter])
-    expect(() => runStudent(sql, 'proposals.create', { studentId: kai, target: 'iep', change: {}, evidenceIds: ['nope'] }, ACTORS.teacher)).toThrow(/evidence/)
-    const queue = runStudent<{ proposals: Proposal[] }>(sql, 'proposals.list', { studentId: kai, status: 'open' }, ACTORS.caseManager)
-    expect(queue.proposals).toHaveLength(1)
-    expect(() => runStudent(sql, 'proposals.resolve', { studentId: kai, proposalId: proposal.id, expectedVersion: 1, decision: 'accepted' }, ACTORS.teacher)).toThrow(/forbidden|propose_only|refused/)
-    const resolved = runStudent<{ proposal: Proposal }>(sql, 'proposals.resolve', { studentId: kai, proposalId: proposal.id, expectedVersion: 1, decision: 'accepted', note: 'Will update at review' }, ACTORS.caseManager)
-    expect(resolved.proposal).toMatchObject({ status: 'accepted', resolvedBy: USER_IDS.caseManager })
   })
 })
 
@@ -180,21 +161,22 @@ describe('corrections (PRD: corrections never overwrite)', () => {
 })
 
 describe('timeline and goal status', () => {
-  it('parent queries never return pending data', () => {
+  it('a parent reaches no progress data: parents read approved summaries only', () => {
     const sql = studentRoom('kai')
-    const all = runStudent<{ dataPoints: DataPoint[] }>(sql, 'timeline.get', { studentId: kai }, ACTORS.caseManager)
-    expect(all.dataPoints.some((p) => p.status === 'pending_review')).toBe(true)
-    const parent = runStudent<{ dataPoints: DataPoint[]; decisions: unknown[] }>(sql, 'timeline.get', { studentId: kai }, ACTORS.parentKai)
-    expect(parent.dataPoints.length).toBeGreaterThan(0)
-    expect(parent.dataPoints.every((p) => p.status === 'confirmed' || p.status === 'auto_confirmed')).toBe(true)
-    expect(parent.decisions).toEqual([])
-    expect(() => runStudent(sql, 'dataPoint.source', { studentId: kai, dataPointId: pendingPhoto }, ACTORS.parentKai)).toThrow(/not found/)
+    expect(() => runStudent(sql, 'timeline.get', { studentId: kai }, ACTORS.parentKai)).toThrow(/progress.view refused/)
+    expect(() => runStudent(sql, 'dataPoint.source', { studentId: kai, dataPointId: pendingPhoto }, ACTORS.parentKai)).toThrow(/progress.view refused/)
+    expect(() => runStudent(sql, 'goal.status', { studentId: kai, goalId: KAI.goals[0].id }, ACTORS.parentKai)).toThrow(/progress.view refused/)
   })
 
-  it('EAs see today only', () => {
+  it('the EA, teacher and case manager see the same day-by-day timeline, pending points included', () => {
     const sql = studentRoom('kai')
-    const res = runStudent<{ dataPoints: DataPoint[] }>(sql, 'timeline.get', { studentId: kai, now: '2026-10-21T22:00:00.000Z' }, ACTORS.ea)
-    expect(res.dataPoints.map((p) => p.recordedAt.slice(0, 10))).toEqual(['2026-10-21'])
+    const days = (actor: typeof ACTORS.ea) => runStudent<{ dataPoints: DataPoint[] }>(sql, 'timeline.get', { studentId: kai }, actor).dataPoints.map((p) => p.id)
+    const ea = days(ACTORS.ea)
+    expect(ea.length).toBeGreaterThan(1)
+    expect(ea).toContain(pendingPhoto)
+    expect(days(ACTORS.teacher)).toEqual(ea)
+    expect(days(ACTORS.caseManager)).toEqual(ea)
+    expect(runStudent<{ dataPoints: DataPoint[] }>(sql, 'timeline.get', { studentId: kai, from: '2026-10-21T00:00:00.000Z', to: '2026-10-21T23:59:59.999Z' }, ACTORS.ea).dataPoints.length).toBeGreaterThan(0)
   })
 
   it('goal status uses confirmed points and opens each point source', () => {

@@ -2,10 +2,10 @@ import { z } from 'zod'
 import { CaptureEventBody, type GoalStatusResponse } from '../contract/api'
 import { ProposeObjectivesOutput } from '../contract/ai'
 import { ExpectedVersion, Id } from '../contract/common'
-import { ProposalTarget, ReviewKind, promptLevelValue, type MetricType, type PromptLevel } from '../contract/enums'
+import { ReviewKind, promptLevelValue, type MetricType, type PromptLevel } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
-import { can, type Actor } from '../contract/permissions'
+import type { Actor } from '../contract/permissions'
 import {
   Goal,
   IepSections,
@@ -14,18 +14,16 @@ import {
   type Decision,
   type IepVersion,
   type Objective,
-  type Proposal,
   type ReviewItem,
 } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
 import { assertVersion, audit, insertEntity, json, newId, nowIso, parseRows, updateVersioned } from '../repos/base'
 import * as ev from '../repos/evidence'
 import * as iepRepo from '../repos/iep'
-import { listProposals, proposalById } from '../repos/records'
 import { aimline, decisionRule, goalStatus } from './analytics'
 import { Now, StudentArgs, authorize, authorizeStaff } from './authz'
 import { eaEventRef, parseSourceRef } from './sources'
-import { EVENT_SOURCE, activeAdaptationIds, dayStart, newDataPoint, requireObjective } from './student-common'
+import { EVENT_SOURCE, activeAdaptationIds, newDataPoint, requireObjective } from './student-common'
 
 /** Student-room ops for feature 1B (measurement core). */
 
@@ -39,7 +37,7 @@ const subjectsOf = (sections: IepSections) => sections.modifications.map((m) => 
 export const iepImport = defineOp({
   name: 'iep.import',
   room: 'student',
-  capability: 'iep.write',
+  capability: 'iep.import',
   args: StudentArgs.extend({
     sections: IepSections,
     modificationSubjects: z.array(z.string()).optional(),
@@ -47,7 +45,7 @@ export const iepImport = defineOp({
   }).extend(Now.shape),
   run(sql, args, actor): { iep: IepVersion; goals: Goal[] } {
     // PRD: only case managers create or change the IEP.
-    authorize(actor, 'iep.write', args.studentId)
+    authorize(actor, 'iep.import', args.studentId)
     const at = nowIso(args.now)
     const version = (iepRepo.latestIep(sql)?.version ?? 0) + 1
     const iep: IepVersion = {
@@ -98,7 +96,7 @@ function syncGoals(sql: SqlExecutor, actor: Actor, version: number, sections: Ie
 export const iepConfirm = defineOp({
   name: 'iep.confirm',
   room: 'student',
-  capability: 'iep.write',
+  capability: 'iep.import',
   args: StudentArgs.extend({
     version: z.number().int().min(1),
     sections: IepSections.optional(),
@@ -107,7 +105,7 @@ export const iepConfirm = defineOp({
     .extend(ExpectedVersion.shape)
     .extend(Now.shape),
   run(sql, args, actor): { iep: IepVersion; goals: Goal[]; objectives: Objective[] } {
-    authorize(actor, 'iep.write', args.studentId)
+    authorize(actor, 'iep.import', args.studentId)
     const iep = iepRepo.iepByVersion(sql, args.version)
     if (!iep) throw new AltamiraError('not_found', `IEP version ${args.version} not found`)
     assertVersion(iep.rowVersion, args.expectedVersion, `IEP version ${iep.version}`)
@@ -151,11 +149,7 @@ export const objectivesList = defineOp({
   capability: 'iep.view',
   args: StudentArgs,
   run(sql, args, actor): { objectives: Objective[] } {
-    const allowed = authorize(actor, 'iep.view', args.studentId)
-    // PRD matrix "View IEP goals and accommodations": EAs get supports and what works only, never IEP text.
-    if (allowed.filter === 'supports_only' || allowed.filter === 'supports_applied' || allowed.filter === 'today_view') {
-      throw new AltamiraError('forbidden', 'objectives are not shown in this mode')
-    }
+    authorize(actor, 'iep.view', args.studentId)
     const rows = sql.all<Row>(
       "SELECT o.* FROM objectives o JOIN goals g ON g.id = o.goal_id WHERE g.status = 'active' ORDER BY o.rowid",
     )
@@ -182,10 +176,10 @@ export const objectivesForCapture = defineOp({
 export const objectivesPropose = defineOp({
   name: 'objectives.propose',
   room: 'student',
-  capability: 'iep.write',
+  capability: 'iep.import',
   args: StudentArgs.extend({ proposals: z.array(ProposeObjectivesOutput) }).extend(Now.shape),
   run(sql, args, actor): { objectives: Objective[]; unmeasurable: { goalId: string; reason: string }[] } {
-    authorize(actor, 'iep.write', args.studentId)
+    authorize(actor, 'iep.import', args.studentId)
     const at = nowIso(args.now)
     const objectives: Objective[] = []
     const unmeasurable: { goalId: string; reason: string }[] = []
@@ -311,84 +305,6 @@ export const objectivesFlagUnmeasurable = defineOp({
     const next: Objective = { ...o, status: 'flagged_unmeasurable', flagReason: args.reason, version: o.version + 1 }
     audit(sql, actor, 'objectives.flag', 'objectives', o.id, { status: o.status }, { status: next.status, flagReason: args.reason }, nowIso(args.now))
     return { objective: next }
-  },
-})
-
-// ---------- proposals (teacher -> case manager) ----------
-
-export const proposalsCreate = defineOp({
-  name: 'proposals.create',
-  room: 'student',
-  capability: 'iep.propose',
-  args: StudentArgs.extend({
-    target: ProposalTarget,
-    change: z.record(z.string(), z.unknown()),
-    evidenceIds: z.array(Id).default([]),
-  }).extend(Now.shape),
-  run(sql, args, actor): { proposal: Proposal } {
-    authorize(actor, args.target === 'objective' ? 'objective.propose' : 'iep.propose', args.studentId)
-    // PRD: a proposal reaches the case manager with its evidence attached.
-    for (const id of args.evidenceIds) {
-      if (!ev.dataPointById(sql, id)) throw new AltamiraError('bad_request', `evidence ${id} is not a data point of this student`)
-    }
-    const at = nowIso(args.now)
-    const proposal: Proposal = {
-      id: newId(),
-      target: args.target,
-      change: args.change,
-      evidenceIds: args.evidenceIds,
-      proposedBy: actor.userId,
-      createdAt: at,
-      status: 'open',
-      resolvedBy: null,
-      resolvedAt: null,
-      resolutionNote: null,
-      version: 1,
-    }
-    insertEntity(sql, 'proposals', proposal)
-    audit(sql, actor, 'proposals.create', 'proposals', proposal.id, undefined, proposal, at)
-    return { proposal }
-  },
-})
-
-/** Case managers see every proposal; a teacher sees their own. */
-export const proposalsList = defineOp({
-  name: 'proposals.list',
-  room: 'student',
-  capability: 'iep.write',
-  args: StudentArgs.extend({ status: z.enum(['open', 'accepted', 'declined']).optional() }),
-  run(sql, args, actor): { proposals: (Proposal & { studentId: string })[] } {
-    let proposals = listProposals(sql, args.status)
-    if (!can(actor, 'iep.write', args.studentId).allowed) {
-      authorize(actor, 'iep.propose', args.studentId)
-      proposals = proposals.filter((p) => p.proposedBy === actor.userId)
-    }
-    return { proposals: proposals.map((p) => ({ ...p, studentId: args.studentId })) }
-  },
-})
-
-export const proposalsResolve = defineOp({
-  name: 'proposals.resolve',
-  room: 'student',
-  capability: 'iep.write',
-  args: StudentArgs.extend({
-    proposalId: Id,
-    decision: z.enum(['accepted', 'declined']),
-    note: z.string().nullable().default(null),
-  })
-    .extend(ExpectedVersion.shape)
-    .extend(Now.shape),
-  run(sql, args, actor): { proposal: Proposal } {
-    authorize(actor, 'iep.write', args.studentId)
-    const p = proposalById(sql, args.proposalId)
-    if (!p) throw new AltamiraError('not_found', `proposal ${args.proposalId} not found`)
-    assertVersion(p.version, args.expectedVersion, `proposal ${p.id}`)
-    if (p.status !== 'open') throw new AltamiraError('bad_request', 'proposal is already resolved')
-    const at = nowIso(args.now)
-    updateVersioned(sql, 'proposals', p.id, p.version, { status: args.decision, resolved_by: actor.userId, resolved_at: at, resolution_note: args.note })
-    const next: Proposal = { ...p, status: args.decision, resolvedBy: actor.userId, resolvedAt: at, resolutionNote: args.note, version: p.version + 1 }
-    audit(sql, actor, 'proposals.resolve', 'proposals', p.id, p, next, at)
-    return { proposal: next }
   },
 })
 
@@ -579,13 +495,13 @@ export const reviewList = defineOp({
   capability: 'review.confirm',
   args: StudentArgs,
   run(sql, args, actor): { items: { studentId: string; item: ReviewItem; dataPoint: DataPoint }[] } {
-    const allowed = authorize(actor, 'review.confirm', args.studentId, { recordedBy: actor.userId })
+    authorize(actor, 'review.confirm', args.studentId, { recordedBy: actor.userId })
     const items: { studentId: string; item: ReviewItem; dataPoint: DataPoint }[] = []
     for (const item of ev.openReviewItems(sql)) {
       const dataPoint = ev.dataPointById(sql, item.dataPointId)
       if (!dataPoint) continue
-      // EAs see only their own entries.
-      if (allowed.role === 'ea' && dataPoint.recorderId !== actor.userId) continue
+      // The EA and the teacher see only their own captures.
+      if (dataPoint.recorderId !== actor.userId) continue
       items.push({ studentId: args.studentId, item, dataPoint })
     }
     return { items }
@@ -624,22 +540,9 @@ export const timelineGet = defineOp({
   capability: 'progress.view',
   args: StudentArgs.extend({ from: z.string().optional(), to: z.string().optional(), objectiveId: Id.optional() }).extend(Now.shape),
   run(sql, args, actor): { dataPoints: DataPoint[]; decisions: Decision[] } {
-    const allowed = authorize(actor, 'progress.view', args.studentId)
-    if (allowed.filter === 'self_simplified') throw new AltamiraError('forbidden', 'student mode shows progress through sessions')
-    let from = args.from
-    // PRD matrix: EAs see assigned students, today.
-    if (allowed.filter === 'today') {
-      const today = dayStart(nowIso(args.now))
-      from = from && from > today ? from : today
-    }
-    const dataPoints = ev.headDataPoints(sql, {
-      objectiveId: args.objectiveId,
-      from,
-      to: args.to,
-      // PRD: parents see confirmed and auto-confirmed data only, filtered in SQL.
-      confirmedOnly: allowed.filter === 'confirmed_only',
-    })
-    const decisions = allowed.filter === 'all' ? ev.decisions(sql, { objectiveIds: args.objectiveId ? [args.objectiveId] : undefined }) : []
+    authorize(actor, 'progress.view', args.studentId)
+    const dataPoints = ev.headDataPoints(sql, { objectiveId: args.objectiveId, from: args.from, to: args.to })
+    const decisions = ev.decisions(sql, { objectiveIds: args.objectiveId ? [args.objectiveId] : undefined })
     return { dataPoints, decisions }
   },
 })
@@ -650,8 +553,7 @@ export const goalStatusGet = defineOp({
   capability: 'progress.view',
   args: StudentArgs.extend({ goalId: Id }).extend(Now.shape),
   run(sql, args, actor): GoalStatusResponse {
-    const allowed = authorize(actor, 'progress.view', args.studentId)
-    if (allowed.filter === 'self_simplified') throw new AltamiraError('forbidden', 'student mode shows progress through sessions')
+    authorize(actor, 'progress.view', args.studentId)
     const goal = iepRepo.goalById(sql, args.goalId)
     if (!goal) throw new AltamiraError('not_found', `goal ${args.goalId} not found`)
     const objective = iepRepo.confirmedObjectiveForGoal(sql, goal.id)
@@ -659,12 +561,8 @@ export const goalStatusGet = defineOp({
       return { goalId: goal.id, objectiveId: null, metricType: null, baseline: null, current: null, target: null, trend: null, projectedDate: null, recentCount: 0, canShowTrend: false, latestDecision: null }
     }
     const at = nowIso(args.now)
-    // PRD matrix: EAs see assigned students, today, so their status line is built from today's points only.
-    const today = dayStart(at)
-    const points = ev.confirmedPoints(sql, objective.id).filter((p) => allowed.filter !== 'today' || p.at >= today)
-    const status = goalStatus(points, objective, at)
-    // Decision rules belong to the case manager; parents and EAs see the status line only.
-    const latest = allowed.filter === 'all' ? (ev.latestDecision(sql, objective.id)?.rule ?? null) : null
+    const status = goalStatus(ev.confirmedPoints(sql, objective.id), objective, at)
+    const latest = ev.latestDecision(sql, objective.id)?.rule ?? null
     return { goalId: goal.id, objectiveId: objective.id, metricType: objective.metricType, ...status, latestDecision: latest }
   },
 })
@@ -675,19 +573,14 @@ export const dataPointSource = defineOp({
   capability: 'progress.view',
   args: StudentArgs.extend({ dataPointId: Id }).extend(Now.shape),
   run(sql, args, actor) {
-    const allowed = authorize(actor, 'progress.view', args.studentId)
-    if (allowed.filter === 'self_simplified') throw new AltamiraError('forbidden', 'student mode shows progress through sessions')
+    authorize(actor, 'progress.view', args.studentId)
     const dataPoint = ev.dataPointById(sql, args.dataPointId)
-    const hidden =
-      (allowed.filter === 'confirmed_only' && (!dataPoint || dataPoint.status === 'pending_review')) ||
-      // PRD matrix: EAs see today's scope only.
-      (allowed.filter === 'today' && (!dataPoint || dataPoint.recordedAt < dayStart(nowIso(args.now))))
-    if (!dataPoint || hidden) throw new AltamiraError('not_found', `data point ${args.dataPointId} not found`)
+    if (!dataPoint) throw new AltamiraError('not_found', `data point ${args.dataPointId} not found`)
     return { dataPoint, source: parseSourceRef(dataPoint.sourceRef) }
   },
 })
 
-/** Decision-rule evaluation for one objective, used by digest.weekly and decisions.evaluate. */
+/** Decision-rule evaluation for one objective; feeds the district insights goal-progress counter. */
 export function evaluateObjective(sql: SqlExecutor, objective: Objective) {
   const points = ev.confirmedPoints(sql, objective.id)
   const line = aimline(points, objective, objective.confirmedAt ?? undefined)
@@ -702,9 +595,6 @@ export const measurementOpList = [
   objectivesPropose,
   objectivesConfirm,
   objectivesFlagUnmeasurable,
-  proposalsCreate,
-  proposalsList,
-  proposalsResolve,
   dataPointsAddPending,
   eventsRecord,
   dataPointsCorrect,

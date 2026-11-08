@@ -12,11 +12,6 @@ import type { SqlExecutor } from '../db/sql'
  * scan, not only fixture names. Internal: no /api/v1 route returns them.
  */
 
-/** Signed-in staff only: a student session or a share link never builds AI calls. */
-function requireStaffUser(actor: Actor): void {
-  if (actor.session) throw new AltamiraError('forbidden', 'de-identification data is for signed-in staff')
-}
-
 export type StudentIdentity = { firstName: string; lastName: string; preferredName: string | null }
 
 /** Every name this student's IEP versions carry (drafts included, since an import is analysed before it is confirmed). */
@@ -24,8 +19,7 @@ export const deidStudentNames = defineOp({
   name: 'deid.studentNames',
   room: 'student',
   args: z.object({ studentId: Id }),
-  run(sql: SqlExecutor, _args, actor): { names: StudentIdentity[] } {
-    requireStaffUser(actor)
+  run(sql: SqlExecutor, _args): { names: StudentIdentity[] } {
     const rows = sql.all<{ first: string | null; last: string | null; preferred: string | null }>(
       `SELECT DISTINCT json_extract(sections_json, '$.student.firstName') AS first,
               json_extract(sections_json, '$.student.lastName') AS last,
@@ -45,8 +39,7 @@ export const deidSchoolRoster = defineOp({
   name: 'deid.schoolRoster',
   room: 'school',
   args: z.object({ studentIds: z.array(Id).default([]) }),
-  run(sql: SqlExecutor, args, actor): { people: string[]; tokens: Record<string, string> } {
-    requireStaffUser(actor)
+  run(sql: SqlExecutor, args): { people: string[]; tokens: Record<string, string> } {
     const people = sql.all<{ display_name: string }>('SELECT display_name FROM users ORDER BY rowid').map((r) => r.display_name)
     const tokens: Record<string, string> = {}
     for (const id of args.studentIds) {
