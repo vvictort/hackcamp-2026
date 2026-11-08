@@ -27,9 +27,19 @@
  */
 
 import type { CronTask } from 'deepspace/worker'
+import type { Env } from '../worker.js'
+import { ALTAMIRA_CRON, runAltamiraCronTask } from './server/altamira/rooms/jobs-core.js'
+import { jobDeps } from './server/altamira/rooms/job-deps.js'
 
-export const tasks: CronTask[] = []
+// Altamira (design doc "Jobs"). BC schools, so school-day local time.
+const SCHOOL_TZ = 'America/Vancouver'
 
-export async function runTask(_name: string, _env: unknown): Promise<void> {
-  // No-op — implement your cron tasks here. Dispatch on `_name`.
+export const tasks: CronTask[] = [
+  { name: ALTAMIRA_CRON.weeklyDigest, schedule: '0 7 * * 1', timezone: SCHOOL_TZ },
+  { name: ALTAMIRA_CRON.dataNeeded, schedule: '0 6 * * *', timezone: SCHOOL_TZ },
+  { name: ALTAMIRA_CRON.todayLinkExpiry, schedule: '0 2 * * *', timezone: SCHOOL_TZ },
+]
+
+export async function runTask(name: string, env: Env): Promise<void> {
+  await runAltamiraCronTask(name, jobDeps(env))
 }
