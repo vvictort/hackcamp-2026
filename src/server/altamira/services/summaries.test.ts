@@ -1,11 +1,19 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AltamiraError } from '../contract/errors'
 import type { Summary } from '../contract/student'
 import { STUDENT_IDS } from '../fixtures'
 import { isoWeekOf, periodDates, resolvePeriod, weekStartOf, type SummaryInputs } from './summaries'
 import { ACTORS, closeAll, runStudent, studentRoom } from './testing'
 
-afterEach(closeAll)
+// Pin Date so seeded data, periods and any default 'now' share one instant (not the wall clock).
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-11-09T17:00:00.000Z'))
+})
+afterEach(() => {
+  vi.useRealTimers()
+  closeAll()
+})
 
 const kai = STUDENT_IDS.kai
 const NOW = '2026-11-09T17:00:00.000Z'
