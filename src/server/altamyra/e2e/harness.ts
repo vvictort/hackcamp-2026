@@ -88,7 +88,7 @@ export function createHarness(options: HarnessOptions = {}) {
   const base = createFixtureProvider()
   const aiCalls = Object.fromEntries(AI_FUNCTIONS.map((f) => [f, 0])) as Record<AiFunctionName, number>
   const aiRequests: { fn: AiFunctionName; input: unknown }[] = []
-  const provider = { name: 'fixture' } as AiProvider
+  const provider = {} as AiProvider
   for (const fn of AI_FUNCTIONS) {
     const impl = (options.ai?.[fn] ?? base[fn]) as (input: unknown) => Promise<unknown>
     ;(provider as unknown as Record<string, unknown>)[fn] = async (input: unknown) => {

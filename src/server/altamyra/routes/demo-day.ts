@@ -2,6 +2,7 @@
 import type { Hono } from 'hono'
 import { ACTOR_ROLES, type ActorRole } from '../contract/permissions'
 import type { Env } from '../../../../worker'
+import { hasGeminiKey } from '../ai/provider'
 import { DEMO_IEP_SD23_TEXT, DEMO_LESSON, DEMO_PUNJABI_SAMPLE, DEMO_STUDENT, DEMO_PARENT } from '../fixtures/demo-iep-sd23'
 import { devDemoStudent } from '../fixtures/demo-day'
 import { USER_IDS } from '../fixtures/school'
@@ -209,7 +210,7 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
       })
       await step('ea', 'Send a voice note', '/capture', async () => {
         // Real recordings go to the AI; with Gemini on there is no audio to send, so only the fixture provider runs this step.
-        if (deps.aiProvider(env).name !== 'fixture') return 'Skipped: a voice note needs a real recording. Try it on the Capture page.'
+        if (hasGeminiKey(env)) return 'Skipped: a voice note needs a real recording. Try it on the Capture page.'
         const res = ok(await call('ea', 'POST', `/students/${studentId}/voice-notes`, { audio: { fileKey: `demo/${studentId}/voice-note.webm`, contentType: 'audio/webm' } }), 'voice note')
         return `The voice note became ${res.dataPoints.length} entries and the recording was deleted.`
       })

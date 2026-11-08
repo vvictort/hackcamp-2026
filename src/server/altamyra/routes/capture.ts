@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import { z } from 'zod'
-import { routeScore } from '../ai/scoring'
+import { unitInterval } from '../ai/hash'
 import {
   CaptureBatchResponse,
   CaptureEventBody,
@@ -64,9 +64,10 @@ export const AI_CONFIDENCE_THRESHOLD = 0.8
 export const AI_REVIEW_SAMPLE_RATE = 0.1
 
 /** PRD 1B: low confidence and a sample of confident scores go to review; rubric scores always do. */
-function routing(confidence: number, seed: string, rubric = false): Routing {
-  const r = routeScore({ confidence, threshold: AI_CONFIDENCE_THRESHOLD, sampleRate: AI_REVIEW_SAMPLE_RATE, seed, rubric, agreement: null })
-  return r.status === 'pending_review' && r.reviewKind ? { status: 'pending_review', reviewKind: r.reviewKind } : { status: 'auto_confirmed', reviewKind: null }
+export function routing(confidence: number, seed: string, rubric = false): Routing {
+  if (confidence < AI_CONFIDENCE_THRESHOLD) return { status: 'pending_review', reviewKind: 'low_confidence' }
+  if (rubric || unitInterval(seed, 'sample') < AI_REVIEW_SAMPLE_RATE) return { status: 'pending_review', reviewKind: 'sampled' }
+  return { status: 'auto_confirmed', reviewKind: null }
 }
 
 /**

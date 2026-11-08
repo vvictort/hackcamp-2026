@@ -60,12 +60,6 @@ describe('S3: read-aloud audio', () => {
 })
 
 describe('O3: AI provider choice and de-identification', () => {
-  it('no key gives the fixture provider; a key gives Gemini', () => {
-    expect(getProvider({}).name).toBe('fixture')
-    expect(getProvider({ GEMINI_API_KEY: '  ' }).name).toBe('fixture')
-    expect(getProvider({ GEMINI_API_KEY: 'fake-test-key' }).name).toBe('gemini')
-  })
-
   it('outgoing Gemini request bodies contain no student real names', async () => {
     const bodies: string[] = []
     vi.stubGlobal(
@@ -75,9 +69,7 @@ describe('O3: AI provider choice and de-identification', () => {
         return new Response('{"error":"fake"}', { status: 400 })
       }),
     )
-    const gemini = getProvider({ GEMINI_API_KEY: 'fake-test-key' })
-    const { name: _name, ...ai } = gemini
-    const h = createHarness({ ai })
+    const h = createHarness({ ai: getProvider({ GEMINI_API_KEY: 'fake-test-key' }) })
     const res = await h.post(U.teacher, `/students/${kai}/lesson-plans`, { title: 'Salmon', text: 'Read the short text about salmon. Retell the main idea.' })
     expect(res.status).toBe(201)
     expect(bodies.length).toBeGreaterThan(0)

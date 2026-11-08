@@ -194,12 +194,7 @@ export type ParseVoiceNoteOutput = z.infer<typeof ParseVoiceNoteOutput>
 
 // ---------- provider ----------
 
-export const AI_PROVIDER_NAMES = ['fixture', 'vertex', 'gemini'] as const
-export type AiProviderName = (typeof AI_PROVIDER_NAMES)[number]
-
-/** Selected by env ALTAMYRA_AI_PROVIDER; "fixture" is the default. */
 export interface AiProvider {
-  readonly name: AiProviderName
   proposeObjectives(input: ProposeObjectivesInput): Promise<ProposeObjectivesOutput>
   analyseLesson(input: AnalyseLessonInput): Promise<AnalyseLessonOutput>
   lensForStudent(input: LensForStudentInput): Promise<LensForStudentOutput>
@@ -214,6 +209,6 @@ export const AI_SCHEMAS = {
   lensForStudent: { input: LensForStudentInput, output: LensForStudentOutput },
   scorePhotoPage: { input: ScorePhotoPageInput, output: ScorePhotoPageOutput },
   parseVoiceNote: { input: ParseVoiceNoteInput, output: ParseVoiceNoteOutput },
-} as const satisfies Record<keyof Omit<AiProvider, 'name'>, { input: z.ZodType; output: z.ZodType }>
+} as const satisfies Record<keyof AiProvider, { input: z.ZodType; output: z.ZodType }>
 
 export type AiFunctionName = keyof typeof AI_SCHEMAS

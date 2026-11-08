@@ -98,7 +98,6 @@ describe('withMaritime', () => {
   it('delegates every other function to the base provider', async () => {
     const fetchMock = vi.fn()
     const p = agent(fetchMock as unknown as typeof fetch)
-    expect(p.name).toBe(base.name)
     expect(await p.analyseLesson(lesson)).toEqual(await base.analyseLesson(lesson))
     const goal = { studentToken: 'S-X', goalId: 'g', area: 'Math', goalText: 'Add to 20' }
     expect(await p.proposeObjectives(goal)).toEqual(await base.proposeObjectives(goal))
@@ -120,9 +119,5 @@ describe('getProvider with Maritime', () => {
     expect(await lensCallsAgent({ MARITIME_AGENT_URL: 'https://agent.test' })).toBe(false)
     expect(await lensCallsAgent({ MARITIME_AGENT_TOKEN: 'mk_test' })).toBe(false)
     expect(await lensCallsAgent({ MARITIME_AGENT_URL: ' ', MARITIME_AGENT_TOKEN: 'mk_test' })).toBe(false)
-  })
-
-  it('never wraps a provider forced to the fixture', async () => {
-    expect(await lensCallsAgent({ ALTAMYRA_AI_PROVIDER: 'fixture', MARITIME_AGENT_URL: 'https://agent.test', MARITIME_AGENT_TOKEN: 'mk_test' })).toBe(false)
   })
 })

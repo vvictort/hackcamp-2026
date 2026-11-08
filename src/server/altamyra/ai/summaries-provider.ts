@@ -1,7 +1,6 @@
 import type { z } from 'zod'
-import { AiNotConfiguredError } from './errors'
-import { getProvider, type AiEnv } from './provider'
-import { generateJson, GeminiError, type GeminiConfig } from './providers/gemini'
+import { hasGeminiKey, type AiEnv } from './provider'
+import { generateJson, type GeminiConfig } from './providers/gemini'
 import {
   DraftDailyInput,
   DraftDailyModelOutput,
@@ -29,7 +28,7 @@ export const SUMMARY_SCHEMAS = {
 type Schemas = typeof SUMMARY_SCHEMAS
 export type SummaryName = keyof Schemas
 
-export type SummaryProvider = { readonly name: string } & {
+export type SummaryProvider = {
   [K in SummaryName]: (i: z.output<Schemas[K]['input']>) => Promise<z.output<Schemas[K]['output']>>
 }
 
@@ -106,7 +105,6 @@ function fixtureMonthly(i: z.output<typeof DraftMonthlyFamilyInput>) {
 
 export function createFixtureSummaryProvider(): SummaryProvider {
   return {
-    name: 'fixture',
     draftDailySummary: async (i) => fixtureDaily(i),
     draftWeeklyCaseloadSummary: async (i) => fixtureWeekly(i),
     draftMonthlyFamilySummary: async (i) => fixtureMonthly(i),
@@ -127,33 +125,10 @@ const INSTRUCTIONS: Record<SummaryName, string> = {
   translateSummary: 'Translate the text into the requested language. Keep tokens in square brackets unchanged. Add no new facts. Return the language tag used.',
 }
 
-export type GeminiSummaryOptions = GeminiConfig & {
-  /** Used when the chain fails or the key is refused. */
-  fallback?: SummaryProvider
-}
-
-export function createGeminiSummaryProvider(options: GeminiSummaryOptions): SummaryProvider & { readonly lastSource: 'gemini' | 'fixture' } {
-  if (!options.apiKey) throw new AiNotConfiguredError('GEMINI_API_KEY is not set')
-  const fallback = options.fallback ?? createFixtureSummaryProvider()
-  let lastSource: 'gemini' | 'fixture' = 'gemini'
-
-  async function call(fn: SummaryName, input: unknown): Promise<never> {
-    try {
-      const out = await generateJson(options, fn, INSTRUCTIONS[fn], input, SUMMARY_SCHEMAS[fn].output)
-      lastSource = 'gemini'
-      return out as never
-    } catch (err) {
-      console.warn(`[altamyra-ai] summary ${fn} fell back to fixture (${err instanceof GeminiError && err.status ? err.status : 'exhausted'})`)
-      lastSource = 'fixture'
-      return (fallback[fn] as (i: unknown) => Promise<never>)(input)
-    }
-  }
+export function createGeminiSummaryProvider(options: GeminiConfig): SummaryProvider {
+  const call = (fn: SummaryName, input: unknown): Promise<never> => generateJson(options, fn, INSTRUCTIONS[fn], input, SUMMARY_SCHEMAS[fn].output) as Promise<never>
 
   return {
-    name: 'gemini',
-    get lastSource() {
-      return lastSource
-    },
     draftDailySummary: (i) => call('draftDailySummary', i),
     draftWeeklyCaseloadSummary: (i) => call('draftWeeklyCaseloadSummary', i),
     draftMonthlyFamilySummary: (i) => call('draftMonthlyFamilySummary', i),
@@ -161,8 +136,6 @@ export function createGeminiSummaryProvider(options: GeminiSummaryOptions): Summ
   }
 }
 
-export function summaryProviderFromEnv(env: AiEnv, fetchImpl?: typeof fetch): SummaryProvider {
-  return getProvider(env).name === 'gemini'
-    ? createGeminiSummaryProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMYRA_GEMINI_MODELS, fetch: fetchImpl })
-    : createFixtureSummaryProvider()
+export function summaryProviderFromEnv(env: AiEnv): SummaryProvider {
+  return hasGeminiKey(env) ? createGeminiSummaryProvider({ apiKey: env.GEMINI_API_KEY! }) : createFixtureSummaryProvider()
 }

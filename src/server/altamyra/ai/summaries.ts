@@ -10,8 +10,6 @@ import {
   type DraftMonthlyFamilyOutput,
   type DraftWeeklyInput,
   type DraftWeeklyOutput,
-  type TranslateSummaryInput,
-  type TranslateSummaryOutput,
 } from './summaries-schemas'
 
 export * from './summaries-schemas'
@@ -27,26 +25,22 @@ export { createFixtureSummaryProvider, createGeminiSummaryProvider, summaryProvi
  * parent can see the text. These functions never release.
  */
 
-export type SummaryCall = { fn: SummaryName; payload: unknown }
 export type SummaryAiOptions = {
   /** Defaults to the fixture provider. */
   provider?: SummaryProvider
   roster: Roster
-  onCall?: (call: SummaryCall) => void
 }
 
 export type SummaryAi = {
   draftDailySummary(input: DraftDailyInput): Promise<DraftDailyOutput>
   draftWeeklyCaseloadSummary(input: DraftWeeklyInput): Promise<DraftWeeklyOutput>
   draftMonthlyFamilySummary(input: DraftMonthlyFamilyInput): Promise<DraftMonthlyFamilyOutput>
-  translateSummary(input: TranslateSummaryInput): Promise<TranslateSummaryOutput>
-  readonly calls: Readonly<Record<SummaryName, number>>
 }
 
 const ID_KEYS = new Set(['id'])
 
 export function createSummaryAi(options: SummaryAiOptions): SummaryAi {
-  const { prepare, call, calls } = guardedAi(SUMMARY_SCHEMAS, options.provider ?? createFixtureSummaryProvider(), options.roster, options.onCall)
+  const { prepare, call } = guardedAi(SUMMARY_SCHEMAS, options.provider ?? createFixtureSummaryProvider(), options.roster)
 
   function checkCitations(fn: SummaryName, cited: string[], payload: unknown) {
     const allowed = new Set(valuesOfKeys(payload, ID_KEYS))
@@ -55,8 +49,6 @@ export function createSummaryAi(options: SummaryAiOptions): SummaryAi {
   }
 
   return {
-    calls,
-
     async draftDailySummary(input) {
       const { payload, map } = prepare('draftDailySummary', withConfirmedOnly(input, ['dataPoints']))
       const out = await call('draftDailySummary', payload)
@@ -89,12 +81,6 @@ export function createSummaryAi(options: SummaryAiOptions): SummaryAi {
       }
       const restored = reidentify({ text, englishText: english.text, citations: english.citations }, map)
       return { ...restored, language: outLanguage, ...DRAFT_STAMP }
-    },
-
-    async translateSummary(input) {
-      const { payload, map } = prepare('translateSummary', input)
-      const out = await call('translateSummary', payload)
-      return { ...reidentify(out, map), ...DRAFT_STAMP }
     },
   }
 }

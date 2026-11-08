@@ -3,9 +3,8 @@ import { fixtureRoster } from '../fixture-data'
 import { FIXTURE_NAMES } from '../../fixtures'
 import { createAi } from '../functions'
 import { AiOutputError } from '../errors'
-import { getProvider } from '../provider'
 import { createFixtureProvider } from './fixture'
-import { createGeminiProvider, DEFAULT_GEMINI_MODELS, GEMINI_TIMEOUT_MS, GEMINI_TOTAL_TIMEOUT_MS } from './gemini'
+import { createGeminiProvider, GEMINI_MODELS, GEMINI_TIMEOUT_MS, GEMINI_TOTAL_TIMEOUT_MS } from './gemini'
 
 const OBJECTIVE = {
   measurable: true,
@@ -38,7 +37,7 @@ describe('gemini provider', () => {
     const f = vi.fn(async () => (statuses.length ? new Response('x', { status: statuses.shift() }) : ok()))
     const p = createGeminiProvider({ apiKey: 'k', fetch: f as unknown as typeof fetch })
     await p.proposeObjectives(INPUT)
-    expect(f.mock.calls.map((c) => modelOf((c as unknown[])[0]))).toEqual(DEFAULT_GEMINI_MODELS.split(',').slice(0, 4))
+    expect(f.mock.calls.map((c) => modelOf((c as unknown[])[0]))).toEqual(GEMINI_MODELS.slice(0, 4))
   })
 
   it('moves on after a timeout', async () => {
@@ -48,14 +47,14 @@ describe('gemini provider', () => {
         ? new Promise<Response>((_res, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError'))))
         : Promise.resolve(ok()),
     )
-    const p = createGeminiProvider({ apiKey: 'k', timeoutMs: 20, models: 'm1,m2', fetch: f as unknown as typeof fetch })
+    const p = createGeminiProvider({ apiKey: 'k', timeoutMs: 20, models: ['m1', 'm2'], fetch: f as unknown as typeof fetch })
     await p.proposeObjectives(INPUT)
     expect(f.mock.calls.map((c) => modelOf(c[0]))).toEqual(['m1', 'm2'])
   })
 
   it('throws when every model fails and no fallback is set', async () => {
     const f = vi.fn(async () => new Response('x', { status: 429 }))
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch })
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b'], fetch: f as unknown as typeof fetch })
     await expect(p.proposeObjectives(INPUT)).rejects.toThrow(/All Gemini models failed/)
     expect(f).toHaveBeenCalledTimes(2)
   })
@@ -64,31 +63,29 @@ describe('gemini provider', () => {
     for (const status of [400, 401, 403]) {
       const f = vi.fn(async () => new Response('x', { status }))
       const p = createGeminiProvider({ apiKey: 'k', fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
-      expect(await p.proposeObjectives(INPUT)).toMatchObject({ goalId: 'g1' })
+      expect(await p.proposeObjectives(INPUT)).toEqual(await createFixtureProvider().proposeObjectives(INPUT))
       expect(f).toHaveBeenCalledTimes(status === 400 ? 2 : 1) // 400 retries once without schema/thinking
-      expect((p as unknown as { lastSource: string }).lastSource).toBe('fixture')
     }
   })
 
   it('without a fallback a fatal status throws, and off-schema output on every model throws AiOutputError', async () => {
     const f400 = vi.fn(async () => new Response('x', { status: 400 }))
     await expect(createGeminiProvider({ apiKey: 'k', fetch: f400 as unknown as typeof fetch }).proposeObjectives(INPUT)).rejects.toThrow(/HTTP 400/)
-    const bad = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: (async () => ok({ nope: 1 })) as unknown as typeof fetch })
+    const bad = createGeminiProvider({ apiKey: 'k', models: ['a', 'b'], fetch: (async () => ok({ nope: 1 })) as unknown as typeof fetch })
     await expect(bad.proposeObjectives(INPUT)).rejects.toBeInstanceOf(AiOutputError)
   })
 
-  it('falls back to the fixture when all models fail, and marks the source', async () => {
+  it('falls back to the fixture when all models fail', async () => {
     const f = vi.fn(async () => new Response('x', { status: 404 }))
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
-    expect(await p.proposeObjectives(INPUT)).toMatchObject({ goalId: 'g1' })
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b'], fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    expect(await p.proposeObjectives(INPUT)).toEqual(await createFixtureProvider().proposeObjectives(INPUT))
     expect(f).toHaveBeenCalledTimes(2)
-    expect((p as unknown as { lastSource: string }).lastSource).toBe('fixture')
   })
 
   it('tries the next model when output is fenced garbage, accepts fenced JSON', async () => {
     const fenced = new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify(OBJECTIVE) + '\n```' }] } }] }), { status: 200 })
     const f = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'nope' }] } }] }), { status: 200 })).mockResolvedValueOnce(fenced)
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch })
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b'], fetch: f as unknown as typeof fetch })
     expect(await p.proposeObjectives(INPUT)).toMatchObject({ target: 80 })
     expect(f).toHaveBeenCalledTimes(2)
   })
@@ -105,7 +102,7 @@ describe('gemini provider', () => {
 
   it('400 retries the same model once without schema and thinking', async () => {
     const f = vi.fn().mockResolvedValueOnce(new Response('x', { status: 400 })).mockResolvedValueOnce(ok())
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch })
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b'], fetch: f as unknown as typeof fetch })
     expect(await p.proposeObjectives(INPUT)).toMatchObject({ target: 80 })
     const gc = JSON.parse((f.mock.calls[1] as unknown as [string, RequestInit])[1].body as string).generationConfig
     expect(gc.responseSchema).toBeUndefined()
@@ -114,10 +111,9 @@ describe('gemini provider', () => {
 
   it('off-schema on model 1 then valid on model 2 uses model 2', async () => {
     const f = vi.fn().mockResolvedValueOnce(ok({ nope: 1 })).mockResolvedValueOnce(ok())
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
-    await p.proposeObjectives(INPUT)
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b'], fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    expect(await p.proposeObjectives(INPUT)).toMatchObject(OBJECTIVE)
     expect(f).toHaveBeenCalledTimes(2)
-    expect((p as unknown as { lastSource: string }).lastSource).toBe('gemini')
   })
 
   it('404 then 503 then timeout then success', async () => {
@@ -129,10 +125,9 @@ describe('gemini provider', () => {
       if (n === 3) return new Promise<Response>((_r, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError'))))
       return Promise.resolve(ok())
     })
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b,c,d', timeoutMs: 20, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
-    await p.proposeObjectives(INPUT)
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b', 'c', 'd'], timeoutMs: 20, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    expect(await p.proposeObjectives(INPUT)).toMatchObject(OBJECTIVE)
     expect(f.mock.calls.map((c) => modelOf(c[0]))).toEqual(['a', 'b', 'c', 'd'])
-    expect((p as unknown as { lastSource: string }).lastSource).toBe('gemini')
   })
 
   it('coerces obvious type slips and strips extra keys', async () => {
@@ -142,7 +137,7 @@ describe('gemini provider', () => {
 
   it('caps total wall time across the chain', async () => {
     const f = vi.fn((_u: unknown, init: RequestInit) => new Promise<Response>((_r, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))))
-    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b,c,d', timeoutMs: 30, totalTimeoutMs: 50, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    const p = createGeminiProvider({ apiKey: 'k', models: ['a', 'b', 'c', 'd'], timeoutMs: 30, totalTimeoutMs: 50, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
     const t0 = Date.now()
     await p.proposeObjectives(INPUT)
     expect(Date.now() - t0).toBeLessThan(500)
@@ -152,13 +147,12 @@ describe('gemini provider', () => {
   it('two timeouts exhaust the budget, then the fixture answers at once', async () => {
     const f = vi.fn((_u: unknown, init: RequestInit) => new Promise<Response>((_r, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const p = createGeminiProvider({ apiKey: 'k', models: 'm1,m2,m3,m4', timeoutMs: 40, totalTimeoutMs: 60, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    const p = createGeminiProvider({ apiKey: 'k', models: ['m1', 'm2', 'm3', 'm4'], timeoutMs: 40, totalTimeoutMs: 60, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
     const t0 = Date.now()
     const out = await p.proposeObjectives(INPUT)
     expect(Date.now() - t0).toBeLessThan(400)
-    expect(out).toBeTruthy()
+    expect(out).toEqual(await createFixtureProvider().proposeObjectives(INPUT))
     expect(f).toHaveBeenCalledTimes(2)
-    expect((p as unknown as { lastSource: string }).lastSource).toBe('fixture')
     expect(warn.mock.calls.flat().join(' ')).toContain('tried m1, m2')
     warn.mockRestore()
   })
@@ -166,11 +160,6 @@ describe('gemini provider', () => {
   it('default budget is 35 s and attempt cap 25 s', () => {
     expect(GEMINI_TOTAL_TIMEOUT_MS).toBe(35_000)
     expect(GEMINI_TIMEOUT_MS).toBe(25_000)
-  })
-
-  it('no key: getProvider returns the fixture', () => {
-    expect(getProvider({}).name).toBe('fixture')
-    expect(() => createGeminiProvider({ apiKey: '' })).toThrow()
   })
 
   it('sends no student, staff or school name through createAi', async () => {

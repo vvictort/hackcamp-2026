@@ -1,16 +1,16 @@
-import { generate, GeminiError, parseModels } from './providers/gemini'
+import { generate, GeminiError } from './providers/gemini'
 
 /**
  * Gemini text-to-speech through AI Studio REST (fetch, no SDK). Returns a WAV
  * file. Models are tried in order with the same fall-over rules as the text chain.
  */
 
-export const DEFAULT_TTS_MODELS = 'gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts,gemini-3.1-flash-tts-preview'
+export const TTS_MODELS = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.1-flash-tts-preview']
 export const TTS_TIMEOUT_MS = 25_000
 export const TTS_TOTAL_TIMEOUT_MS = 40_000
 const VOICE = 'Kore'
 
-export type TtsEnv = { GEMINI_API_KEY?: string; ALTAMYRA_GEMINI_TTS_MODELS?: string }
+export type TtsEnv = { GEMINI_API_KEY?: string }
 
 /** Wraps 16-bit mono PCM in a WAV header. */
 export function pcmToWav(pcm: Uint8Array, sampleRate = 24000): Uint8Array {
@@ -46,7 +46,7 @@ export async function synthesizeSpeech(
   try {
     return await generate({
       apiKey: key,
-      models: parseModels(env.ALTAMYRA_GEMINI_TTS_MODELS, DEFAULT_TTS_MODELS),
+      models: TTS_MODELS,
       timeoutMs: opts.timeoutMs ?? TTS_TIMEOUT_MS,
       totalTimeoutMs: opts.totalTimeoutMs ?? TTS_TOTAL_TIMEOUT_MS,
       fetch: opts.fetch,

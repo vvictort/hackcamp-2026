@@ -18,7 +18,6 @@ export type AltamyraRouteDeps = {
   }
   /** The DeepSpace userId for the request, or null when not signed in. */
   resolveUserId(req: Request, env: Env): Promise<string | null>
-  /** AI provider (env ALTAMYRA_AI_PROVIDER; fixture by default). */
   aiProvider(env: Env, teacher?: string): AiProvider
   summaryProvider(env: Env): SummaryProvider
   /**

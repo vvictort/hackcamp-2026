@@ -116,5 +116,3 @@ export type DraftMonthlyFamilyOutput = z.infer<typeof DraftMonthlyFamilyOutput>
 export const TranslateSummaryInput = z.object({ text: z.string().min(1), language: z.string().min(2), studentToken: StudentRef.optional() })
 export type TranslateSummaryInput = z.input<typeof TranslateSummaryInput>
 export const TranslateSummaryModelOutput = z.object({ language: z.string().min(2), text: z.string().min(1) })
-export const TranslateSummaryOutput = TranslateSummaryModelOutput.extend({ status: z.literal('draft'), generatedBy: z.literal('ai') })
-export type TranslateSummaryOutput = z.infer<typeof TranslateSummaryOutput>
