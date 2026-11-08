@@ -19,7 +19,6 @@ export { Button, buttonVariants, Spinner, type ButtonProps } from './Button'
 export { Input, PasswordInput } from './Input'
 export { FormField, type FormFieldControlProps } from './FormField'
 export { Textarea } from './Textarea'
-export { SearchInput } from './SearchInput'
 export {
   Select, SelectGroup, SelectValue, SelectTrigger, SelectContent,
   SelectLabel, SelectItem, SelectSeparator,
@@ -38,13 +37,11 @@ export { Progress } from './Progress'
 /* Feedback */
 export { ToastProvider, useToast } from './Toast'
 
-/* Overlay — `Modal` for simple controlled dialogs; the `Dialog` family for
- * triggers, nesting, and custom composition. */
+/* Overlay — the `Dialog` family: triggers, nesting, and custom composition. */
 export {
   Dialog, DialogPortal, DialogOverlay, DialogTrigger, DialogClose,
   DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 } from './Dialog'
-export { Modal, ConfirmModal } from './Modal'
 export {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuCheckboxItem, DropdownMenuRadioItem, DropdownMenuLabel,
