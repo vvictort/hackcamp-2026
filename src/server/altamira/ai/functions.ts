@@ -20,6 +20,8 @@ export type AiOptions = {
 
 export type AiFunctions = { [K in AiFunctionName]: (input: AiInput<K>) => Promise<AiOutput<K>> } & {
   readonly provider: AiProvider
+  /** Replaces roster names and identifiers in free text (used before text-to-speech). */
+  deidText(text: string): string
   /** Provider calls made so far, per function. */
   readonly calls: Readonly<Record<AiFunctionName, number>>
 }
@@ -70,6 +72,7 @@ export function createAi(options: AiOptions): AiFunctions {
   return {
     provider,
     calls,
+    deidText: (text) => deidentify(text, roster).value,
     proposeObjectives: (i) => run('proposeObjectives', i),
     analyseLesson: (i) => run('analyseLesson', i),
     lensForStudent: (i) => run('lensForStudent', i),

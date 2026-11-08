@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import { aiSource, guardAi } from '../ai/guard'
 import { applyReportingRules, checkCitations } from '../ai/citations'
 import {
   AimlineResponse,
@@ -93,7 +94,8 @@ export function progressRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const ctx = await r.student(studentId, draftsContext, { goalId: body.goalId, period: body.period })
     const { token } = await studentToken(r, studentId)
     const ai = await r.ai([studentId])
-    const out = await ai.draftProgress({ studentToken: token, ...ctx })
+    const out = await guardAi(() => ai.draftProgress({ studentToken: token, ...ctx }))
+    c.header('x-altamira-ai-source', aiSource(ai))
     const known = ctx.dataPoints.map((p) => ({ id: p.id, studentId, status: 'confirmed' as const }))
     const check = checkCitations(out, known, studentId)
     if (!check.ok) {

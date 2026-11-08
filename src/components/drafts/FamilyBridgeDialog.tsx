@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { Pause, Play } from 'lucide-react'
+import { useState } from 'react'
 import {
   Button,
   Dialog,
@@ -19,9 +18,8 @@ import {
 } from '@/components/ui'
 import { LANGUAGES } from '@/i18n/languages'
 import { approveFamilySummary, createFamilySummary, ApiError, type FamilySummary } from '@/lib/altamira/drafts-api'
+import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { useDraftsT } from './useDraftsT'
-
-const canSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined'
 
 /** Family Bridge: plain-language summary from a draft, language pick, browser audio, approve. */
 export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string; open: boolean; onClose: () => void }) {
@@ -32,23 +30,10 @@ export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string
   const [text, setText] = useState('')
   const [busy, setBusy] = useState<'make' | 'approve' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [speaking, setSpeaking] = useState(false)
-
-  const stop = () => {
-    if (canSpeak()) window.speechSynthesis.cancel()
-    setSpeaking(false)
-  }
-  useEffect(() => () => {
-    if (canSpeak()) window.speechSynthesis.cancel()
-  }, [])
-  useEffect(() => {
-    if (!open) stop()
-  }, [open])
 
   const make = async () => {
     setBusy('make')
     setError(null)
-    stop()
     try {
       const { summary: s } = await createFamilySummary(draftId, language)
       setSummary(s)
@@ -74,18 +59,6 @@ export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string
     } finally {
       setBusy(null)
     }
-  }
-
-  const play = () => {
-    if (!canSpeak()) return
-    if (speaking) return stop()
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = summary?.language ?? language
-    u.onend = () => setSpeaking(false)
-    u.onerror = () => setSpeaking(false)
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(u)
-    setSpeaking(true)
   }
 
   const approved = summary?.status === 'approved'
@@ -123,14 +96,7 @@ export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string
               </div>
               <Textarea id="fb-text" value={text} onChange={(e) => setText(e.target.value)} readOnly={approved} rows={6} />
               <div className="flex flex-wrap gap-3">
-                {canSpeak() ? (
-                  <Button variant="outline" onClick={play}>
-                    {speaking ? <Pause aria-hidden /> : <Play aria-hidden />}
-                    {speaking ? t('drafts.fb.stop') : t('drafts.fb.play')}
-                  </Button>
-                ) : (
-                  <p className="text-small text-muted-foreground">{t('drafts.fb.noAudio')}</p>
-                )}
+                {open && <ReadAloudButton text={text} lang={summary.language} />}
                 {!approved && (
                   <Button onClick={approve} loading={busy === 'approve'} disabled={busy !== null || !text.trim()}>
                     {t('drafts.fb.approve')}

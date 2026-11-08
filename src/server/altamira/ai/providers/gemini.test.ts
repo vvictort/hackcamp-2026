@@ -3,6 +3,8 @@ import { fixtureRoster } from '../fixture-data'
 import { FIXTURE_NAMES } from '../../fixtures'
 import { createAi } from '../functions'
 import { AiOutputError } from '../errors'
+import { getProvider } from '../provider'
+import { createFixtureProvider } from './fixture'
 import { createGeminiProvider, DEFAULT_GEMINI_MODELS } from './gemini'
 
 const OBJECTIVE = {
@@ -51,19 +53,58 @@ describe('gemini provider', () => {
     expect(f.mock.calls.map((c) => modelOf(c[0]))).toEqual(['m1', 'm2'])
   })
 
-  it('throws when every model fails', async () => {
+  it('throws when every model fails and no fallback is set', async () => {
     const f = vi.fn(async () => new Response('x', { status: 429 }))
     const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch })
     await expect(p.proposeObjectives(INPUT)).rejects.toThrow(/All Gemini models failed/)
     expect(f).toHaveBeenCalledTimes(2)
   })
 
-  it('does not fall over on other errors, and rejects output off schema', async () => {
-    const f500 = vi.fn(async () => new Response('x', { status: 500 }))
-    await expect(createGeminiProvider({ apiKey: 'k', fetch: f500 as unknown as typeof fetch }).proposeObjectives(INPUT)).rejects.toThrow(/HTTP 500/)
-    expect(f500).toHaveBeenCalledTimes(1)
-    const bad = createGeminiProvider({ apiKey: 'k', fetch: (async () => ok({ nope: 1 })) as unknown as typeof fetch })
+  it('on 400/401/403 uses the fixture without trying more models', async () => {
+    for (const status of [400, 401, 403]) {
+      const f = vi.fn(async () => new Response('x', { status }))
+      const p = createGeminiProvider({ apiKey: 'k', fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+      expect(await p.proposeObjectives(INPUT)).toMatchObject({ goalId: 'g1' })
+      expect(f).toHaveBeenCalledTimes(1)
+      expect((p as unknown as { lastSource: string }).lastSource).toBe('fixture')
+    }
+  })
+
+  it('without a fallback a fatal status throws, and off-schema output on every model throws AiOutputError', async () => {
+    const f400 = vi.fn(async () => new Response('x', { status: 400 }))
+    await expect(createGeminiProvider({ apiKey: 'k', fetch: f400 as unknown as typeof fetch }).proposeObjectives(INPUT)).rejects.toThrow(/HTTP 400/)
+    const bad = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: (async () => ok({ nope: 1 })) as unknown as typeof fetch })
     await expect(bad.proposeObjectives(INPUT)).rejects.toBeInstanceOf(AiOutputError)
+  })
+
+  it('falls back to the fixture when all models fail, and marks the source', async () => {
+    const f = vi.fn(async () => new Response('x', { status: 404 }))
+    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    expect(await p.proposeObjectives(INPUT)).toMatchObject({ goalId: 'g1' })
+    expect(f).toHaveBeenCalledTimes(2)
+    expect((p as unknown as { lastSource: string }).lastSource).toBe('fixture')
+  })
+
+  it('tries the next model when output is fenced garbage, accepts fenced JSON', async () => {
+    const fenced = new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify(OBJECTIVE) + '\n```' }] } }] }), { status: 200 })
+    const f = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'nope' }] } }] }), { status: 200 })).mockResolvedValueOnce(fenced)
+    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b', fetch: f as unknown as typeof fetch })
+    expect(await p.proposeObjectives(INPUT)).toMatchObject({ target: 80 })
+    expect(f).toHaveBeenCalledTimes(2)
+  })
+
+  it('caps total wall time across the chain', async () => {
+    const f = vi.fn((_u: unknown, init: RequestInit) => new Promise<Response>((_r, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))))
+    const p = createGeminiProvider({ apiKey: 'k', models: 'a,b,c,d', timeoutMs: 30, totalTimeoutMs: 50, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    const t0 = Date.now()
+    await p.proposeObjectives(INPUT)
+    expect(Date.now() - t0).toBeLessThan(500)
+    expect(f.mock.calls.length).toBeLessThan(4)
+  })
+
+  it('no key: getProvider returns the fixture', () => {
+    expect(getProvider({}).name).toBe('fixture')
+    expect(() => createGeminiProvider({ apiKey: '' })).toThrow()
   })
 
   it('sends no student, staff or school name through createAi', async () => {
