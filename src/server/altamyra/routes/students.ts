@@ -23,7 +23,7 @@ import {
 } from '../services/measurement'
 import { studentsGet } from '../services/school'
 import { parseCbIepText } from './cbiep'
-import { extractPdfText } from './pdf-text'
+import { extractPdfText } from '../../../lib/pdfText'
 import type { Kit } from './context'
 
 /**

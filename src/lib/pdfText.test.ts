@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { fictionalPdf } from '../e2e/flows'
-import { CBIEP_SAMPLE_TEXT } from '../fixtures'
-import { parseCbIepText } from './cbiep'
-import { extractPdfText, textFromContent } from './pdf-text'
+import { fictionalPdf } from '@/server/altamyra/e2e/flows'
+import { CBIEP_SAMPLE_TEXT } from '@/server/altamyra/fixtures'
+import { parseCbIepText } from '@/server/altamyra/routes/cbiep'
+import { extractPdfText, textFromContent } from './pdfText'
 
 const sampleLines = CBIEP_SAMPLE_TEXT.split('\n').filter((l) => l.trim())
 

@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { FileUp, Sparkles, X } from 'lucide-react'
 import { Button, Card, Textarea } from '@/components/ui'
-import { s } from '@/components/students/text'
 import { titleFromText } from '@/lib/altamyra/plans-api'
 import { useLang } from '@/i18n'
-import { extractPdfText } from '@/server/altamyra/routes/pdf-text'
+import { extractPdfText } from '@/lib/pdfText'
 
 /** Text of an uploaded lesson, read in the browser (PDF or Word). */
 export async function readLessonFile(file: File): Promise<string> {
@@ -45,19 +44,19 @@ export function PlanUpload({ busy, error, onSubmit }: { busy: boolean; error: st
   const ready = text.trim().length > 0 && !busy && !reading
 
   return (
-    <Card title={s('plan.add.title')}>
+    <Card title={t('plan.add.title')}>
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault()
-          if (ready) onSubmit({ title: titleFromText(text, s('plan.add.fallbackTitle')), text })
+          if (ready) onSubmit({ title: titleFromText(text, t('plan.add.fallbackTitle')), text })
         }}
       >
-        <Textarea aria-label={s('plan.add.paste')} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('lens.lessonPlaceholder')} />
+        <Textarea aria-label={t('plan.add.paste')} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('lens.lessonPlaceholder')} />
         <div className="flex flex-col gap-2">
           <label htmlFor="plan-file" className="flex w-fit cursor-pointer items-center gap-2 rounded-full bg-secondary px-4 py-3 text-label font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
             <FileUp aria-hidden className="size-5" />
-            {s('plan.add.file')}
+            {t('plan.add.file')}
             <input id="plan-file" type="file" className="sr-only" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => (void onFile(e.target.files?.[0]), (e.target.value = ''))} />
           </label>
           {reading && <p role="status" className="text-small text-muted-foreground">{t('lens.fileReading')}</p>}
@@ -75,7 +74,7 @@ export function PlanUpload({ busy, error, onSubmit }: { busy: boolean; error: st
         <div>
           <Button type="submit" disabled={!ready} loading={busy}>
             <Sparkles aria-hidden />
-            {busy ? s('plan.add.working') : s('plan.add.submit')}
+            {busy ? t('plan.add.working') : t('plan.add.submit')}
           </Button>
         </div>
       </form>
