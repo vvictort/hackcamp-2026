@@ -41,10 +41,10 @@ describe('capture loop (C1, C4, C5)', () => {
     for (const user of [U.ea, U.teacher]) {
       const v = await h.post(user, `/students/${kai}/videos`, video)
       expect(v.status).toBe(403)
-      expect(v.body.error.message).toContain('consent_required')
+      expect(v.body.error.code).toBe('consent_required')
       const a = await h.post(user, `/students/${kai}/voice-notes`, audio)
       expect(a.status).toBe(403)
-      expect(a.body.error.message).toContain('consent_required')
+      expect(a.body.error.code).toBe('consent_required')
     }
   })
 

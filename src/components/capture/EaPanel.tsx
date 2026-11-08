@@ -18,6 +18,7 @@ import {
   getCaptureConsent,
   recordEvent,
   sendVoiceNote,
+  useCaptureUpload,
 } from "@/lib/altamyra/capture-api";
 import { getCaptureObjectives } from "@/lib/altamyra/practice-api";
 import { useLoad } from "@/lib/useLoad";
@@ -294,11 +295,12 @@ function VoiceNote({ studentId }: { studentId: string }) {
   const [busy, setBusy] = useState(false);
   const rec = useRef<MediaRecorder | null>(null);
   const consent = useLoad(() => getCaptureConsent(studentId), studentId);
+  const upload = useCaptureUpload();
 
   async function send(blob: Blob) {
     setBusy(true);
     try {
-      const r = await sendVoiceNote(studentId, blob);
+      const r = await sendVoiceNote(studentId, blob, null, Date.now(), upload);
       const msg = t("capture.ea.voiceSent", { n: r.dataPoints.length });
       setStatus({ ok: true, text: msg });
       toast.success(msg);

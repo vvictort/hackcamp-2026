@@ -24,7 +24,7 @@ describe('POST /dev/demo-day', () => {
   })
 
   it('the sample IEP reads cleanly and the docs file is the same text', () => {
-    expect(Object.values(docs)).toEqual([DEMO_IEP_SD23_TEXT])
+    expect(Object.values(docs).map((d) => d.replace(/\r\n/g, '\n'))).toEqual([DEMO_IEP_SD23_TEXT])
     const sections = parseCbIepText(DEMO_IEP_SD23_TEXT)
     expect(sections.student).toMatchObject({ firstName: 'Simran', lastName: 'Grewal', grade: '3' })
     expect(sections.profile.designation).toContain('Category G')

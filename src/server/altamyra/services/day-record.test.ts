@@ -43,7 +43,13 @@ describe('notes, videos and day reviews in the student room', () => {
     const sql = studentRoom('kai')
     sql.run("UPDATE consents SET revoked_at = ? WHERE kind = 'video'", NOW)
     const args = { studentId: kai, storageKey: 'uploads/v.mp4', contentType: 'video/mp4', sizeBytes: 10, now: NOW }
-    expect(() => runStudent(sql, 'videos.add', args, ACTORS.ea)).toThrow(/consent_required/)
+    try {
+      runStudent(sql, 'videos.add', args, ACTORS.ea)
+      expect.unreachable('videos.add without consent must throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(AltamyraError)
+      expect((e as AltamyraError).code).toBe('consent_required')
+    }
     runStudent(sql, 'consents.set', { studentId: kai, kind: 'video', granted: true, now: NOW }, ACTORS.parentKai)
     expect(runStudent<{ video: Video }>(sql, 'videos.add', args, ACTORS.ea).video.storageKey).toBe('uploads/v.mp4')
     expect(() => runStudent(sql, 'videos.add', { ...args, contentType: 'audio/webm' }, ACTORS.ea)).toThrow()

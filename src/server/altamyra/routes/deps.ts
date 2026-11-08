@@ -35,6 +35,8 @@ export type AltamyraRouteDeps = {
   devSeedEnabled(env: Env): boolean
   /** Deletes a stored upload, e.g. voice-note audio once converted (PRD NFR Consent). */
   deleteFile(env: Env, fileKey: string, ownerUserId: string): Promise<void>
+  /** Streams a stored upload out of the uploader's private folder (GET /students/:id/file). */
+  fileDownload?(env: Env, ownerUserId: string, fileKey: string): Promise<Response>
   /** Forwards the live timeline WebSocket to the student room (optional). */
   openLive?(env: Env, studentId: string, request: Request): Promise<Response>
   fallbackError: ErrorHandler<AltamyraEnv>

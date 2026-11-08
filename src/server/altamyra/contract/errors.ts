@@ -5,6 +5,8 @@ export const ERROR_STATUS = {
   bad_request: 400,
   unauthorized: 401,
   forbidden: 403,
+  /** Media the parent has not consented to (voice notes, videos). The UI turns this into the consent explanation. */
+  consent_required: 403,
   not_found: 404,
   version_conflict: 409,
   gone: 410,

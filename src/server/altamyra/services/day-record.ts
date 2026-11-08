@@ -74,11 +74,7 @@ export const videosAdd = defineOp({
   }).extend(Now.shape),
   run(sql, args, actor): { video: Video } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
-    try {
-      requireConsent(sql, 'video')
-    } catch {
-      throw new AltamyraError('forbidden', "consent_required: videos need the parent or guardian's consent.")
-    }
+    requireConsent(sql, 'video')
     if (args.objectiveId) requireObjective(sql, args.objectiveId)
     const at = nowIso(args.now)
     const video: Video = {
@@ -176,6 +172,29 @@ export const daysGet = defineOp({
   },
 })
 
+/**
+ * Who uploaded a stored media file (photo page or video), so the file route can
+ * stream it from the uploader's private folder to staff who may read this
+ * student's record. Voice-note audio is never found here: it is deleted after
+ * processing by design. A file with no matching record answers null (404).
+ */
+export const fileRefGet = defineOp({
+  name: 'fileRef.get',
+  room: 'student',
+  args: StudentArgs.extend({ fileKey: z.string().min(1) }),
+  run(sql, args, actor): { ownerUserId: string | null } {
+    authorize(actor, 'progress.view', args.studentId)
+    const video = records.videoByStorageKey(sql, args.fileKey)
+    if (video) return { ownerUserId: video.recorderId }
+    const point = sql.get<{ recorder_id: string }>(
+      "SELECT recorder_id FROM data_points WHERE source_ref = ? OR source_ref LIKE ? ORDER BY rowid DESC LIMIT 1",
+      `photo:${args.fileKey}`,
+      `photo:${args.fileKey}#%`,
+    )
+    return { ownerUserId: point?.recorder_id ?? null }
+  },
+})
+
 /** Marks the end-of-day review done. The route drafts the daily summary afterwards. */
 export const daysComplete = defineOp({
   name: 'days.complete',
@@ -212,4 +231,4 @@ export const dayReviewToday = defineOp({
   },
 })
 
-export const dayRecordOpList = [notesAdd, videosAdd, daysList, daysGet, daysComplete, dayReviewToday]
+export const dayRecordOpList = [notesAdd, videosAdd, daysList, daysGet, daysComplete, dayReviewToday, fileRefGet]

@@ -92,7 +92,7 @@ describe('permission matrix enforced on the API (PRD NFR Security)', () => {
     const h = createHarness()
     const res = await h.post(U.teacher, `/students/${amara}/voice-notes`, { audio: { fileKey: 'ea/amara.webm', contentType: 'audio/webm' } })
     expect(res.status).toBe(403)
-    expect(res.body.error.message).toContain('consent_required')
+    expect(res.body.error.code).toBe('consent_required')
   })
 
   it('district lead and school admin reach no student data', async () => {

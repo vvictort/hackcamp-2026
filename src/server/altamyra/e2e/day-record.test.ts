@@ -37,7 +37,7 @@ describe('videos need the parent consent', () => {
     await h.call(U.parentKai, 'PUT', `/family/${kai}/consents`, { kind: 'video', granted: false })
     const refused = await h.post(U.ea, `/students/${kai}/videos`, video)
     expect(refused.status).toBe(403)
-    expect(refused.body.error.message).toContain('consent_required')
+    expect(refused.body.error.code).toBe('consent_required')
     expect(h.deletedFiles).toContain(video.fileKey)
     expect((await h.get(U.ea, `/students/${kai}/days/${TODAY}`)).body.videos).toEqual([])
 

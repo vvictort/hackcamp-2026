@@ -11,6 +11,8 @@ import {
   type LessonFile,
   type Membership,
   type ParentLink,
+  type SchoolClass,
+  type SchoolStudent,
   type SheetCode,
 } from '../contract/school'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS, seedSchool, seedSchoolDemo } from '../fixtures'
@@ -103,6 +105,21 @@ export const membershipsList = defineOp({
     const staff = repo.listMemberships(sql).map((m) => ({ userId: m.userId, displayName: name(m.userId), role: m.role, studentId: m.studentId, classId: m.classId }))
     const parents = repo.listParentLinks(sql).map((p) => ({ userId: p.parentUserId, displayName: name(p.parentUserId), role: 'parent' as const, studentId: p.studentId, classId: null }))
     return { memberships: [...staff, ...parents] }
+  },
+})
+
+/**
+ * GET /admin/schools/:id/classes: the classes and students a school
+ * administrator can pick from when assigning a teacher or a per-student role.
+ * Students surface as id + displayToken only — no names live in this room.
+ */
+export const adminDirectory = defineOp({
+  name: 'admin.directory',
+  room: 'school',
+  args: z.object({ schoolId: Id }),
+  run(sql, { schoolId }, actor): { classes: SchoolClass[]; students: SchoolStudent[] } {
+    authorize(actor, 'membership.manage', null, { schoolId })
+    return { classes: repo.listClasses(sql), students: repo.listStudents(sql) }
   },
 })
 
@@ -310,6 +327,7 @@ export const schoolDevSeed = defineOp({
 export const schoolOpList = [
   membershipsAssign,
   membershipsList,
+  adminDirectory,
   studentsGet,
   classesList,
   rosterList,

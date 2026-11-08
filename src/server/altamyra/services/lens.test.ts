@@ -103,11 +103,12 @@ describe('goal tags (PRD 1A-3, 1A-4)', () => {
 })
 
 describe('profile.get', () => {
-  it('the profile is the full read-only IEP for the EA of the student, and refused for an unassigned EA', () => {
+  it('the profile is the supports view for the EA of the student, and refused for an unassigned EA', () => {
     const sql = studentRoom('kai')
     const ea = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.ea)
-    expect(ea.view).toBe('full')
-    expect(JSON.stringify(ea)).toContain(KAI.goals[0].text)
+    expect(ea.view).toBe('supports')
+    expect(ea.sections ?? null).toBeNull()
+    expect(JSON.stringify(ea)).not.toContain(KAI.goals[0].text)
     expect(() => runStudent(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, userActor('other-ea', { studentRoles: { [STUDENT_IDS.amara]: ['ea'] } }))).toThrow(/not_in_scope/)
     const cm = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.caseManager)
     expect(cm.view).toBe('full')

@@ -1,4 +1,5 @@
 import type { z } from 'zod'
+import { useR2Files } from 'deepspace'
 import type {
   CaptureBatchResponse as CaptureBatchResponseS,
   CaptureEventBody,
@@ -27,9 +28,25 @@ export function photoFileKey(sheetCode: string, now = Date.now(), ext = 'jpg'): 
   return `captures/${now}/sheet-code-${sheetCode}.${ext}`
 }
 
-export async function photoMedia(file: Blob, sheetCode: string, now = Date.now()): Promise<MediaRef> {
-  const ext = file.type === 'image/png' ? 'png' : 'jpg'
-  return { fileKey: photoFileKey(sheetCode, now, ext), contentType: file.type || 'image/jpeg', bytesBase64: await blobToBase64(file) }
+/**
+ * Uploads a capture file into the signed-in user's private DeepSpace storage
+ * and resolves with the stored key the Altamyra API records. `key` is the
+ * location inside the user's folder (e.g. "captures/…/sheet-code-AL-X.jpg");
+ * the resolved stored key is what /api/files serves and what the server's
+ * file routes accept.
+ */
+export type FileUpload = (file: Blob, key: string) => Promise<string>
+export function useCaptureUpload(): FileUpload {
+  const { upload } = useR2Files()
+  return async (file, key) => {
+    const r = await upload(file, key.split('/').pop() ?? 'file', { key })
+    if (!r.success || !r.key) throw new Error(r.error ?? 'The file could not be uploaded.')
+    return r.key
+  }
+}
+
+export async function photoMedia(file: Blob, storedKey: string): Promise<MediaRef> {
+  return { fileKey: storedKey, contentType: file.type || 'image/jpeg', bytesBase64: await blobToBase64(file) }
 }
 
 /** Photos uploaded in this browser session, so the review page can show the source image. */
@@ -77,10 +94,12 @@ export const correctDataPoint = (studentId: string, dataPointId: string, body: D
 export const recordEvent = (studentId: string, event: CaptureEventBody) =>
   apiFetch<Out<typeof CaptureEventResponseS>>(`/students/${enc(studentId)}/events`, { body: event })
 
-/** Audio blob, or a text/plain blob for the typed-note fallback. */
-export async function sendVoiceNote(studentId: string, audio: Blob, classId: string | null = null, now = Date.now()) {
+/** Audio blob, or a text/plain blob for the typed-note fallback. Uploaded first so the server can delete it after conversion (PRD consent). */
+export async function sendVoiceNote(studentId: string, audio: Blob, classId: string | null = null, now = Date.now(), upload?: FileUpload) {
   const ext = audio.type.startsWith('text/') ? 'txt' : audio.type.includes('mp4') ? 'm4a' : 'webm'
-  const media: MediaRef = { fileKey: `voice/${now}.${ext}`, contentType: audio.type || 'audio/webm', bytesBase64: await blobToBase64(audio) }
+  const key = `voice/${now}.${ext}`
+  const storedKey = upload ? await upload(audio, key) : key
+  const media: MediaRef = { fileKey: storedKey, contentType: audio.type || 'audio/webm', bytesBase64: await blobToBase64(audio) }
   return apiFetch<Out<typeof VoiceNoteResponseS>>(`/students/${enc(studentId)}/voice-notes`, { body: { audio: media, classId } })
 }
 
@@ -99,12 +118,13 @@ export function videoFileKey(now = Date.now(), contentType = 'video/mp4'): strin
   return `videos/${now}.${ext}`
 }
 
-/** Sends the video inline (same pattern as voice notes). A 403 consent_required means the family has not allowed videos. */
-export async function sendVideo(studentId: string, video: Blob, objectiveId: string | null = null, now = Date.now()) {
+/** Uploads the video, then registers its stored key. A 403 consent_required means the family has not allowed videos. */
+export async function sendVideo(studentId: string, video: Blob, objectiveId: string | null = null, now = Date.now(), upload?: FileUpload) {
   const contentType = video.type || 'video/mp4'
-  const media: MediaRef = { fileKey: videoFileKey(now, contentType), contentType, bytesBase64: await blobToBase64(video) }
+  const key = videoFileKey(now, contentType)
+  const fileKey = upload ? await upload(video, key) : key
   return apiFetch<{ video: { id: string } }>(`/students/${enc(studentId)}/videos`, {
-    body: { contentType, sizeBytes: video.size, video: media, ...(objectiveId ? { objectiveId } : {}) },
+    body: { fileKey, contentType, sizeBytes: video.size, ...(objectiveId ? { objectiveId } : {}) },
   })
 }
 

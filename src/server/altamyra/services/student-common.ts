@@ -46,7 +46,7 @@ export function requireCurrentIep(sql: SqlExecutor): IepVersion {
 /** PRD NFR Consent: student mode and audio need an active parental consent row. */
 export function requireConsent(sql: SqlExecutor, kind: ConsentKind) {
   const consent = activeConsent(sql, kind)
-  if (!consent) throw new AltamyraError('forbidden', `no active ${kind} consent from a parent or guardian`)
+  if (!consent) throw new AltamyraError('consent_required', `no active ${kind} consent from a parent or guardian`)
   return consent
 }
 

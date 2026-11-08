@@ -10,7 +10,7 @@ export const createTicket = (studentId: string, body: { target: string; proposed
   apiFetch<{ ticket: Ticket }>(`/students/${enc(studentId)}/tickets`, { body })
 
 export const listSchoolTickets = (filter: TicketFilter) =>
-  emptyOn404(apiFetch<{ tickets: Ticket[] }>('/tickets', { query: { status: filter === 'pending' ? 'pending' : undefined } }).then((r) => r.tickets), [])
+  emptyOn404(apiFetch<{ tickets: Ticket[] }>('/tickets', { query: { status: filter } }).then((r) => r.tickets), [])
 export const applyTicket = (id: string) => apiFetch(`/tickets/${enc(id)}/apply`, { body: {} })
 export const declineTicket = (id: string, reason: string) => apiFetch(`/tickets/${enc(id)}/decline`, { body: { reason } })
 

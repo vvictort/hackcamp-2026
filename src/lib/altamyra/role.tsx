@@ -39,6 +39,12 @@ export function schoolIdOf(me: MeResponse | null): string | null {
   return typeof id === 'string' && id ? id : null
 }
 
+/** The district the deployment serves, as /me reports it (district_lead grants need it). */
+export function districtIdOf(me: MeResponse | null): string | null {
+  const id = (me as (MeResponse & { districtId?: string | null }) | null)?.districtId
+  return typeof id === 'string' && id ? id : null
+}
+
 export type StudentSummary = MeResponse['students'][number]
 
 export function visibleStudents(me: MeResponse | null): StudentSummary[] {

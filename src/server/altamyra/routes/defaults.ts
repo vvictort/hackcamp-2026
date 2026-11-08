@@ -26,6 +26,7 @@ export const productionDeps: AltamyraRouteDeps = {
   deleteFile: async (env, fileKey, ownerUserId) => {
     await appFiles(env, { scope: 'self', userId: ownerUserId }).delete(fileKey)
   },
+  fileDownload: (env, ownerUserId, fileKey) => appFiles(env, { scope: 'self', userId: ownerUserId }).download(fileKey),
   openLive: (env, studentId, request) => openStudentLive(env, studentId, request),
   fallbackError: workerErrorHandler('error'),
   now: () => Date.now(),

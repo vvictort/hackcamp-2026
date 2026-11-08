@@ -73,12 +73,12 @@ describe('EA scope: assigned students, full history (role model)', () => {
     expect((await h.get(U.ea, `/data-points/${sofiaOldPoint}/source?studentId=${sofia}`)).status).toBe(200)
   })
 
-  it('an EA reads the full IEP and objectives of an assigned student only', async () => {
+  it('an EA reads the supports view and objectives of an assigned student only', async () => {
     const h = createHarness()
     const profile = await h.get(U.ea, `/students/${kai}`)
     expect(profile.status).toBe(200)
-    expect(profile.body.view).toBe('full')
-    expect(profile.body.sections).not.toBeNull()
+    expect(profile.body.view).toBe('supports')
+    expect(profile.body.sections ?? null).toBeNull()
     expect((await h.get(U.ea, `/students/${kai}/objectives`)).status).toBe(200)
     expect((await h.get(U.ea, `/students/${amara}`)).status).toBe(403)
     expect((await h.get(U.ea, `/students/${amara}/objectives`)).status).toBe(403)

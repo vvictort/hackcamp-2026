@@ -1,5 +1,6 @@
 import type { Hono } from 'hono'
 import {
+  AdminDirectoryResponse,
   AdminMembershipBody,
   AdminMembershipsListResponse,
   AdminMembershipResponse,
@@ -14,7 +15,7 @@ import { AltamyraError } from '../contract/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { insightsGet } from '../services/insights'
 import { devRoleSwitch } from '../services/dev'
-import { meOverview, membershipsAssign, membershipsList } from '../services/school'
+import { adminDirectory, meOverview, membershipsAssign, membershipsList } from '../services/school'
 import type { Kit, Req } from './context'
 import { seedDemoSchool } from './student-flows'
 
@@ -26,8 +27,26 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const r = req(c)
     const me = MeResponse.parse(await r.school(meOverview, { date: r.today() }))
     // devSeed tells the UI whether to show demo controls; true only when ALTAMYRA_DEV_SEED === 'true'.
-    return c.json({ ...me, schoolId: deps.schoolId(c.env), devSeed: deps.devSeedEnabled(c.env) })
+    return c.json({ ...me, schoolId: deps.schoolId(c.env), districtId: deps.districtId(c.env), devSeed: deps.devSeedEnabled(c.env) })
   })
+
+  /** The classes and students the Roles page offers, plus the deployment's district. */
+  app.get(
+    '/admin/schools/:id/classes',
+    signedIn,
+    mw.requireCapability('membership.manage', 'none', (c) => ({ schoolId: c.req.param('id') })),
+    async (c) => {
+      const r = req(c)
+      const schoolId = r.param('id')
+      if (schoolId !== deps.schoolId(r.env)) throw new AltamyraError('not_found', 'school not found')
+      const { classes, students } = await r.school(adminDirectory, { schoolId })
+      return r.json(AdminDirectoryResponse, {
+        classes,
+        students: students.map((s) => ({ id: s.id, displayToken: s.displayToken, grade: s.grade })),
+        districtId: deps.districtId(r.env),
+      })
+    },
+  )
 
   /** The school administrator's Roles page: who holds which role. */
   app.get(

@@ -7,7 +7,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { useMutations, useQuery, useUser } from 'deepspace'
-import { MonitorSmartphone } from 'lucide-react'
+import { Type } from 'lucide-react'
 import {
   Avatar,
   AvatarFallback,
@@ -31,12 +31,14 @@ import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { initialOf } from '@/lib/utils'
+import { isTextScale, readTextScale, saveTextScale, TEXT_SCALES, type TextScale } from '@/lib/textScale'
 
 interface Profile {
   school?: string
   position?: string
   language?: string
   pulseReminder?: string
+  textScale?: string
 }
 
 const SECTIONS = [
@@ -70,27 +72,44 @@ export default function SettingsPage() {
   const [school, setSchool] = useState('')
   const [position, setPosition] = useState('')
   const [pulseReminder, setPulseReminder] = useState(true)
+  const [textScale, setTextScale] = useState<TextScale>(readTextScale)
   const [saving, setSaving] = useState(false)
 
   const recordId = me?.recordId
   useEffect(() => {
     const d = me?.data
-  // Stored value stays English; only the display label is translated.
-  const positionLabel = (p: string) => (p in POSITION_LABELS ? t(POSITION_LABELS[p as keyof typeof POSITION_LABELS]) : p)
     if (!d) return
     setSchool(d.school ?? '')
     setPosition(d.position ?? '')
     if (d.language) setLang(d.language)
     setPulseReminder(d.pulseReminder !== 'off')
+    // A scale saved on another device follows the profile here.
+    const storedScale = Number(d.textScale)
+    if (isTextScale(storedScale)) {
+      setTextScale(storedScale)
+      saveTextScale(storedScale)
+    }
     // Load once per record; later edits stay local until saved.
   }, [recordId])
+
+  /** Applies right away on this device and saves to the profile so it follows the person. */
+  async function chooseTextScale(scale: TextScale) {
+    setTextScale(scale)
+    saveTextScale(scale)
+    if (!recordId) return
+    try {
+      await put(recordId, { textScale: String(scale) })
+    } catch {
+      error(t('app.settings.saveFailed'), t('app.settings.saveFailedBody'))
+    }
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault()
     if (!recordId) return
     setSaving(true)
     try {
-      await put(recordId, { school: school.trim(), position, language: lang, pulseReminder: pulseReminder ? 'on' : 'off' })
+      await put(recordId, { school: school.trim(), position, language: lang, pulseReminder: pulseReminder ? 'on' : 'off', textScale: String(textScale) })
       success(t('app.settings.saved'), t('app.settings.savedBody'))
     } catch {
       error(t('app.settings.saveFailed'), t('app.settings.saveFailedBody'))
@@ -217,13 +236,28 @@ export default function SettingsPage() {
             {section === 'a11y' && (
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                  <MonitorSmartphone className="size-6" aria-hidden />
+                  <Type className="size-6" aria-hidden />
                 </span>
-                <div className="flex flex-col gap-1.5">
-                  <h3 className="text-h3 font-bold">{t('app.settings.textSize')}</h3>
-                  <p className="max-w-[60ch] text-body text-muted-foreground">
-                    {t('app.settings.textSizeBody')}
-                  </p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-h3 font-bold">{t('app.settings.textSize')}</h3>
+                    <p className="max-w-[60ch] text-body text-muted-foreground">
+                      {t('app.settings.textSizeBody')}
+                    </p>
+                  </div>
+                  <div role="group" aria-label={t('app.settings.textSize')} className="flex flex-wrap gap-2">
+                    {TEXT_SCALES.map((scale) => (
+                      <Button
+                        key={scale}
+                        type="button"
+                        variant={scale === textScale ? 'default' : 'secondary'}
+                        aria-pressed={scale === textScale}
+                        onClick={() => void chooseTextScale(scale)}
+                      >
+                        {scale}%
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

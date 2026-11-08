@@ -37,12 +37,13 @@ describe('sheet codes and files', () => {
     expect(normalizeSheetCode(' al-k7q4l1 ')).toBe('AL-K7Q4L1')
     expect(normalizeSheetCode('hello')).toBeNull()
     expect(photoFileKey('AL-K7Q4L1', 5)).toBe('captures/5/sheet-code-AL-K7Q4L1.jpg')
+    expect(photoFileKey('AL-K7Q4L1', 5, 'png')).toBe('captures/5/sheet-code-AL-K7Q4L1.png')
     expect(fileKeyOfSourceRef('photo:captures/5/a.jpg#q3')).toBe('captures/5/a.jpg')
     expect(fileKeyOfSourceRef('ea_event:timer:1')).toBeNull()
   })
-  it('encodes the photo as base64', async () => {
-    const m = await photoMedia(new Blob(['hi'], { type: 'image/png' }), 'AL-ABC123', 1)
-    expect(m).toEqual({ fileKey: 'captures/1/sheet-code-AL-ABC123.png', contentType: 'image/png', bytesBase64: btoa('hi') })
+  it('encodes the photo as base64 under its stored key', async () => {
+    const m = await photoMedia(new Blob(['hi'], { type: 'image/png' }), 'self/u1/captures/1/sheet-code-AL-ABC123.png')
+    expect(m).toEqual({ fileKey: 'self/u1/captures/1/sheet-code-AL-ABC123.png', contentType: 'image/png', bytesBase64: btoa('hi') })
   })
 })
 
@@ -134,8 +135,7 @@ describe('typed notes and videos', () => {
     await sendVideo('s1', new Blob(['abc'], { type: 'video/webm' }), 'o1', 7)
     const { url, body } = lastCall()
     expect(url).toBe('/api/v1/students/s1/videos')
-    expect(body).toMatchObject({ contentType: 'video/webm', sizeBytes: 3, objectiveId: 'o1' })
-    expect(body.video.fileKey).toBe('videos/7.webm')
+    expect(body).toMatchObject({ fileKey: 'videos/7.webm', contentType: 'video/webm', sizeBytes: 3, objectiveId: 'o1' })
     expect(videoFileKey(1, 'video/quicktime')).toBe('videos/1.mov')
   })
   it('spots the consent refusal', async () => {

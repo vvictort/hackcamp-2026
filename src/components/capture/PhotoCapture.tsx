@@ -5,10 +5,12 @@ import type { CaptureBatch } from '@/server/altamyra/contract/school'
 import type { DataPoint } from '@/server/altamyra/contract/student'
 import {
   normalizeSheetCode,
+  photoFileKey,
   photoMedia,
   pollBatch,
   rememberImage,
   uploadPhotos,
+  useCaptureUpload,
 } from '@/lib/altamyra/capture-api'
 import { ApiError } from '@/lib/altamyra/api'
 import { useAltamyraMe } from '@/lib/altamyra/role'
@@ -55,6 +57,7 @@ export function PhotoCapture({ studentId, onScored }: { studentId: string; onSco
   const [sampleBusy, setSampleBusy] = useState(false)
   const [sampleNote, setSampleNote] = useState<{ ok: boolean; text: string } | null>(null)
   const { devEnabled } = useAltamyraMe()
+  const upload = useCaptureUpload()
 
   useEffect(() => {
     if (!file) return setPreview(null)
@@ -73,7 +76,7 @@ export function PhotoCapture({ studentId, onScored }: { studentId: string; onSco
     try {
       const media = sample
         ? { fileKey: sampleFileKey(sheetCode), contentType: 'image/png', bytesBase64: await blobToBase64(file) }
-        : await photoMedia(file, sheetCode)
+        : await photoMedia(file, await upload(file, photoFileKey(sheetCode, Date.now(), photoExt(file))))
       rememberImage(media.fileKey, `data:${media.contentType};base64,${media.bytesBase64}`)
       const created = await uploadPhotos([media])
       const done = created.batch.status === 'processing' ? await pollBatch(created.batch.id) : created
@@ -202,6 +205,14 @@ export function PhotoCapture({ studentId, onScored }: { studentId: string; onSco
       </form>
     </Card>
   )
+}
+
+function photoExt(file: File): string {
+  const t = file.type.toLowerCase()
+  if (t.includes('png')) return 'png'
+  if (t.includes('webp')) return 'webp'
+  if (t.includes('heic') || t.includes('heif')) return 'heic'
+  return 'jpg'
 }
 
 function ResultBadge({ r, t }: { r: Scored; t: ReturnType<typeof useLang>['t'] }) {

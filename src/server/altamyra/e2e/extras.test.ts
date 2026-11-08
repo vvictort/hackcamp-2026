@@ -12,7 +12,7 @@ describe('remaining /api/v1 flows', () => {
     const audio = (key: string) => ({ audio: { fileKey: key, contentType: 'audio/webm' } })
     const refused = await h.post(U.teacher, `/students/${amara}/voice-notes`, audio('ea/note-1.webm'))
     expect(refused.status).toBe(403)
-    expect(refused.body.error.message).toContain('consent_required')
+    expect(refused.body.error.code).toBe('consent_required')
     expect(h.deletedFiles).toContain('ea/note-1.webm')
     expect(h.aiCalls.parseVoiceNote).toBe(0)
 
@@ -34,7 +34,7 @@ describe('remaining /api/v1 flows', () => {
     expect((await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'voice_note', granted: false })).status).toBe(200)
     const off = await h.post(U.ea, `/students/${sofia}/voice-notes`, note('ea/off.webm'))
     expect(off.status).toBe(403)
-    expect(off.body.error.message).toContain('consent_required')
+    expect(off.body.error.code).toBe('consent_required')
     expect(h.aiCalls.parseVoiceNote).toBe(0)
     expect((await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'voice_note', granted: true })).status).toBe(200)
     expect((await h.post(U.ea, `/students/${sofia}/voice-notes`, note('ea/on.webm'))).status).toBe(201)

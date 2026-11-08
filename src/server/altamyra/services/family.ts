@@ -47,6 +47,17 @@ export const consentsSet = defineOp({
   },
 })
 
+/** Every consent row of this child (grants and revocations); the parent reads this to show the current state before toggling. */
+export const consentsGet = defineOp({
+  name: 'consents.get',
+  room: 'student',
+  args: StudentArgs,
+  run(sql, args, actor): { consents: Consent[] } {
+    authorize(actor, 'consent.manage', args.studentId)
+    return { consents: records.listConsents(sql) }
+  },
+})
+
 // ---------- voice notes (PRD NFR Consent: converted to metrics, then deleted) ----------
 
 function toEventInput(e: z.infer<typeof VoiceEvent>): EventInput {
@@ -125,4 +136,4 @@ export const voiceNoteAudioDeleted = defineOp({
   },
 })
 
-export const familyOpList = [consentsSet, voiceNoteProcess, voiceNoteAudioDeleted, ...summariesOpList, ...dayRecordOpList]
+export const familyOpList = [consentsSet, consentsGet, voiceNoteProcess, voiceNoteAudioDeleted, ...summariesOpList, ...dayRecordOpList]

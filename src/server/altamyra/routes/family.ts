@@ -4,7 +4,7 @@ import { FamilyConsentBody, FamilyConsentsResponse, SummariesQuery, SummariesRes
 import { synthesizeSpeech, type TtsEnv } from '../ai/tts'
 import { AltamyraError } from '../contract/errors'
 import type { AltamyraEnv } from '../middleware/auth'
-import { consentsSet } from '../services/family'
+import { consentsGet, consentsSet } from '../services/family'
 import { familySummariesList } from '../services/summaries'
 import type { Kit } from './context'
 
@@ -14,6 +14,12 @@ import type { Kit } from './context'
  */
 export function familyRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   const { mw, signedIn, req } = kit
+
+  /** The parent's current consent state, so the toggles can show what is set before anything changes. */
+  app.get('/family/:id/consents', signedIn, mw.requireCapability('consent.manage'), async (c) => {
+    const r = req(c)
+    return r.json(FamilyConsentsResponse, await r.student(r.param('id'), consentsGet))
+  })
 
   /** Parents toggle consent for voice notes and videos; nobody else can. */
   app.put('/family/:id/consents', signedIn, mw.requireCapability('consent.manage'), async (c) => {
@@ -44,7 +50,12 @@ export function familyRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
       r.allow('summary.view', studentId)
       if (!r.can('summary.edit', studentId)) {
         const { summaries } = await r.student(studentId, familySummariesList)
-        const playable = new Set(summaries.flatMap((s) => [s.text, s.translatedText, s.audioScript]).filter((t): t is string => !!t))
+        const playable = new Set(
+          summaries
+            .flatMap((s) => [s.text, s.translatedText, s.audioScript])
+            .filter((t): t is string => !!t)
+            .map((t) => t.slice(0, 2000)),
+        )
         if (!playable.has(text)) throw new AltamyraError('forbidden', 'Only approved summaries can be read aloud.')
       }
     }

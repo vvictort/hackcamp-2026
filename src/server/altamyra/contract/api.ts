@@ -12,7 +12,7 @@ import {
   SummaryKind,
 } from './enums'
 import { InsightDimension } from './insights'
-import { CaptureBatch, Membership, ParentLink } from './school'
+import { CaptureBatch, Membership, ParentLink, SchoolClass, SchoolStudent } from './school'
 import {
   Check,
   Consent,
@@ -117,6 +117,14 @@ export const AdminMembershipResponse = z.object({
   membership: Membership.nullable(),
   parentLink: ParentLink.nullable(),
 })
+
+/** GET /admin/schools/:id/classes: the classes and students the Roles page offers, plus the deployment's district. */
+export const AdminDirectoryResponse = z.object({
+  classes: z.array(SchoolClass),
+  students: z.array(SchoolStudent.pick({ id: true, displayToken: true, grade: true })),
+  districtId: Id,
+})
+export type AdminDirectoryResponse = z.infer<typeof AdminDirectoryResponse>
 
 export const DevSeedResponse = z.object({
   schoolId: Id,

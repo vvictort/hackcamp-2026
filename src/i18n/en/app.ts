@@ -206,7 +206,7 @@ export const app = {
   'app.settings.pulseReminderHint': 'You can always add one yourself from the dashboard.',
   'app.settings.textSize': 'Text size',
   'app.settings.textSizeBody':
-    "To read larger text, use your browser's zoom or text size: every page is built to work at 200%.",
+    'Make text and controls larger or smaller. It applies right away and is saved to your profile.',
   'app.settings.saved': 'Saved',
   'app.settings.savedBody': 'Your profile and preferences are up to date.',
   'app.settings.saveFailed': 'Could not save',

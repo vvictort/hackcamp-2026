@@ -20,6 +20,10 @@ export const studentById = (sql: SqlExecutor, id: string) => findById(sql, 'stud
 export const classById = (sql: SqlExecutor, id: string) => findById(sql, 'classes', SchoolClass, id)
 export const captureBatchById = (sql: SqlExecutor, id: string) => findById(sql, 'capture_batches', CaptureBatch, id)
 
+export function listStudents(sql: SqlExecutor): SchoolStudent[] {
+  return parseRows(SchoolStudent, sql.all<Row>('SELECT * FROM students ORDER BY display_token'))
+}
+
 export function listClasses(sql: SqlExecutor): SchoolClass[] {
   return parseRows(SchoolClass, sql.all<Row>('SELECT * FROM classes ORDER BY rowid'))
 }

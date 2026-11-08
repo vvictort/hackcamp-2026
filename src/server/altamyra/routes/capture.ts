@@ -27,7 +27,7 @@ import type { CapturePageResult } from '../contract/school'
 import type { Check } from '../contract/student'
 import type { AltamyraEnv } from '../middleware/auth'
 import { captureBatchesCreate, captureBatchesGet, checksForScoring } from '../services/integration'
-import { notesAdd, videosAdd } from '../services/day-record'
+import { fileRefGet, notesAdd, videosAdd } from '../services/day-record'
 import { lensSaveRun } from '../services/lens'
 import { ensureReviewable, fallbackPageScore, type PageItemScore } from '../services/scoring'
 import { voiceNoteAudioDeleted, voiceNoteProcess } from '../services/family'
@@ -331,7 +331,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     }
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('voice_note'))) {
       await deleteQuietly(r, audioFileKey, () => r.student(studentId, voiceNoteAudioDeleted, { audioFileKey, processed: false }))
-      throw new AltamyraError('forbidden', 'consent_required: voice notes need the parent or guardian\'s consent.')
+      throw new AltamyraError('consent_required', 'Voice notes need the parent or guardian\'s consent.')
     }
     let processed = false
     try {
@@ -376,7 +376,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     assertUploadKey(body.fileKey)
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('video'))) {
       await deleteQuietly(r, body.fileKey)
-      throw new AltamyraError('forbidden', "consent_required: videos need the parent or guardian's consent.")
+      throw new AltamyraError('consent_required', 'Videos need the parent or guardian\'s consent.')
     }
     const { video } = await r.student(studentId, videosAdd, {
       storageKey: body.fileKey,
@@ -386,6 +386,30 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
       recordedAt: body.recordedAt,
     })
     return r.json(VideoResponse, { video }, 201)
+  })
+
+  /**
+   * Streams a stored upload (photo page, video) to staff who may read this
+   * student's record. Files sit in the uploader's private folder, so the room
+   * names the uploader and the platform serves the bytes as that user. Voice
+   * notes never resolve: they are deleted after processing by design.
+   */
+  app.get('/students/:id/file', signedIn, mw.requireCapability('progress.view'), async (c) => {
+    const r = req(c)
+    const studentId = r.param('id')
+    const key = c.req.query('key')
+    if (!key) throw new AltamyraError('bad_request', 'key is required')
+    assertUploadKey(key)
+    const { ownerUserId } = await r.student(studentId, fileRefGet, { fileKey: key })
+    if (!ownerUserId || !deps.fileDownload) throw new AltamyraError('not_found', 'File not found.')
+    try {
+      const res = await deps.fileDownload(r.env, ownerUserId, key)
+      const headers = new Headers(res.headers)
+      headers.set('Cache-Control', 'private, max-age=300')
+      return new Response(res.body, { status: res.status, headers })
+    } catch {
+      throw new AltamyraError('not_found', 'File not found.')
+    }
   })
 
   /** Open review items across the caller's students: the EA and the teacher see their own captures only. */

@@ -14,6 +14,14 @@
     <style>
       html { background-color: #F2F2F2; color-scheme: light; }
     </style>
+    <!-- Saved text size, applied before paint so there is no resize flash.
+         Mirrors src/lib/textScale.ts. -->
+    <script>
+      try {
+        var textScale = Number(localStorage.getItem('altamyra.textScale'))
+        if (textScale > 0 && textScale !== 100) document.documentElement.style.fontSize = textScale + '%'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

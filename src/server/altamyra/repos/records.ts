@@ -62,6 +62,11 @@ export const notesBetween = (sql: SqlExecutor, from: string, to: string): Note[]
 export const videosBetween = (sql: SqlExecutor, from: string, to: string): Video[] =>
   parseRows(Video, sql.all<Row>('SELECT * FROM videos WHERE recorded_at >= ? AND recorded_at < ? ORDER BY recorded_at, rowid', from, to))
 
+export function videoByStorageKey(sql: SqlExecutor, storageKey: string): Video | undefined {
+  const row = sql.get<Row>('SELECT * FROM videos WHERE storage_key = ?', storageKey)
+  return row ? parseRow(Video, row) : undefined
+}
+
 export function dayReviewOf(sql: SqlExecutor, date: string): DayReview | undefined {
   const row = sql.get<Row>('SELECT * FROM day_reviews WHERE date = ?', date)
   return row ? parseRow(DayReview, row) : undefined

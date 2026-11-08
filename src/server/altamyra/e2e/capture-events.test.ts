@@ -54,7 +54,7 @@ describe('voice notes and videos: consent and upload keys', () => {
     await consentOff(h, 'voice_note')
     const res = await h.post(U.ea, `/students/${kai}/voice-notes`, audio('voice/1.webm'))
     expect(res.status).toBe(403)
-    expect(res.body.error.message).toContain('consent_required')
+    expect(res.body.error.code).toBe('consent_required')
     expect(h.deletedFiles).toEqual(['voice/1.webm'])
   })
 
@@ -64,7 +64,7 @@ describe('voice notes and videos: consent and upload keys', () => {
     throwOnDelete(h)
     const res = await h.post(U.ea, `/students/${kai}/voice-notes`, audio('voice/2.webm'))
     expect(res.status).toBe(403)
-    expect(res.body.error.message).toContain('consent_required')
+    expect(res.body.error.code).toBe('consent_required')
   })
 
   it('a key outside the upload scope is 400, with or without consent', async () => {
@@ -85,7 +85,7 @@ describe('voice notes and videos: consent and upload keys', () => {
     await consentOff(h, 'video')
     const res = await h.post(U.ea, `/students/${kai}/videos`, video('videos/1.mp4'))
     expect(res.status).toBe(403)
-    expect(res.body.error.message).toContain('consent_required')
+    expect(res.body.error.code).toBe('consent_required')
     expect(h.deletedFiles).toEqual(['videos/1.mp4'])
     throwOnDelete(h)
     expect((await h.post(U.ea, `/students/${kai}/videos`, video('videos/2.mp4'))).status).toBe(403)

@@ -6,6 +6,7 @@ import { Id } from '../contract/common'
 import { AdaptationType, Label } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
+import { rolesFor } from '../contract/permissions'
 import type { AdaptationSuggestion, Check, LensRun, Suggestion } from '../contract/student'
 import { audit, insertEntity, newId, nowIso } from '../repos/base'
 import { confirmedObjectiveForGoal, currentGoals, currentIep, objectiveById } from '../repos/iep'
@@ -52,6 +53,19 @@ export const profileGet = defineOp({
   run(sql, args, actor): StudentProfileResponse {
     authorize(actor, 'iep.view', args.studentId)
     const iep = currentIep(sql)
+    // PRD "Roles and modes": an EA sees supports and what works, not the IEP text.
+    // The case manager and the teacher keep the full view (an actor who is both
+    // a teacher and an EA keeps the wider one).
+    const staffRead = rolesFor(actor, args.studentId).some((r) => r === 'case_manager' || r === 'teacher')
+    if (!staffRead) {
+      const sections = iep?.sections
+      return {
+        view: 'supports',
+        id: args.studentId,
+        firstName: sections ? (sections.student.preferredName ?? sections.student.firstName) : null,
+        supports: sections ? [...new Set([...sections.supports, ...sections.accommodations])] : [],
+      }
+    }
     return {
       view: 'full',
       id: args.studentId,

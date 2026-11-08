@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CircleCheck, CircleX, Video } from 'lucide-react'
 import { Button, Card, FormField, Input, type FormFieldControlProps } from '@/components/ui'
-import { captureErrorKind, MAX_VIDEO_BYTES, sendVideo } from '@/lib/altamyra/capture-api'
+import { captureErrorKind, MAX_VIDEO_BYTES, sendVideo, useCaptureUpload } from '@/lib/altamyra/capture-api'
 import { ObjectivePicker } from './NoteCapture'
 import { useLang } from '@/i18n'
 
@@ -12,6 +12,7 @@ export function VideoCapture({ studentId, onSaved }: { studentId: string; onSave
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
   const [inputKey, setInputKey] = useState(0)
+  const upload = useCaptureUpload()
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -19,7 +20,7 @@ export function VideoCapture({ studentId, onSaved }: { studentId: string; onSave
     if (file.size > MAX_VIDEO_BYTES) return setStatus({ ok: false, text: t('capture.video.tooBig') })
     setBusy(true)
     try {
-      await sendVideo(studentId, file, goal || null)
+      await sendVideo(studentId, file, goal || null, Date.now(), upload)
       setStatus({ ok: true, text: t('capture.video.saved') })
       setFile(null)
       setInputKey((k) => k + 1)

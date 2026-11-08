@@ -17,7 +17,7 @@ export type FamilySummary = {
 /** Consent kinds a parent controls. Typed locally; the server owns the list. */
 export const FAMILY_CONSENT_KINDS = ['voice_note', 'video'] as const
 export type FamilyConsentKind = (typeof FAMILY_CONSENT_KINDS)[number]
-export type Consent = { kind: string; revokedAt?: string | null }
+export type Consent = { kind: string; grantedAt: string; revokedAt?: string | null }
 
 export const getFamilySummaries = (studentId: string): Promise<FamilySummary[]> =>
   emptyOn404(
@@ -29,3 +29,13 @@ export const getFamilySummaries = (studentId: string): Promise<FamilySummary[]> 
 export const familyText = (s: FamilySummary) => (s.translatedText?.trim() ? { text: s.translatedText, lang: s.language || 'en' } : { text: s.text, lang: 'en' })
 export const setConsent = (studentId: string, body: { kind: FamilyConsentKind; granted: boolean }) =>
   apiFetch<{ consents: Consent[] }>(`/family/${enc(studentId)}/consents`, { method: 'PUT', body })
+
+/** Every consent row for the child; the toggles show the newest row per kind. */
+export const getConsents = (studentId: string): Promise<Consent[]> =>
+  emptyOn404(apiFetch<{ consents: Consent[] }>(`/family/${enc(studentId)}/consents`).then((r) => r.consents), [])
+
+/** A kind is on when its newest row is not revoked. */
+export function consentActive(consents: Consent[], kind: FamilyConsentKind): boolean {
+  const rows = consents.filter((c) => c.kind === kind).sort((a, b) => b.grantedAt.localeCompare(a.grantedAt))
+  return rows.length > 0 && !rows[0].revokedAt
+}
