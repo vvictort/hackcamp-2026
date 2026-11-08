@@ -109,6 +109,7 @@ describe('evidence capture', () => {
     for (const metricType of ['accuracy', 'rate', 'rubric'] as const) {
       expect(eventValue({ kind: 'counter', count: 3 }, { metricType } as never)).toBe(3)
     }
+    expect(eventValue({ kind: 'counter', count: 0 }, { metricType: 'frequency' } as never)).toBe(0)
     expect(() => eventValue({ kind: 'counter', count: 3 }, { metricType: 'duration' } as never)).toThrow(/cannot feed/)
   })
 
