@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui'
 import { Logo, LogoMark } from '../LogoMark'
 import { cn } from '@/lib/utils'
+import { APP_NAME } from '@/constants'
 
 interface AuthLayoutProps {
   /** The page's one h1. */
@@ -10,7 +11,7 @@ interface AuthLayoutProps {
   description?: ReactNode
   /** The form (and OAuthButtons). */
   children: ReactNode
-  /** Below a divider: the switch link, e.g. "New to Altamira? Create an account". */
+  /** Below a divider: the switch link, e.g. "New to Altamyra? Create an account". */
   footer?: ReactNode
   /** One line of product copy for an ink side panel, shown on lg only. */
   aside?: ReactNode
@@ -34,7 +35,7 @@ export function AuthLayout({ title, description, children, footer, aside, classN
         )}
       >
         <div className="flex min-w-0 flex-col gap-6">
-          <Link to="/" aria-label="Altamira home" className="animate-rise self-start rounded-full">
+          <Link to="/" aria-label={`${APP_NAME} home`} className="inline-flex min-h-11 animate-rise items-center self-start rounded-full">
             <Logo />
           </Link>
           <Card aria-labelledby={titleId} className="animate-rise gap-0 p-6 sm:p-8">
