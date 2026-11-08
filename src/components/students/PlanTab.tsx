@@ -3,7 +3,7 @@ import { CircleCheck, FileText, Printer, TriangleAlert } from 'lucide-react'
 import { Button, Card, EmptyState, FormField, Input, StatusBadge, Textarea, useToast } from '@/components/ui'
 import { PlanUpload } from '@/components/lens/PlanUpload'
 import {
-  approvePlan, canApprove, createPlan, editChange, getStudentPlans, pickPlan, todayIso, toggleChange, updatePlan,
+  approvePlan, canApprove, createPlan, editChange, getStudentPlans, pickPlan, PlanConflictError, todayIso, toggleChange, updatePlan,
   type LessonPlan, type ProposedChange,
 } from '@/lib/altamira/plans-api'
 import { ApiError } from '@/lib/altamira/students-api'
@@ -106,6 +106,7 @@ export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: bo
   const [date, setDate] = useState(todayIso())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const load = useLoad(() => getStudentPlans(studentId, date), `${studentId}:${date}`)
 
   const plan = load.status === 'ready' ? pickPlan(load.data.plans) : null
@@ -114,11 +115,16 @@ export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: bo
   const add = async (v: { title: string; text: string }) => {
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       await createPlan(studentId, { ...v, date })
       load.reload()
-    } catch {
-      setError(s('plan.add.failed'))
+    } catch (e) {
+      if (e instanceof PlanConflictError) {
+        // Plan already exists: say so plainly and switch to it.
+        setNotice(e.message)
+        load.reload()
+      } else setError(s('plan.add.failed'))
     } finally {
       setBusy(false)
     }
@@ -128,7 +134,7 @@ export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: bo
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
         <FormField label={s('plan.date')} className="w-44">
-          <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          <Input type="date" value={date} onChange={(e) => e.target.value && (setNotice(null), setDate(e.target.value))} />
         </FormField>
         {visible && (
           <div className="pb-1.5">
@@ -157,6 +163,7 @@ export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: bo
           <EmptyState icon={<FileText aria-hidden />} title={s(date === todayIso() ? 'plan.empty.ea' : 'plan.empty.date')} />
         </Card>
       ))}
+      {notice && visible && <p role="status" className="text-small text-muted-foreground">{notice}</p>}
       {load.status === 'ready' && visible && (canEdit ? <Editor plan={visible} studentId={studentId} onSaved={load.reload} /> : <ReadOnly plan={visible} />)}
     </div>
   )
