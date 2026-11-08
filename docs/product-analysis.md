@@ -47,7 +47,7 @@ These are not up for trade-offs:
 4. **Names never reach the model.** Student names are replaced (Student A, B, and so on) before any text goes to an AI model, and put back only inside the app.
 5. **Canadian hosting.** Data is stored in a Canadian region.
 
-How the code follows rules 3 and 4 today: Lesson Lens swaps student names for "Student A, B..." (also inside pasted lesson text), remaps goal ids to `g1, g2...` and sends the teacher as a hash (`src/actions/lesson-lens.ts`). The `/api/v1` backend de-identifies every AI call in `src/server/altamyra/ai/deidentify.ts` and refuses the call if that fails (commit 374dd12). The translation route sends only the fixed English interface text, never record data. Sign-up includes a consent step for fictional or de-identified data only.
+How the code follows rules 3 and 4 today: Every AI call, Lesson Lens on Maritime included, is de-identified in `src/server/altamyra/ai/deidentify.ts` and refused if that fails (commit 374dd12); the Maritime agent gets the teacher only as a hash. The translation route sends only the fixed English interface text, never record data. Sign-up includes a consent step for fictional or de-identified data only.
 
 Open item: this repository does not document which hosting region DeepSpace (Cloudflare Workers), Maritime and Google Gemini use for the prototype. Rule 5 is a design requirement that the team has not yet verified for those services.
 

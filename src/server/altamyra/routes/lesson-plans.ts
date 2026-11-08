@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { AltamyraEnv } from '../middleware/auth'
 import { PlanApproveBody, PlanCreateBody, PlanPatchBody, PlansTodayResponse, StudentPlansResponse, LessonPlanView, type ProposedChange } from '../contract/plans'
 import { DateString } from '../contract/common'
+import { maritimeAgent, maritimeFeedback, teacherHash } from '../ai/providers/maritime'
 import { newId } from '../repos/base'
 import { lensContext } from '../services/lens'
 import { composeTailored, lessonPlansApprove, lessonPlansCreate, lessonPlansForStudent, lessonPlansToday, lessonPlansUpdate, toView } from '../services/lesson-plans'
@@ -34,6 +35,22 @@ async function proposeChanges(r: Req, studentId: string, title: string, text: st
     proposed.push({ id: newId(), text: `${a.title}: ${a.text}`, label, accepted: true })
   }
   return proposed
+}
+
+function teachAgent(r: Req, studentId: string, proposed: ProposedChange[]): void {
+  const agent = maritimeAgent(r.env)
+  if (!agent || !proposed.length) return
+  const job = (async () => {
+    const [ai, teacher] = await Promise.all([r.ai([studentId]), teacherHash(r.actor.userId)])
+    await Promise.all(
+      proposed.map((p) => maritimeFeedback(agent, { teacher, kind: p.label, text: ai.deidText(p.text), decision: p.accepted ? 'approved' : 'rejected' })),
+    )
+  })().catch(() => console.warn('[maritime] feedback not delivered'))
+  try {
+    r.c.executionCtx.waitUntil(job)
+  } catch {
+    // No ExecutionContext outside the worker (tests): the job still runs.
+  }
 }
 
 /** Per-student lesson plans: original, proposed changes, tailored. The teacher edits and approves; EA and case manager read approved plans. */
@@ -90,6 +107,7 @@ export function lessonPlanRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const { studentId, version } = await r.body(PlanApproveBody)
     r.allow('adaptation.approve', studentId)
     const { plan } = await r.school(lessonPlansApprove, { studentId, version, planId: r.param('planId') })
+    teachAgent(r, studentId, plan.proposed)
     return r.json(PlanResponse, { plan: toView(plan) })
   })
 }

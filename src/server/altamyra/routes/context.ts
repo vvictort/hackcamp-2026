@@ -3,6 +3,7 @@ import type { z } from 'zod'
 import type { Env } from '../../../../worker'
 import { createAi, type AiFunctions } from '../ai/functions'
 import type { Roster, RosterStudent } from '../ai/deidentify'
+import { teacherHash } from '../ai/providers/maritime'
 import { createFixtureSummaryProvider, createSummaryAi, summaryProviderFromEnv, type SummaryAi } from '../ai/summaries'
 import type { AltamyraRoomRpc, RoomOp } from '../contract/ops'
 import { can, type Actor, type CanOptions, type Capability } from '../contract/permissions'
@@ -137,7 +138,7 @@ export class Req {
    * token appears in an input but who is not listed here makes the call fail closed.
    */
   async ai(studentIds: readonly string[]): Promise<AiFunctions> {
-    return createAi({ provider: this.deps.aiProvider(this.env), roster: await this.deidRoster(studentIds) })
+    return createAi({ provider: this.deps.aiProvider(this.env, await teacherHash(this.actor.userId)), roster: await this.deidRoster(studentIds) })
   }
 
   /**

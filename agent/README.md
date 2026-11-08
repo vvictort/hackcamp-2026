@@ -10,7 +10,7 @@ It runs on [Maritime](https://maritime.sh) as a custom container.
   - `{"task":"feedback", ...}` returns `ok` and stores the decision in `$DATA_DIR/<teacher>.json` (the 50 most recent). The latest approved and rejected items go to Gemini as examples on that teacher's next lesson-lens call.
 - It calls Gemini over REST (`GEMINI_API_KEY`; model chain `ALTAMYRA_GEMINI_MODELS`, default `gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite`, or one model in `GEMINI_MODEL`) with a 25 s timeout per attempt; the next model is tried on 429, 503, 404 or a timeout. With no key, or if the call fails, a keyword rules engine answers with `source: "rules"`.
 - Optional `AGENT_TOKEN`: if set, `/chat` needs `Authorization: Bearer <AGENT_TOKEN>` (`/health` stays open). Only for a self-hosted, publicly exposed copy; leave it unset on Maritime (see below).
-- Privacy: it only sees pseudonyms ("Student A") and an opaque teacher hash. The app keeps names, ids and emails to itself. The server never logs request bodies, the token or the key.
+- Privacy: it only sees de-identified input (student tokens such as "S-K7Q4", goal ids) and an opaque teacher hash. The app keeps names and emails to itself. The server never logs request bodies, the token or the key.
 
 | Env | Default | Notes |
 | --- | --- | --- |
@@ -87,7 +87,9 @@ maritime keys create --name altamyra-app --scopes deploy --json
 ```
 
 The app's worker calls `POST https://api.maritime.sh/api/agents/<agent-id>/chat` with
-`Authorization: Bearer <mk_ key>`. Put both in the app's DeepSpace secret store (not `.dev.vars`, which
+`Authorization: Bearer <mk_ key>`: `src/server/altamyra/ai/providers/maritime.ts` sends the `lesson-lens` task
+for each student's lesson plan (already de-identified by the app's AI pipeline, 25 s timeout, Gemini or fixture
+fallback in the app) and a `feedback` task for each accepted or dropped change when a plan is approved. Put both in the app's DeepSpace secret store (not `.dev.vars`, which
 DeepSpace rewrites on every run), then restart the dev server:
 
 ```sh

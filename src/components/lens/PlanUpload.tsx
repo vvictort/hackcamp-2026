@@ -3,7 +3,7 @@ import { FileUp, Sparkles, X } from 'lucide-react'
 import { Button, Card, Textarea } from '@/components/ui'
 import { s } from '@/components/students/text'
 import { titleFromText } from '@/lib/altamyra/plans-api'
-import { lensText } from '@/lib/lessonLens'
+import { useLang } from '@/i18n'
 import { extractPdfText } from '@/server/altamyra/routes/pdf-text'
 
 /** Text of an uploaded lesson, read in the browser (PDF or Word). */
@@ -19,6 +19,7 @@ export async function readLessonFile(file: File): Promise<string> {
 
 /** Paste or upload the original lesson plan. One button: save it and get the suggested changes. */
 export function PlanUpload({ busy, error, onSubmit }: { busy: boolean; error: string | null; onSubmit: (v: { title: string; text: string }) => void }) {
+  const { t } = useLang()
   const [text, setText] = useState('')
   const [fileName, setFileName] = useState('')
   const [note, setNote] = useState('')
@@ -29,14 +30,14 @@ export function PlanUpload({ busy, error, onSubmit }: { busy: boolean; error: st
     setNote('')
     setReading(true)
     try {
-      const t = await readLessonFile(file)
-      if (!t) setNote(lensText('lens.fileNoText'))
+      const read = await readLessonFile(file)
+      if (!read) setNote(t('lens.fileNoText'))
       else {
-        setText(t)
+        setText(read)
         setFileName(file.name)
       }
     } catch {
-      setNote(lensText('lens.fileBad'))
+      setNote(t('lens.fileBad'))
     } finally {
       setReading(false)
     }
@@ -52,18 +53,18 @@ export function PlanUpload({ busy, error, onSubmit }: { busy: boolean; error: st
           if (ready) onSubmit({ title: titleFromText(text, s('plan.add.fallbackTitle')), text })
         }}
       >
-        <Textarea aria-label={s('plan.add.paste')} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={lensText('lens.lessonPlaceholder')} />
+        <Textarea aria-label={s('plan.add.paste')} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('lens.lessonPlaceholder')} />
         <div className="flex flex-col gap-2">
           <label htmlFor="plan-file" className="flex w-fit cursor-pointer items-center gap-2 rounded-full bg-secondary px-4 py-3 text-label font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
             <FileUp aria-hidden className="size-5" />
             {s('plan.add.file')}
             <input id="plan-file" type="file" className="sr-only" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => (void onFile(e.target.files?.[0]), (e.target.value = ''))} />
           </label>
-          {reading && <p role="status" className="text-small text-muted-foreground">{lensText('lens.fileReading')}</p>}
+          {reading && <p role="status" className="text-small text-muted-foreground">{t('lens.fileReading')}</p>}
           {fileName && (
             <p className="flex items-center gap-2 text-small">
-              {lensText('lens.fileLoaded', { name: fileName })}
-              <Button type="button" size="icon" variant="ghost" aria-label={lensText('lens.fileClear')} onClick={() => (setFileName(''), setNote(''), setText(''))}>
+              {t('lens.fileLoaded', { name: fileName })}
+              <Button type="button" size="icon" variant="ghost" aria-label={t('lens.fileClear')} onClick={() => (setFileName(''), setNote(''), setText(''))}>
                 <X aria-hidden />
               </Button>
             </p>

@@ -9,8 +9,8 @@ import { lessonsCreate, lessonsGet, sheetCodesIssue, studentsGet } from '../serv
 import type { Kit, Req } from './context'
 
 /**
- * Lesson Lens dashboard flow, backend half (PRD 1A approval -> 1B). The page analyses a lesson itself
- * (src/actions/lesson-lens*.ts); when the teacher approves adaptations it posts them here:
+ * Lesson Lens dashboard flow, backend half (PRD 1A approval -> 1B). When the teacher approves
+ * adaptations the page posts them here:
  *   POST /lens/approvals           stores them as approved adaptations with usage events, creates the
  *                                  lesson record and one coded check sheet per goal (PRD 1A-7).
  *   GET  /students/:id/lens-usage  approved adaptations for the student's timeline and "used" counts.
