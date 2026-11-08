@@ -55,10 +55,6 @@ export function headDataPoints(sql: SqlExecutor, q: DataPointQuery = {}): DataPo
   )
 }
 
-/** Family-facing read: confirmed and auto-confirmed only, filtered in SQL. */
-export const familyDataPoints = (sql: SqlExecutor, objectiveIds: readonly string[]) =>
-  headDataPoints(sql, { objectiveIds, confirmedOnly: true })
-
 export const toPoints = (points: readonly DataPoint[]): Point[] =>
   points.map((p) => ({ at: p.recordedAt, value: p.value, source: p.source }))
 

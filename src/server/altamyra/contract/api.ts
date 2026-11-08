@@ -5,7 +5,6 @@ import {
   ConsentKind,
   DecisionRule,
   EventKind,
-  LessonSourceKind,
   MembershipRole,
   MetricType,
   PromptLevel,
@@ -13,16 +12,13 @@ import {
   SummaryKind,
 } from './enums'
 import { InsightDimension } from './insights'
-import { CaptureBatch, Lesson, LessonAnalysis, Membership, ParentLink } from './school'
+import { CaptureBatch, Membership, ParentLink } from './school'
 import {
-  AnswerKeyEntry,
   Check,
-  CheckItem,
   Consent,
   DataPoint,
   Decision,
   DayReview,
-  FamilySummary,
   Goal,
   IepSections,
   IepVersion,
@@ -50,8 +46,6 @@ import { ProposeObjectivesOutput } from './ai'
 
 export const StudentRefQuery = z.object({ studentId: Id })
 export type StudentRefQuery = z.infer<typeof StudentRefQuery>
-
-export const OkResponse = z.object({ ok: z.literal(true) })
 
 // ---------- Me (M0) ----------
 
@@ -208,29 +202,7 @@ export type ObjectiveFlagBody = z.infer<typeof ObjectiveFlagBody>
 
 export const ObjectiveResponse = z.object({ objective: Objective })
 
-// ---------- Lessons (M1) ----------
-
-export const LessonCreateBody = z
-  .object({
-    title: z.string().min(1),
-    sourceKind: LessonSourceKind,
-    text: z.string().nullable().default(null),
-    file: MediaRef.nullable().default(null),
-    scheduledFor: DateString.nullable().default(null),
-  })
-  .refine((b) => (b.sourceKind === 'text' ? b.text !== null : b.file !== null), 'text lessons need text, files need file')
-export type LessonCreateBody = z.infer<typeof LessonCreateBody>
-
-export const LessonResponse = z.object({ lesson: Lesson })
-export const LessonAnalysisResponse = z.object({ analysis: LessonAnalysis })
-
 // ---------- Lens (M1) ----------
-
-export const LensRunBody = z.object({
-  /** Defaults to every IEP student in the class. */
-  studentIds: z.array(Id).optional(),
-})
-export type LensRunBody = z.infer<typeof LensRunBody>
 
 export const LensStudentResult = z.object({
   studentId: Id,
@@ -239,60 +211,6 @@ export const LensStudentResult = z.object({
   checks: z.array(Check),
 })
 export type LensStudentResult = z.infer<typeof LensStudentResult>
-
-export const LensRunResponse = z.object({ analysisId: Id, results: z.array(LensStudentResult) })
-export const LensStudentResponse = LensStudentResult
-
-// ---------- Suggestions (M1) ----------
-
-export const SuggestionApproveBody = ExpectedVersion
-export const SuggestionEditBody = ExpectedVersion.extend({
-  content: z.object({ title: z.string().min(1), text: z.string().min(1), why: z.string() }).partial(),
-  goalIds: z.array(Id).min(1).optional(),
-})
-export type SuggestionEditBody = z.infer<typeof SuggestionEditBody>
-export const SuggestionRegenerateBody = ExpectedVersion.extend({ instruction: z.string().nullable().default(null) })
-export const SuggestionRejectBody = ExpectedVersion.extend({ reason: z.string().nullable().default(null) })
-
-export const SuggestionResponse = z.object({
-  suggestion: Suggestion,
-  /** Set when approval logged "adaptation used" (PRD 1A-7). */
-  usageEventId: Id.nullable(),
-})
-export type SuggestionResponse = z.infer<typeof SuggestionResponse>
-
-export const BulkApproveBody = z.object({
-  items: z.array(z.object({ suggestionId: Id, expectedVersion: z.number().int().min(1) })).min(1),
-})
-export type BulkApproveBody = z.infer<typeof BulkApproveBody>
-
-export const BulkApproveResponse = z.object({
-  approved: z.array(Id),
-  /** Modifications the IEP does not authorize stay blocked (PRD 1A-5). */
-  blocked: z.array(Id),
-  conflicts: z.array(Id),
-})
-
-// ---------- Sheets (M1) ----------
-
-export const SheetPage = z.object({
-  sheetCode: z.string(),
-  studentToken: z.string(),
-  adaptations: z.array(z.object({ suggestionId: Id, title: z.string(), text: z.string() })),
-  checkItems: z.array(CheckItem),
-})
-
-/** POST /checks/:chid/remove?studentId= (PRD 1A-6: the teacher can remove checks). */
-export const CheckRemoveBody = ExpectedVersion
-export const CheckResponse = z.object({ check: Check })
-
-export const SheetResponse = z.object({
-  lessonId: Id,
-  pages: z.array(SheetPage),
-  /** Printed separately from student pages. */
-  answerKey: z.array(z.object({ sheetCode: z.string(), entries: z.array(AnswerKeyEntry) })),
-})
-export type SheetResponse = z.infer<typeof SheetResponse>
 
 // ---------- Photo capture (M2) ----------
 
@@ -418,19 +336,6 @@ export const ProficiencyResponse = z.object({ rating: ProficiencyRating })
 
 // ---------- Families and summaries ----------
 
-/** @deprecated removed feature (GET /family/:id/progress has no route; parents read FamilySummariesResponse). Kept so the frontend keeps compiling. */
-export const FamilyProgressResponse = z.object({
-  goals: z.array(
-    z.object({
-      goal: Goal.pick({ id: true, area: true, text: true }),
-      /** Confirmed and auto-confirmed points only (PRD "Parents see only confirmed data"). */
-      dataPoints: z.array(DataPoint),
-    }),
-  ),
-  summaries: z.array(FamilySummary),
-  lessons: z.array(z.object({ lessonId: Id, title: z.string(), adaptations: z.array(z.object({ title: z.string(), text: z.string() })) })),
-})
-
 export const FamilyConsentBody = z.object({ kind: ConsentKind, granted: z.boolean() })
 export type FamilyConsentBody = z.infer<typeof FamilyConsentBody>
 export const FamilyConsentsResponse = z.object({ consents: z.array(Consent) })
@@ -459,8 +364,6 @@ export const SummaryResponse = z.object({ summary: Summary })
 /** GET /students/:id/summaries and GET /family/:id/summaries. The room filters by role: EA and teacher see drafts, the case manager approved weekly, the parent approved monthly. */
 export const SummariesResponse = z.object({ summaries: z.array(Summary) })
 export const SummariesQuery = z.object({ kind: SummaryKind.optional() })
-/** @deprecated use SummariesResponse. */
-export const FamilySummariesResponse = SummariesResponse
 export const PendingSummariesResponse = z.object({
   summaries: z.array(z.object({ id: Id, studentId: Id, label: z.string(), kind: SummaryKind, period: z.string() })),
 })

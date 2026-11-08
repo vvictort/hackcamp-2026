@@ -1,4 +1,4 @@
-import { PROMPT_LEVELS, type AdaptationType, type DataPointSource, type PromptLevel, type Proficiency } from '../contract/enums'
+import { PROMPT_LEVELS, type AdaptationType, type DataPointSource, type PromptLevel } from '../contract/enums'
 import {
   BASELINE_POINTS,
   CURRENT_POINTS,
@@ -9,12 +9,10 @@ import {
   DECISION_MIN_POINTS,
   DECISION_RECENT_POINTS,
   DECISION_TREND_MIN_POINTS,
-  PROFICIENCY_BASIS,
-  PROFICIENCY_MIN_DAYS,
-  PROFICIENCY_MIN_POINTS,
   RECENT_WINDOW_DAYS,
   TREND_SLOPE_TOLERANCE,
   WHAT_WORKS_MIN_N,
+  DAY_MS,
   daysToMs,
 } from './thresholds'
 
@@ -28,12 +26,14 @@ export type Point = { at: string; value: number; source?: DataPointSource }
 
 export type ObjectiveTarget = { baseline: number | null; target: number; reviewDate: string | null }
 
-const DAY_MS = daysToMs(1)
 const WEEK_MS = daysToMs(7)
 
 const time = (iso: string) => Date.parse(iso)
 const dateOnly = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 const sorted = (points: readonly Point[]) => [...points].sort((a, b) => time(a.at) - time(b.at))
+
+/** The UTC Monday of the week holding `ms`, at the same time of day. */
+export const mondayOf = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DAY_MS
 
 export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null
@@ -201,9 +201,7 @@ export type IndependenceWeek = { weekStart: string; total: number; shares: Recor
 export function independenceTrend(points: readonly Point[]): IndependenceWeek[] {
   const weeks = new Map<string, number[]>()
   for (const p of sorted(points)) {
-    const d = new Date(time(p.at))
-    const monday = time(p.at) - ((d.getUTCDay() + 6) % 7) * DAY_MS
-    const key = dateOnly(monday)
+    const key = dateOnly(mondayOf(time(p.at)))
     weeks.set(key, [...(weeks.get(key) ?? []), p.value])
   }
   return [...weeks.entries()].map(([weekStart, values]) => {
@@ -241,31 +239,4 @@ export function whatWorks(outcomes: readonly Outcome[], minN = WHAT_WORKS_MIN_N)
       return { adaptationType, n: values.length, meanOutcome: hidden ? null : Math.round(mean * 100) / 100, hidden }
     })
     .sort((a, b) => b.n - a.n)
-}
-
-// ---------- suggestProficiency ----------
-
-export type ProficiencySuggestion = { level: Proficiency; basis: typeof PROFICIENCY_BASIS; reason: string }
-
-/**
- * PRD 1B proficiency suggestion: a K-9 scale level in relation to IEP goals.
- * IE whenever the data minimum is unmet (or the evidence is judgment only);
- * never Emerging or Developing by default, only when the evidence shows it.
- * Extending is left to the teacher.
- */
-export function suggestProficiency(points: readonly Point[], objective: ObjectiveTarget): ProficiencySuggestion {
-  const q = quantitative(points)
-  if (!canShowTrend(points) || !meetsMinimum(q, PROFICIENCY_MIN_POINTS, PROFICIENCY_MIN_DAYS)) {
-    return { level: 'IE', basis: PROFICIENCY_BASIS, reason: 'insufficient evidence: data minimum not met' }
-  }
-  const baseline = baselineOf(q, objective)
-  const current = median(sorted(q).slice(-CURRENT_POINTS).map((p) => p.value))
-  if (baseline === null || current === null) {
-    return { level: 'IE', basis: PROFICIENCY_BASIS, reason: 'insufficient evidence: no baseline' }
-  }
-  const progress = progressFraction(current, baseline, objective.target)
-  if (progress === null) return { level: 'IE', basis: PROFICIENCY_BASIS, reason: 'insufficient evidence: target equals baseline' }
-  if (progress >= 1) return { level: 'Proficient', basis: PROFICIENCY_BASIS, reason: 'current level meets the IEP target' }
-  if (progress > 0) return { level: 'Developing', basis: PROFICIENCY_BASIS, reason: 'current level is between baseline and the IEP target' }
-  return { level: 'Emerging', basis: PROFICIENCY_BASIS, reason: 'current level has not moved past baseline' }
 }

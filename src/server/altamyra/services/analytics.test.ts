@@ -7,7 +7,6 @@ import {
   goalStatus,
   independenceTrend,
   median,
-  suggestProficiency,
   whatWorks,
   type Aimline,
   type Point,
@@ -108,35 +107,6 @@ describe('canShowTrend (PRD 1B: no trend from judgment-only data)', () => {
 
   it('is true once any quantitative evidence exists', () => {
     expect(canShowTrend([...series([1], 0, 'teacher'), ...series([2], 0, 'ea')])).toBe(true)
-  })
-})
-
-describe('suggestProficiency (PRD 1B, BC reporting guide)', () => {
-  it('suggests IE whenever the data minimum is unmet', () => {
-    expect(suggestProficiency([], objective).level).toBe('IE')
-    expect(suggestProficiency(series([90, 90, 90, 90, 90], 60), objective).level).toBe('IE')
-    expect(suggestProficiency(series(Array(10).fill(90), 10), objective).level).toBe('IE')
-    expect(suggestProficiency(series(Array(10).fill(90), 60, 'teacher'), objective).level).toBe('IE')
-  })
-
-  it('never defaults to Emerging or Developing: every thin-evidence case is IE', () => {
-    const thin: Point[][] = [[], series([0], 0), series([0, 0, 0], 30), series(Array(5).fill(10), 40), series(Array(20).fill(10), 7)]
-    for (const points of thin) {
-      const s = suggestProficiency(points, { baseline: null, target: 80, reviewDate: null })
-      expect(['Emerging', 'Developing']).not.toContain(s.level)
-      expect(s.level).toBe('IE')
-    }
-  })
-
-  it('always states it is in relation to IEP goals', () => {
-    expect(suggestProficiency([], objective).basis).toBe('in relation to IEP goals')
-    expect(suggestProficiency(series(Array(6).fill(85), 30), objective).basis).toBe('in relation to IEP goals')
-  })
-
-  it('suggests a scale level from sufficient evidence', () => {
-    expect(suggestProficiency(series([40, 40, 40, 85, 85, 85], 30), objective).level).toBe('Proficient')
-    expect(suggestProficiency(series([40, 40, 40, 60, 60, 60], 30), objective).level).toBe('Developing')
-    expect(suggestProficiency(series([40, 40, 40, 30, 30, 30], 30), objective).level).toBe('Emerging')
   })
 })
 

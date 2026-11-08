@@ -10,13 +10,12 @@ import { headDataPoints } from '../repos/evidence'
 import * as records from '../repos/records'
 import { Now, StudentArgs, authorize, authorizeStaff } from './authz'
 import { dayStart, requireConsent, requireObjective, schoolDate } from './student-common'
+import { DAY_MS } from './thresholds'
 
 /**
  * The daily record: typed notes, videos, per-day detail and the end-of-day
  * review. A "day" is a school day in the school's time zone.
  */
-
-const DAY_MS = 86_400_000
 
 /** Date arithmetic on YYYY-MM-DD strings. */
 export const addDays = (date: string, n: number): string => new Date(Date.parse(`${date}T12:00:00.000Z`) + n * DAY_MS).toISOString().slice(0, 10)

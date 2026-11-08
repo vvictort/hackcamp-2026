@@ -87,9 +87,6 @@ export const DECISION_RULES = ['below_aimline', 'above_aimline', 'data_needed'] 
 export const DecisionRule = z.enum(DECISION_RULES)
 export type DecisionRule = z.infer<typeof DecisionRule>
 
-/** @deprecated removed feature (teacher proposals). Kept only until the frontend drops its importers. */
-export const PROPOSAL_TARGETS = ['iep', 'profile', 'objective'] as const
-
 /** Voice notes and videos need a parent's consent before capture. TTS audio for parents needs none. */
 export const CONSENT_KINDS = ['voice_note', 'video'] as const
 export const ConsentKind = z.enum(CONSENT_KINDS)

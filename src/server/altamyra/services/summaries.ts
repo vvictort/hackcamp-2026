@@ -9,9 +9,11 @@ import { assertVersion, audit, insertEntity, newId, nowIso, updateVersioned } fr
 import { headDataPoints } from '../repos/evidence'
 import { goalById, objectiveById } from '../repos/iep'
 import * as records from '../repos/records'
+import { mondayOf } from './analytics'
 import { Now, StudentArgs, authorize } from './authz'
 import { addDays, categoryOf, dayBounds, rangeBounds } from './day-record'
 import { schoolDate } from './student-common'
+import { DAY_MS } from './thresholds'
 
 /**
  * Daily, weekly and monthly summaries. HARD RULE: they are written by AI, so a
@@ -29,19 +31,16 @@ const PERIOD_FORMAT: Record<SummaryKind, RegExp> = {
 
 /** ISO week of a date, "YYYY-Www". */
 export function isoWeekOf(date: string): string {
-  const d = new Date(`${date}T00:00:00.000Z`)
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3) // the Thursday of this week
-  const jan4 = Date.UTC(d.getUTCFullYear(), 0, 4)
-  const week = 1 + Math.round(((d.getTime() - jan4) / 86_400_000 - 3 + ((new Date(jan4).getUTCDay() + 6) % 7)) / 7)
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+  const thursday = mondayOf(Date.parse(`${date}T00:00:00.000Z`)) + 3 * DAY_MS
+  const year = new Date(thursday).getUTCFullYear()
+  const week = 1 + Math.round((thursday - 3 * DAY_MS - mondayOf(Date.UTC(year, 0, 4))) / (7 * DAY_MS))
+  return `${year}-W${String(week).padStart(2, '0')}`
 }
 
 /** Monday of an ISO week, YYYY-MM-DD. */
 export function weekStartOf(period: string): string {
   const [y, w] = period.split('-W').map(Number)
-  const jan4 = Date.UTC(y, 0, 4)
-  const monday = jan4 - ((new Date(jan4).getUTCDay() + 6) % 7) * 86_400_000
-  return new Date(monday + (w - 1) * 7 * 86_400_000).toISOString().slice(0, 10)
+  return new Date(mondayOf(Date.UTC(y, 0, 4)) + (w - 1) * 7 * DAY_MS).toISOString().slice(0, 10)
 }
 
 /** First and last school date of a period. */

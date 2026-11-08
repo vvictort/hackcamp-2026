@@ -3,6 +3,7 @@ import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
 import { devDemoStudent } from '../fixtures/demo-day'
 import { comingUpOpList } from './coming-up'
 import { deidSchoolRoster, deidStudentNames } from './deid'
+import { devRoleSwitch } from './dev'
 import { familyOpList } from './family'
 import { insightOpList } from './insight'
 import { insightsOpList } from './insights'
@@ -41,6 +42,6 @@ export const studentOps: OpRegistry = registry('student', [
   deidStudentNames,
 ])
 
-export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...lessonPlanOpList, ...ticketSchoolOps, ...integrationSchoolOps, deidSchoolRoster, devResetSchool, devDemoStudent])
+export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...lessonPlanOpList, ...ticketSchoolOps, ...integrationSchoolOps, deidSchoolRoster, devResetSchool, devDemoStudent, devRoleSwitch])
 
 export const insightsOps: OpRegistry = registry('insights', insightsOpList)

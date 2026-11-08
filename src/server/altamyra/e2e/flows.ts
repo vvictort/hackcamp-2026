@@ -1,4 +1,4 @@
-import { CLASS_IDS, STUDENT_IDS, USER_IDS } from '../fixtures'
+import { STUDENT_IDS, USER_IDS } from '../fixtures'
 import type { Harness } from './harness'
 
 /** Multi-step API flows reused by the e2e tests. Every step goes through /api/v1. */

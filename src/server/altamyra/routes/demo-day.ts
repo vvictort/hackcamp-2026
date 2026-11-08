@@ -1,12 +1,13 @@
 // Response bodies are read loosely here; the real routes validate them.
 import type { Hono } from 'hono'
+import { ACTOR_ROLES, type ActorRole } from '../contract/permissions'
 import type { Env } from '../../../../worker'
 import { DEMO_IEP_SD23_TEXT, DEMO_LESSON, DEMO_PUNJABI_SAMPLE, DEMO_STUDENT, DEMO_PARENT } from '../fixtures/demo-iep-sd23'
 import { devDemoStudent } from '../fixtures/demo-day'
 import { USER_IDS } from '../fixtures/school'
 import type { AltamyraEnv } from '../middleware/auth'
 import { HttpError } from '../middleware/errors'
-import { DEV_ROLES, devRoleSwitch, type DevRole } from '../rooms/core'
+import { devRoleSwitch } from '../services/dev'
 import type { Kit } from './context'
 import type { AltamyraRouteDeps } from './deps'
 import { seedDemoSchool } from './me'
@@ -21,7 +22,7 @@ import { seedDemoSchool } from './me'
  * Every step goes through the normal sign-in, permission matrix, validation, audit log and AI provider chain.
  */
 
-export type DemoRole = DevRole | 'system'
+export type DemoRole = ActorRole | 'system'
 export type DemoStep = { role: DemoRole; action: string; ok: boolean; detail: string; page: string }
 export type DemoDayResult = { studentId: string; steps: DemoStep[] }
 
@@ -35,7 +36,7 @@ const WHO = {
   parent: DEMO_PARENT.id,
   district_lead: USER_IDS.districtLead,
   school_admin: USER_IDS.schoolAdmin,
-} satisfies Record<DevRole, string>
+} satisfies Record<ActorRole, string>
 
 type Res = { status: number; body: any }
 
@@ -74,7 +75,7 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
       const inner = createInner(internalDeps(deps))
       const env = c.env as Env
 
-      const call = async (role: DevRole, method: string, path: string, body?: unknown): Promise<Res> => {
+      const call = async (role: ActorRole, method: string, path: string, body?: unknown): Promise<Res> => {
         const request = new Request(`http://altamyra.internal${path}`, {
           method,
           headers: body !== undefined ? { 'content-type': 'application/json' } : {},
@@ -341,7 +342,7 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
       // Give the caller the view of the role they were using (their access now includes the new student).
       try {
         const active = (await r.school(devRoleSwitch, {})).active
-        await r.school(devRoleSwitch, { role: DEV_ROLES.find((x) => x === active) ?? 'case_manager' })
+        await r.school(devRoleSwitch, { role: ACTOR_ROLES.find((x) => x === active) ?? 'case_manager' })
       } catch {
         /* the steps above are the result; the UI refreshes the role */
       }

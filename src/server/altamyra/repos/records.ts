@@ -1,5 +1,5 @@
 import type { ConsentKind, SummaryKind } from '../contract/enums'
-import { Consent, DayReview, Note, Probe, ProficiencyRating, Summary, Video } from '../contract/student'
+import { Consent, DayReview, Note, ProficiencyRating, Summary, Video } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
 import { findById, parseRow, parseRows } from './base'
 
@@ -69,16 +69,3 @@ export function dayReviewOf(sql: SqlExecutor, date: string): DayReview | undefin
 
 export const dayReviewsBetween = (sql: SqlExecutor, fromDate: string, toDate: string): DayReview[] =>
   parseRows(DayReview, sql.all<Row>('SELECT * FROM day_reviews WHERE date >= ? AND date <= ? ORDER BY date', fromDate, toDate))
-
-// ---------- probes ----------
-
-export function probesForObjectives(sql: SqlExecutor, objectiveIds: readonly string[]): Probe[] {
-  if (objectiveIds.length === 0) return []
-  return parseRows(
-    Probe,
-    sql.all<Row>(
-      `SELECT * FROM probes WHERE objective_id IN (${objectiveIds.map(() => '?').join(', ')}) ORDER BY rowid`,
-      ...objectiveIds,
-    ),
-  )
-}

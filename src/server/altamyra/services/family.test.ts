@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { AltamyraError } from '../contract/errors'
 import type { Consent, DataPoint } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
 import { KAI, SOFIA, STUDENT_IDS, USER_IDS } from '../fixtures'
 import { ACTORS, closeAll, countRows, runStudent, studentRoom } from './testing'
 

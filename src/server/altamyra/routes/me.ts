@@ -9,13 +9,14 @@ import {
   MeResponse,
 } from '../contract/api'
 import { z } from 'zod'
-import { DEV_ROLES, devRoleSwitch } from '../rooms/core'
+import { ACTOR_ROLES } from '../contract/permissions'
 import { HttpError } from '../middleware/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { insightsGet } from '../services/insights'
 import { studentDevSeedDemo, devResetSchool } from '../fixtures/demo'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
 import { ComingUpResponse, comingUpList } from '../services/coming-up'
+import { devRoleSwitch } from '../services/dev'
 import { meOverview, membershipsAssign, membershipsList, schoolDevSeed } from '../services/school'
 import type { Kit, Req } from './context'
 
@@ -122,7 +123,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     await next()
   }, signedIn, async (c) => {
     const r = req(c)
-    const { role } = await r.body(z.object({ role: z.enum(DEV_ROLES) }))
+    const { role } = await r.body(z.object({ role: z.enum(ACTOR_ROLES) }))
     const result = await r.school(devRoleSwitch, { role })
     return c.json(result)
   })

@@ -5,7 +5,7 @@
  * PRD; they are the smallest workable choice and are listed in the report.
  */
 
-const DAY_MS = 24 * 60 * 60 * 1000
+export const DAY_MS = 24 * 60 * 60 * 1000
 export const daysToMs = (days: number) => days * DAY_MS
 
 // ---------- goal status line (PRD 1B "Analytics per goal") ----------
@@ -54,22 +54,8 @@ export const RATE_PROBE_SECONDS = 60
 /** Assumption: rows with fewer than 5 outcomes are hidden. The PRD says "a minimum count". */
 export const WHAT_WORKS_MIN_N = 5
 
-// ---------- proficiency suggestion (PRD 1B, BC Inclusive Education Reporting Guide) ----------
-
-/** Assumption: the "data minimum" for a proficiency suggestion is the decision-rule minimum. */
-export const PROFICIENCY_MIN_POINTS = DECISION_MIN_POINTS
-export const PROFICIENCY_MIN_DAYS = DECISION_MIN_DAYS
-/** Every suggestion states this (PRD: "states that a scale indicator is in relation to IEP goals"). */
-export const PROFICIENCY_BASIS = 'in relation to IEP goals' as const
-
-// ---------- weekly digest ----------
-
-export const DIGEST_WINDOW_DAYS = 7
-
-// ---------- student mode ----------
+// ---------- school calendar ----------
 
 /** BC schools: "today" is the school's calendar day. */
 export const SCHOOL_TIME_ZONE = 'America/Vancouver'
 
-/** Assumption: break timer length when the IEP lists a break support. */
-export const BREAK_TIMER_MINUTES = 5

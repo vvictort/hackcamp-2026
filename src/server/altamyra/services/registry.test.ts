@@ -4,18 +4,18 @@ import { insightsOps, schoolOps, studentOps } from './registry'
 /** Op names the Integrator and Platform call by string. */
 const REQUIRED = {
   school: [
-    'memberships.assign', 'lessons.create', 'lessons.saveAnalysis', 'lessons.getAnalysis', 'sheetCodes.issue', 'sheetCodes.resolve',
+    'memberships.assign', 'lessons.create', 'sheetCodes.issue', 'sheetCodes.resolve',
     'memberships.list', 'me.overview', 'dev.seed',
   ],
   student: [
-    'lens.saveRun', 'suggestions.approve', 'suggestions.edit', 'suggestions.regenerate', 'suggestions.reject', 'suggestions.bulkApprove', 'checks.list',
+    'lens.saveRun',
     'iep.import', 'iep.confirm', 'objectives.propose', 'objectives.confirm', 'objectives.flagUnmeasurable',
     'dataPoints.addPending', 'events.record', 'dataPoints.correct', 'review.list', 'review.confirm', 'timeline.get', 'goal.status', 'dataPoint.source',
     'aimline.get', 'whatWorks.get',
-    'dataNeeded.scan', 'proficiency.set', 'consents.set', 'consents.list',
+    'dataNeeded.scan', 'proficiency.set', 'consents.set',
     'familySummaries.save', 'familySummaries.approve', 'familySummaries.list', 'voiceNote.process',
   ],
-  insights: ['counters.push', 'insights.get'],
+  insights: ['insights.get'],
 }
 
 describe('op registries', () => {

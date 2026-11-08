@@ -1,11 +1,10 @@
-import { Check, LensRun, Suggestion, type AdaptationSuggestion } from '../contract/student'
+import { Check, Suggestion, type AdaptationSuggestion } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
-import { findById, insertEntity, parseRow, parseRows } from './base'
+import { findById, insertEntity, parseRow } from './base'
 
 type Row = Record<string, unknown>
 
 export const suggestionById = (sql: SqlExecutor, id: string) => findById(sql, 'suggestions', Suggestion, id)
-export const checkById = (sql: SqlExecutor, id: string) => findById(sql, 'checks', Check, id)
 
 export function insertSuggestion(sql: SqlExecutor, s: Suggestion): void {
   insertEntity(sql, 'suggestions', s, ['goalIds'])
@@ -13,27 +12,6 @@ export function insertSuggestion(sql: SqlExecutor, s: Suggestion): void {
 
 export function insertCheck(sql: SqlExecutor, c: Check): void {
   insertEntity(sql, 'checks', c, ['answerKey', 'rubric'])
-}
-
-export function latestLensRun(sql: SqlExecutor, lessonId: string): LensRun | undefined {
-  const row = sql.get<Row>('SELECT * FROM lens_runs WHERE lesson_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1', lessonId)
-  return row ? parseRow(LensRun, row) : undefined
-}
-
-export function suggestionsForRun(sql: SqlExecutor, lensRunId: string): Suggestion[] {
-  return parseRows(Suggestion, sql.all<Row>('SELECT * FROM suggestions WHERE lens_run_id = ? ORDER BY rowid', lensRunId))
-}
-
-export function checksForSuggestions(sql: SqlExecutor, suggestionIds: readonly string[], activeOnly = true): Check[] {
-  if (suggestionIds.length === 0) return []
-  const status = activeOnly ? " AND status = 'active'" : ''
-  return parseRows(
-    Check,
-    sql.all<Row>(
-      `SELECT * FROM checks WHERE suggestion_id IN (${suggestionIds.map(() => '?').join(', ')})${status} ORDER BY rowid`,
-      ...suggestionIds,
-    ),
-  )
 }
 
 /** The most recent check with an answer key for an objective: the source of an equivalent probe form. */
@@ -55,15 +33,4 @@ export function approvedAdaptations(sql: SqlExecutor, lessonId?: string): (Adapt
     const s = parseRow(Suggestion, rest) as AdaptationSuggestion
     return { ...s, lessonId: String(runLessonId) }
   })
-}
-
-/** Active checks attached to approved adaptations: the items student mode may deliver. */
-export function approvedChecks(sql: SqlExecutor): Check[] {
-  return parseRows(
-    Check,
-    sql.all<Row>(
-      `SELECT c.* FROM checks c JOIN suggestions s ON s.id = c.suggestion_id
-       WHERE c.status = 'active' AND s.status = 'approved' ORDER BY c.rowid`,
-    ),
-  )
 }
