@@ -40,6 +40,12 @@ describe('getProvider', () => {
     expect(getProvider({ ALTAMIRA_AI_PROVIDER: 'vertex' }).name).toBe('vertex')
     expect(getProvider({ ALTAMIRA_AI_PROVIDER: ' Vertex ' }).name).toBe('vertex')
   })
+  it('selects gemini when GEMINI_API_KEY is set, fixture when not', () => {
+    expect(getProvider({ GEMINI_API_KEY: 'k' }).name).toBe('gemini')
+    expect(getProvider({ GEMINI_API_KEY: '  ' }).name).toBe('fixture')
+    expect(getProvider({ ALTAMIRA_AI_PROVIDER: 'fixture', GEMINI_API_KEY: 'k' }).name).toBe('fixture')
+    expect(getProvider({ ALTAMIRA_AI_PROVIDER: 'vertex', GEMINI_API_KEY: 'k' }).name).toBe('vertex')
+  })
   it('refuses an unknown provider', () => {
     expect(() => getProvider({ ALTAMIRA_AI_PROVIDER: 'openai' })).toThrow(/Unknown ALTAMIRA_AI_PROVIDER/)
   })
