@@ -12,7 +12,7 @@ import { DEFAULT_LANG, LANGUAGES, findLanguage, type Language } from './language
 type Messages = Partial<Record<MessageKey, string>>
 type Vars = Record<string, string | number>
 
-const STORAGE_KEY = 'altamira.lang'
+const STORAGE_KEY = 'altamyra.lang'
 
 export function translate(messages: Messages, key: MessageKey, vars?: Vars): string {
   const text = messages[key] ?? en[key]
