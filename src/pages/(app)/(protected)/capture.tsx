@@ -27,7 +27,8 @@ function CapturePageBody() {
   const [kind, setKind] = useState<Kind>('photo')
   const [refresh, setRefresh] = useState(0)
   // A remembered student who is no longer on the list is ignored.
-  const studentId = students.some((s) => s.id === picked) ? picked : ''
+  // Defaults to the first assigned student, so the EA starts with the child they are with.
+  const studentId = students.some((s) => s.id === picked) ? picked : (students[0]?.id ?? '')
   const bump = () => setRefresh((n) => n + 1)
 
   return (
