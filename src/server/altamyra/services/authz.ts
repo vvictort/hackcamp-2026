@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { Id } from '../contract/common'
 import { AltamyraError } from '../contract/errors'
-import { can, type Actor, type CanOptions, type CanResult, type Capability, type StaffRole } from '../contract/permissions'
+import { STAFF_ROLES, can, type Actor, type CanOptions, type CanResult, type Capability } from '../contract/permissions'
 
 /**
  * Server-side permission checks inside room ops (PRD NFR Security: "role and
@@ -28,22 +28,8 @@ export function authorize(actor: Actor, capability: Capability, studentId: strin
 /** Staff roles only: a student session or a link never passes. */
 export function authorizeStaff(actor: Actor, capability: Capability, studentId: string, opts: CanOptions = {}): Allowed {
   const allowed = authorize(actor, capability, studentId, opts)
-  if (!(['case_manager', 'teacher', 'ea'] as const satisfies readonly StaffRole[]).includes(allowed.role as StaffRole)) {
+  if (!(STAFF_ROLES as readonly string[]).includes(allowed.role)) {
     throw new AltamyraError('forbidden', `${capability} needs a staff role`)
   }
   return allowed
-}
-
-/**
- * Reading a student's objectives (id, metric, unit, target, mastery rule). Any
- * staff role in scope may read them so the capture screens can list goals to
- * record against. Editing stays with the case manager at upload (objective.confirm).
- */
-export function authorizeObjectivesRead(actor: Actor, studentId: string, opts: CanOptions = {}): Allowed {
-  return authorize(actor, 'iep.view', studentId, opts)
-}
-
-/** An EA (or any staff role) may record events and data points for a student they are assigned to. */
-export function authorizeEventRecord(actor: Actor, studentId: string, opts: CanOptions = {}): Allowed {
-  return authorizeStaff(actor, 'evidence.capture', studentId, opts)
 }

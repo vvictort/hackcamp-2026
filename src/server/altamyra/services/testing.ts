@@ -1,17 +1,19 @@
-import type { OpRegistry } from '../contract/ops'
+import type { OpRegistry, RoomName } from '../contract/ops'
 import { userActor, type Actor } from '../contract/permissions'
 import { createNodeSqlExecutor } from '../db/node-sqlite'
 import { migrateInsights } from '../db/schema/insights'
 import { migrateSchool } from '../db/schema/school'
 import { migrateStudent } from '../db/schema/student'
 import type { SqlExecutor } from '../db/sql'
-import { CLASS_IDS, STUDENT_IDS, USER_IDS, seedSchool, seedStudent, studentFixture, type FixtureStudentKey } from '../fixtures'
+import { CLASS_IDS, DISTRICT, STUDENT_IDS, USER_IDS, seedSchool, seedStudent, studentFixture, type FixtureStudentKey } from '../fixtures'
+import { unwrapOp } from '../middleware/errors'
+import { runRoomOp } from '../rooms/core'
 import { insightsOps, schoolOps, studentOps } from './registry'
 
 /**
  * Test-only helpers: rooms on node:sqlite seeded with the fictional fixtures,
- * actors matching the fixture memberships, and a runner that behaves like a
- * room's run(opName, args, actor). Imported only by *.test.ts files.
+ * actors matching the fixture memberships, and runners that go through
+ * runRoomOp like a room. Imported only by *.test.ts files.
  */
 
 const open: { close(): void }[] = []
@@ -40,17 +42,16 @@ export function insightsRoom() {
   return sql
 }
 
-/** Same steps as a room: look up, parse args, run inside one transaction. */
-export function runIn<T>(registry: OpRegistry, sql: SqlExecutor, name: string, args: unknown, actor: Actor): T {
-  const op = registry[name]
-  if (!op) throw new Error(`no op ${name}`)
-  const parsed = op.args ? op.args.parse(args) : args
-  return sql.transaction(() => op.run(sql, parsed, actor)) as T
+const REGISTRIES = { student: studentOps, school: schoolOps, insights: insightsOps } satisfies Record<RoomName, OpRegistry>
+
+/** Runs an op the way its room does, audit enforcement included, and throws the op's error. */
+function runIn<T>(room: RoomName, sql: SqlExecutor, name: string, args: unknown, actor: Actor): T {
+  return unwrapOp(runRoomOp(sql, REGISTRIES[room], name, args, actor, { room, requireAudit: room !== 'insights' })) as T
 }
 
-export const runStudent = <T>(sql: SqlExecutor, name: string, args: unknown, actor: Actor) => runIn<T>(studentOps, sql, name, args, actor)
-export const runSchool = <T>(sql: SqlExecutor, name: string, args: unknown, actor: Actor) => runIn<T>(schoolOps, sql, name, args, actor)
-export const runInsights = <T>(sql: SqlExecutor, name: string, args: unknown, actor: Actor) => runIn<T>(insightsOps, sql, name, args, actor)
+export const runStudent = <T>(sql: SqlExecutor, name: string, args: unknown, actor: Actor) => runIn<T>('student', sql, name, args, actor)
+export const runSchool = <T>(sql: SqlExecutor, name: string, args: unknown, actor: Actor) => runIn<T>('school', sql, name, args, actor)
+export const runInsights = <T>(sql: SqlExecutor, name: string, args: unknown, actor: Actor) => runIn<T>('insights', sql, name, args, actor)
 
 const { kai, amara, sofia } = STUDENT_IDS
 
@@ -67,7 +68,7 @@ export const ACTORS = {
   parentKai: userActor(USER_IDS.parentKai, { parentOf: [kai] }),
   parentAmara: userActor(USER_IDS.parentAmara, { parentOf: [amara] }),
   parentSofia: userActor(USER_IDS.parentSofia, { parentOf: [sofia] }),
-  districtLead: userActor(USER_IDS.districtLead, { districtLeadOf: ['d1500000-0000-4000-8000-000000000099'] }),
+  districtLead: userActor(USER_IDS.districtLead, { districtLeadOf: [DISTRICT.id] }),
   system: userActor('system:test'),
 } satisfies Record<string, Actor>
 

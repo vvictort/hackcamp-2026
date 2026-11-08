@@ -50,6 +50,7 @@ const MODEL: Record<StudentCapability, [Expect, Expect, Expect, Expect, Expect, 
   'summary.view':        ['R', 'Y', 'Y', 'R', '-', '-'],
   'summary.edit':        ['-', 'Y', 'Y', '-', '-', '-'],
   'summary.approve':     ['-', 'Y', 'Y', '-', '-', '-'],
+  'summary.caseload':    ['R', '-', '-', '-', '-', '-'],
   'progress.view':       ['R', 'R', 'R', '-', '-', '-'],
   'consent.manage':      ['-', '-', '-', 'Y', '-', '-'],
 }

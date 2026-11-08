@@ -2,7 +2,6 @@ import { LessonPlan, Ticket } from '../contract/plans'
 import {
   CaptureBatch,
   Lesson,
-  LessonAnalysis,
   LessonFile,
   Membership,
   ParentLink,
@@ -20,12 +19,7 @@ type Row = Record<string, unknown>
 export const userById = (sql: SqlExecutor, id: string) => findById(sql, 'users', User, id)
 export const studentById = (sql: SqlExecutor, id: string) => findById(sql, 'students', SchoolStudent, id)
 export const classById = (sql: SqlExecutor, id: string) => findById(sql, 'classes', SchoolClass, id)
-export const lessonById = (sql: SqlExecutor, id: string) => findById(sql, 'lessons', Lesson, id)
 export const captureBatchById = (sql: SqlExecutor, id: string) => findById(sql, 'capture_batches', CaptureBatch, id)
-
-export function listStudents(sql: SqlExecutor): SchoolStudent[] {
-  return parseRows(SchoolStudent, sql.all<Row>('SELECT * FROM students ORDER BY rowid'))
-}
 
 export function listClasses(sql: SqlExecutor): SchoolClass[] {
   return parseRows(SchoolClass, sql.all<Row>('SELECT * FROM classes ORDER BY rowid'))
@@ -41,15 +35,6 @@ export function classesOfStudent(sql: SqlExecutor, studentId: string): string[] 
 
 export function blocksForWeekday(sql: SqlExecutor, weekday: number): ScheduleBlock[] {
   return parseRows(ScheduleBlock, sql.all<Row>('SELECT * FROM schedule_blocks WHERE weekday = ? ORDER BY starts_at, rowid', weekday))
-}
-
-export function listSchedule(sql: SqlExecutor, classId?: string): ScheduleBlock[] {
-  return parseRows(
-    ScheduleBlock,
-    classId
-      ? sql.all<Row>('SELECT * FROM schedule_blocks WHERE class_id = ? ORDER BY weekday, starts_at', classId)
-      : sql.all<Row>('SELECT * FROM schedule_blocks ORDER BY weekday, starts_at'),
-  )
 }
 
 export function membershipsOf(sql: SqlExecutor, userId: string): Membership[] {
@@ -85,11 +70,6 @@ export function lessonsOn(sql: SqlExecutor, classId: string, date: string): Less
 
 export function filesOfLesson(sql: SqlExecutor, lessonId: string): LessonFile[] {
   return parseRows(LessonFile, sql.all<Row>('SELECT * FROM lesson_files WHERE lesson_id = ? ORDER BY rowid', lessonId))
-}
-
-export function analysisOfLesson(sql: SqlExecutor, lessonId: string): LessonAnalysis | undefined {
-  const row = sql.get<Row>('SELECT * FROM lesson_analyses WHERE lesson_id = ?', lessonId)
-  return row ? parseRow(LessonAnalysis, row) : undefined
 }
 
 export function sheetCodeByCode(sql: SqlExecutor, code: string): SheetCode | undefined {

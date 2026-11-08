@@ -21,8 +21,9 @@ const DIMENSION_COLUMNS: Record<InsightDimension, string> = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Adds one increment: one row per student key and dimension combination. */
+/** Adds one increment: one row per student key and dimension combination. The student key must already be a one-way hash. */
 export function applyIncrement(sql: SqlExecutor, districtId: string, inc: CounterIncrement): void {
+  if (UUID.test(inc.studentKey)) throw new AltamyraError('bad_request', 'studentKey must be a hash, not a student id')
   const dims = [inc.goalArea, inc.proficiencyLevel, inc.label, inc.reviewTimeliness, inc.goalProgress]
   const existing = sql.get<{ id: string }>(
     `SELECT id FROM counters WHERE district_id = ? AND school_id = ? AND period = ? AND student_key = ?
@@ -50,21 +51,6 @@ export function applyIncrement(sql: SqlExecutor, districtId: string, inc: Counte
     inc.by,
   )
 }
-
-/** Pushed by the route after a confirmed data point. The student key must already be a one-way hash. */
-export const countersPush = defineOp({
-  name: 'counters.push',
-  room: 'insights',
-  args: z.object({ districtId: Id, increments: z.array(CounterIncrement).min(1) }),
-  run(sql, args): { applied: number } {
-    for (const inc of args.increments) {
-      // De-identified only: a raw student id never enters this room.
-      if (UUID.test(inc.studentKey)) throw new AltamyraError('bad_request', 'studentKey must be a hash, not a student id')
-      applyIncrement(sql, args.districtId, inc)
-    }
-    return { applied: args.increments.length }
-  },
-})
 
 export type InsightGroup = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
 
@@ -164,4 +150,4 @@ export const insightsGet = defineOp({
   },
 })
 
-export const insightsOpList = [countersPush, insightsGet]
+export const insightsOpList = [insightsGet]

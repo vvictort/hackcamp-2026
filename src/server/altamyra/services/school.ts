@@ -4,12 +4,10 @@ import { DateString, Id, MediaRef } from '../contract/common'
 import { LessonSourceKind, type MembershipRole } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
-import { can, type Actor, type StaffRole } from '../contract/permissions'
+import { can, type Actor } from '../contract/permissions'
 import {
   Lesson as LessonSchema,
-  LessonAnalysisBody,
   type Lesson,
-  type LessonAnalysis,
   type LessonFile,
   type Membership,
   type ParentLink,
@@ -36,44 +34,6 @@ function authorizeClass(sql: SqlExecutor, actor: Actor, classId: string, access:
   const ok = repo.rosterOf(sql, classId).some((sid) => can(actor, 'lesson_plan.edit', sid, { access }).allowed)
   if (!ok) throw new AltamyraError('forbidden', `lesson_plan.edit refused for class ${classId}`)
 }
-
-// ---------- auth support ----------
-
-/**
- * Builds the role parts of an Actor for the altamyraAuth middleware.
- * Teachers get 'teacher' for every student on their class rosters.
- */
-export const actorLoad = defineOp({
-  name: 'actor.load',
-  room: 'school',
-  args: z.object({ userId: Id, schoolId: Id }),
-  run(sql, args) {
-    const studentRoles: Record<string, StaffRole[]> = {}
-    const add = (sid: string, role: StaffRole) => {
-      const roles = (studentRoles[sid] ??= [])
-      if (!roles.includes(role)) roles.push(role)
-    }
-    const classIds: string[] = []
-    const districtLeadOf: string[] = []
-    let schoolAdmin = false
-    for (const m of repo.membershipsOf(sql, args.userId)) {
-      if ((m.role === 'case_manager' || m.role === 'ea') && m.studentId) add(m.studentId, m.role)
-      if (m.role === 'teacher' && m.classId) {
-        classIds.push(m.classId)
-        repo.rosterOf(sql, m.classId).forEach((sid) => add(sid, 'teacher'))
-      }
-      if (m.role === 'school_admin') schoolAdmin = true
-      if (m.role === 'district_lead' && m.districtId) districtLeadOf.push(m.districtId)
-    }
-    return {
-      studentRoles,
-      parentOf: repo.parentLinksOf(sql, args.userId).map((p) => p.studentId),
-      classIds,
-      schoolAdminOf: schoolAdmin ? [args.schoolId] : [],
-      districtLeadOf,
-    }
-  },
-})
 
 // ---------- memberships (POST /admin/schools/:id/memberships) ----------
 
@@ -151,13 +111,6 @@ export const membershipsList = defineOp({
 
 // ---------- roster, classes, schedule (reads used by the API) ----------
 
-export const studentsList = defineOp({
-  name: 'students.list',
-  room: 'school',
-  args: z.object({}),
-  run: (sql) => ({ students: repo.listStudents(sql) }),
-})
-
 export const studentsGet = defineOp({
   name: 'students.get',
   room: 'school',
@@ -176,32 +129,11 @@ export const classesList = defineOp({
   run: (sql) => ({ classes: repo.listClasses(sql) }),
 })
 
-export const classesGet = defineOp({
-  name: 'classes.get',
-  room: 'school',
-  args: z.object({ classId: Id }),
-  run(sql, args) {
-    const cls = repo.classById(sql, args.classId)
-    if (!cls) throw new AltamyraError('not_found', `class ${args.classId} not found`)
-    return { class: cls, studentIds: repo.rosterOf(sql, args.classId) }
-  },
-})
-
 export const rosterList = defineOp({
   name: 'roster.list',
   room: 'school',
   args: z.object({ classId: Id }),
   run: (sql, args) => ({ studentIds: repo.rosterOf(sql, args.classId) }),
-})
-
-export const scheduleList = defineOp({
-  name: 'schedule.list',
-  room: 'school',
-  args: z.object({ classId: Id.optional(), date: DateString.optional() }),
-  run(sql, args) {
-    const blocks = args.date ? repo.blocksForWeekday(sql, weekdayOf(args.date)) : repo.listSchedule(sql)
-    return { blocks: args.classId ? blocks.filter((b) => b.classId === args.classId) : blocks }
-  },
 })
 
 // ---------- lessons (PRD 1A-1, 1A-2) ----------
@@ -273,37 +205,6 @@ export const lessonsGet = defineOp({
       grade: cls?.grade ?? '',
       studentIds: repo.rosterOf(sql, lesson.classId),
     }
-  },
-})
-
-/** PRD 1A-2: one cached analysis per lesson. A second save returns the cached row and writes nothing. */
-export const lessonsSaveAnalysis = defineOp({
-  name: 'lessons.saveAnalysis',
-  room: 'school',
-  capability: 'lesson_plan.edit',
-  args: z.object({ lessonId: Id, analysis: LessonAnalysisBody, provider: z.string().min(1), now: z.string().optional() }),
-  run(sql, args, actor): { analysis: LessonAnalysis; cached: boolean } {
-    const lesson = mustFind(sql, 'lessons', LessonSchema, args.lessonId)
-    authorizeClass(sql, actor, lesson.classId, 'write')
-    const existing = repo.analysisOfLesson(sql, lesson.id)
-    if (existing) return { analysis: existing, cached: true }
-    const at = nowIso(args.now)
-    const analysis: LessonAnalysis = { id: newId(), lessonId: lesson.id, analysis: args.analysis, provider: args.provider, createdAt: at }
-    insertEntity(sql, 'lesson_analyses', analysis)
-    audit(sql, actor, 'lesson_analyses.create', 'lesson_analyses', analysis.id, undefined, analysis, at)
-    return { analysis, cached: false }
-  },
-})
-
-export const lessonsGetAnalysis = defineOp({
-  name: 'lessons.getAnalysis',
-  room: 'school',
-  capability: 'lesson_plan.edit',
-  args: z.object({ lessonId: Id }),
-  run(sql, args, actor): { analysis: LessonAnalysis | null } {
-    const lesson = mustFind(sql, 'lessons', LessonSchema, args.lessonId)
-    authorizeClass(sql, actor, lesson.classId, 'read')
-    return { analysis: repo.analysisOfLesson(sql, lesson.id) ?? null }
   },
 })
 
@@ -421,7 +322,7 @@ export const schoolDevSeed = defineOp({
     const seeded = sql.get<{ n: number }>('SELECT COUNT(*) AS n FROM users')
     if (seeded && seeded.n > 0) throw new AltamyraError('bad_request', 'school room is already seeded')
     seedSchool(sql)
-    seedSchoolDemo(sql, new Date().toISOString())
+    seedSchoolDemo(sql, nowIso())
     return {
       schoolId: SCHOOL.id,
       districtId: DISTRICT.id,
@@ -432,19 +333,13 @@ export const schoolDevSeed = defineOp({
 })
 
 export const schoolOpList = [
-  actorLoad,
   membershipsAssign,
   membershipsList,
-  studentsList,
   studentsGet,
   classesList,
-  classesGet,
   rosterList,
-  scheduleList,
   lessonsCreate,
   lessonsGet,
-  lessonsSaveAnalysis,
-  lessonsGetAnalysis,
   sheetCodesIssue,
   sheetCodesResolve,
   meOverview,

@@ -1,6 +1,7 @@
 import type { AnalyseLessonInput } from '../contract/ai'
 import { DISTRICT, SCHOOL, SCHOOL_STUDENTS, STUDENT_FIXTURES, USERS, type StudentFixture } from '../fixtures'
 import type { Roster } from './deidentify'
+import { toAiProfile } from './profile'
 
 /**
  * FICTIONAL demo and test data for the AI module: the fixture school's
@@ -84,3 +85,12 @@ export const FIXTURE_LESSONS = {
     file: null,
   },
 } satisfies Record<string, AnalyseLessonInput>
+
+export const fixtureProfile = (f: StudentFixture) =>
+  toAiProfile({
+    token: tokenFor(f.studentId),
+    grade: f.iep.sections.student.grade,
+    iep: f.iep,
+    goals: f.goals,
+    objectiveFor: (goalId) => f.objectives.find((o) => o.goalId === goalId && o.status === 'confirmed'),
+  })

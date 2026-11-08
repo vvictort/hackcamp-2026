@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import type { LensStudentResult, SuggestionResponse } from '../contract/api'
+import type { LensStudentResult } from '../contract/api'
 import type { LensAdaptation, LensCheck } from '../contract/ai'
-import { AltamyraError } from '../contract/errors'
 import { userActor } from '../contract/permissions'
 import type { SqlExecutor } from '../db/sql'
 import { KAI, SOFIA, STUDENT_IDS } from '../fixtures'
@@ -84,73 +83,6 @@ describe('lens.saveRun and the guardrail (PRD 1A-5)', () => {
   })
 })
 
-describe('suggestion approval (PRD 1A-7)', () => {
-  it('writes the status and the usage event in the same transaction', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    const res = runStudent<SuggestionResponse>(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1 }, ACTORS.teacher)
-    expect(res.suggestion.status).toBe('approved')
-    expect(res.usageEventId).not.toBeNull()
-    expect(sql.get<{ suggestion_id: string; approved_by: string }>('SELECT * FROM usage_events')).toMatchObject({ suggestion_id: s.id, approved_by: ACTORS.teacher.userId })
-  })
-
-  it('leaves neither row when the usage event write fails', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    const auditBefore = countRows(sql, 'audit_log')
-    const failing: SqlExecutor = {
-      ...sql,
-      run(query, ...params) {
-        if (query.startsWith('INSERT INTO usage_events')) throw new Error('injected failure')
-        return sql.run(query, ...params)
-      },
-    }
-    expect(() => runStudent(failing, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1 }, ACTORS.teacher)).toThrow('injected failure')
-    expect(sql.get<{ status: string; version: number }>('SELECT status, version FROM suggestions WHERE id = ?', s.id)).toEqual({ status: 'draft', version: 1 })
-    expect(countRows(sql, 'usage_events')).toBe(0)
-    expect(countRows(sql, 'audit_log')).toBe(auditBefore)
-  })
-
-  it('refuses a blocked modification and writes nothing', () => {
-    const sql = studentRoom('kai')
-    const blocked = saveRun(sql, STUDENT_IDS.kai, 'math', [adaptation(kaiGoal, { changesOutcome: true })]).suggestions[1]
-    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: blocked.id, expectedVersion: 1 }, ACTORS.teacher)).toThrow(
-      /not_iep_authorized/,
-    )
-    expect(countRows(sql, 'usage_events')).toBe(0)
-  })
-
-  it('answers 409 on a stale expectedVersion', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    try {
-      runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2 }, ACTORS.teacher)
-      expect.unreachable()
-    } catch (e) {
-      expect((e as AltamyraError).status).toBe(409)
-    }
-  })
-
-  it('refuses approval by an EA (view only)', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1 }, ACTORS.ea)).toThrow(/adaptation.approve refused/)
-  })
-
-  it('bulk approves per student, reporting blocked and conflicting items', () => {
-    const sql = studentRoom('kai')
-    const [, a, b, m] = saveRun(sql, STUDENT_IDS.kai, 'math', [adaptation(kaiGoal), adaptation(kaiGoal), adaptation(kaiGoal, { changesOutcome: true })]).suggestions
-    const res = runStudent<{ approved: string[]; blocked: string[]; conflicts: string[] }>(
-      sql,
-      'suggestions.bulkApprove',
-      { studentId: STUDENT_IDS.kai, items: [{ suggestionId: a.id, expectedVersion: 1 }, { suggestionId: b.id, expectedVersion: 5 }, { suggestionId: m.id, expectedVersion: 1 }] },
-      ACTORS.teacher,
-    )
-    expect(res).toEqual({ approved: [a.id], blocked: [m.id], conflicts: [b.id] })
-    expect(countRows(sql, 'usage_events')).toBe(1)
-  })
-})
-
 describe('goal tags (PRD 1A-3, 1A-4)', () => {
   it('drops goal ids that are not current goals of this student, and adaptations left untagged', () => {
     const sql = studentRoom('kai')
@@ -170,75 +102,7 @@ describe('goal tags (PRD 1A-3, 1A-4)', () => {
   })
 })
 
-describe('edit, regenerate, reject', () => {
-  it('edit bumps the version and needs a fresh approval', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    const edited = runStudent<SuggestionResponse>(sql, 'suggestions.edit', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1, content: { text: 'Shorter text.' }, label: 'adaptation' }, ACTORS.teacher)
-    expect(edited.suggestion).toMatchObject({ status: 'edited', version: 2 })
-    expect(edited.suggestion.kind === 'adaptation' && edited.suggestion.content.text).toBe('Shorter text.')
-    const approved = runStudent<SuggestionResponse>(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2 }, ACTORS.teacher)
-    expect(approved.suggestion.status).toBe('approved')
-  })
-
-  it('an edit labelled modification is blocked unless the IEP authorizes the subject (PRD 1A-5)', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'math', [adaptation(kaiGoal)]).suggestions[1]
-    const edited = runStudent<SuggestionResponse>(
-      sql,
-      'suggestions.edit',
-      { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1, content: { text: 'Instead of the grade-level expectation, add within 10.' }, label: 'modification' },
-      ACTORS.teacher,
-    )
-    expect(edited.suggestion).toMatchObject({ label: 'modification', status: 'blocked' })
-    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2 }, ACTORS.teacher)).toThrow(/not_iep_authorized/)
-    expect(() => runStudent(sql, 'suggestions.edit', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2, content: { text: 'x' } }, ACTORS.teacher)).toThrow()
-  })
-
-  it('regenerate closes the old row, creates a new one and moves its checks', () => {
-    const sql = studentRoom('kai')
-    const run = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)], [check(kaiGoal, kaiObjective)])
-    const old = run.suggestions[1]
-    const res = runStudent<SuggestionResponse>(
-      sql,
-      'suggestions.regenerate',
-      { studentId: STUDENT_IDS.kai, suggestionId: old.id, expectedVersion: 1, adaptation: adaptation(kaiGoal, { title: 'Visual steps', adaptationType: 'visual_supports' }) },
-      ACTORS.teacher,
-    )
-    expect(res.suggestion.id).not.toBe(old.id)
-    expect(sql.get<{ status: string }>('SELECT status FROM suggestions WHERE id = ?', old.id)?.status).toBe('rejected')
-    expect(sql.get<{ suggestion_id: string }>('SELECT suggestion_id FROM checks')?.suggestion_id).toBe(res.suggestion.id)
-  })
-
-  it('reject records the reason in the audit log', () => {
-    const sql = studentRoom('kai')
-    const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    runStudent(sql, 'suggestions.reject', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1, reason: 'Not needed today' }, ACTORS.teacher)
-    const row = sql.get<{ after_json: string }>("SELECT after_json FROM audit_log WHERE action = 'suggestions.reject'")
-    expect(JSON.parse(row?.after_json ?? '{}').reason).toBe('Not needed today')
-  })
-})
-
-describe('viewing lens output', () => {
-  it('EAs see approved adaptations only, without answer keys', () => {
-    const sql = studentRoom('kai')
-    const run = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal), adaptation(kaiGoal)], [check(kaiGoal, kaiObjective)])
-    runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: run.suggestions[1].id, expectedVersion: 1 }, ACTORS.teacher)
-    const view = runStudent<LensStudentResult>(sql, 'lens.get', { studentId: STUDENT_IDS.kai, lessonId: LESSON }, ACTORS.ea)
-    expect(view.suggestions.map((s) => s.id)).toEqual([run.suggestions[1].id])
-    expect(view.checks[0]).toMatchObject({ answerKey: null, rubric: null })
-    const teacherView = runStudent<LensStudentResult>(sql, 'lens.get', { studentId: STUDENT_IDS.kai, lessonId: LESSON }, ACTORS.teacher)
-    expect(teacherView.suggestions).toHaveLength(3)
-    expect(teacherView.checks[0].answerKey).not.toBeNull()
-  })
-
-  it('a teacher can remove a check (PRD 1A-6)', () => {
-    const sql = studentRoom('kai')
-    const run = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)], [check(kaiGoal, kaiObjective)])
-    runStudent(sql, 'checks.remove', { studentId: STUDENT_IDS.kai, checkId: run.checks[0].id, expectedVersion: 1 }, ACTORS.teacher)
-    expect(runStudent<{ checks: unknown[] }>(sql, 'checks.list', { studentId: STUDENT_IDS.kai, lessonId: LESSON }, ACTORS.teacher).checks).toHaveLength(0)
-  })
-
+describe('profile.get', () => {
   it('the profile is the full read-only IEP for the EA of the student, and refused for an unassigned EA', () => {
     const sql = studentRoom('kai')
     const ea = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.ea)

@@ -4,7 +4,7 @@ import { Id } from '../contract/common'
 import { ConsentKind } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
-import { can, type Actor } from '../contract/permissions'
+import type { Actor } from '../contract/permissions'
 import type { Consent, DataPoint } from '../contract/student'
 import { audit, insertEntity, newId, nowIso, updateVersioned } from '../repos/base'
 import { currentConfirmedObjectives } from '../repos/iep'
@@ -44,18 +44,6 @@ export const consentsSet = defineOp({
         audit(sql, actor, 'consents.revoke', 'consents', c.id, { revokedAt: null }, { revokedAt: at }, at)
       }
     }
-    return { consents: records.listConsents(sql) }
-  },
-})
-
-export const consentsList = defineOp({
-  name: 'consents.list',
-  room: 'student',
-  capability: 'consent.manage',
-  args: StudentArgs,
-  run(sql, args, actor): { consents: Consent[] } {
-    // The parent manages consent; staff in scope read it (voice notes and videos are gated on it).
-    if (!can(actor, 'consent.manage', args.studentId).allowed) authorize(actor, 'progress.view', args.studentId)
     return { consents: records.listConsents(sql) }
   },
 })
@@ -140,4 +128,4 @@ export const voiceNoteAudioDeleted = defineOp({
   },
 })
 
-export const familyOpList = [consentsSet, consentsList, voiceNoteProcess, voiceNoteAudioDeleted, ...summariesOpList, ...dayRecordOpList]
+export const familyOpList = [consentsSet, voiceNoteProcess, voiceNoteAudioDeleted, ...summariesOpList, ...dayRecordOpList]

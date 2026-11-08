@@ -8,20 +8,21 @@ import type { Goal, IepVersion, Objective } from '../contract/student'
  */
 export function toAiProfile(input: {
   token: string
+  grade: string
   iep: Pick<IepVersion, 'sections' | 'modificationSubjects'>
   goals: Pick<Goal, 'id' | 'area' | 'text' | 'status'>[]
-  objectives: Pick<Objective, 'id' | 'goalId' | 'metricType' | 'unit' | 'target' | 'status'>[]
+  objectiveFor: (goalId: string) => Pick<Objective, 'id' | 'metricType' | 'unit' | 'target'> | undefined
 }): DeidentifiedProfile {
   const { sections } = input.iep
   return {
     studentToken: input.token,
-    grade: sections.student.grade,
+    grade: input.grade,
     strengths: sections.profile.strengths,
     interests: sections.profile.interests,
     goals: input.goals
       .filter((g) => g.status === 'active')
       .map((g) => {
-        const o = input.objectives.find((x) => x.goalId === g.id && x.status === 'confirmed')
+        const o = input.objectiveFor(g.id)
         return {
           goalId: g.id,
           area: g.area,

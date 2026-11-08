@@ -3,13 +3,14 @@ import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
 import { devDemoStudent } from '../fixtures/demo-day'
 import { comingUpOpList } from './coming-up'
 import { deidSchoolRoster, deidStudentNames } from './deid'
+import { devRoleSwitch } from './dev'
 import { familyOpList } from './family'
-import { insightOpList } from './insight'
 import { insightsOpList } from './insights'
 import { integrationSchoolOps, integrationStudentOps } from './integration'
 import { lensOpList } from './lens'
 import { lessonPlanOpList } from './lesson-plans'
 import { measurementOpList } from './measurement'
+import { progressOpList } from './progress'
 import { schoolOpList } from './school'
 import { ticketSchoolOps, ticketStudentOps } from './tickets'
 
@@ -32,7 +33,7 @@ function registry(room: RoomName, ops: readonly RoomOp[]): OpRegistry {
 export const studentOps: OpRegistry = registry('student', [
   ...lensOpList,
   ...measurementOpList,
-  ...insightOpList,
+  ...progressOpList,
   ...familyOpList,
   ...integrationStudentOps,
   ...comingUpOpList,
@@ -41,6 +42,6 @@ export const studentOps: OpRegistry = registry('student', [
   deidStudentNames,
 ])
 
-export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...lessonPlanOpList, ...ticketSchoolOps, ...integrationSchoolOps, deidSchoolRoster, devResetSchool, devDemoStudent])
+export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...lessonPlanOpList, ...ticketSchoolOps, ...integrationSchoolOps, deidSchoolRoster, devResetSchool, devDemoStudent, devRoleSwitch])
 
 export const insightsOps: OpRegistry = registry('insights', insightsOpList)

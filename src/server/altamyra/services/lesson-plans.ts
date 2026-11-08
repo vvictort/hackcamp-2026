@@ -81,18 +81,6 @@ export const lessonPlansForStudent = defineOp({
   },
 })
 
-/** Teacher only: the full plan, used before an edit. */
-export const lessonPlansGet = defineOp({
-  name: 'lessonPlans.get',
-  room: 'school',
-  capability: 'lesson_plan.edit',
-  args: StudentArgs.extend({ planId: Id }),
-  run(sql, args, actor): { plan: LessonPlan } {
-    authorize(actor, 'lesson_plan.edit', args.studentId)
-    return { plan: planOf(sql, args.studentId, args.planId) }
-  },
-})
-
 export const lessonPlansCreate = defineOp({
   name: 'lessonPlans.create',
   room: 'school',
@@ -193,7 +181,6 @@ export const lessonPlansApprove = defineOp({
 export const lessonPlanOpList = [
   lessonPlansToday,
   lessonPlansForStudent,
-  lessonPlansGet,
   lessonPlansCreate,
   lessonPlansUpdate,
   lessonPlansApprove,

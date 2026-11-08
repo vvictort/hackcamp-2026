@@ -1,27 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { AltamyraError } from '../contract/errors'
 import { createHarness } from '../e2e/harness'
 import { kai } from '../e2e/flows'
 import { CBIEP_SAMPLE_TEXT, USER_IDS } from '../fixtures'
 import { closeAll } from '../services/testing'
-import { aiFailureResponse, parseCbIepText } from './cbiep'
+import { parseCbIepText } from './cbiep'
 
 afterEach(closeAll)
 const { caseManager, teacher, ea, parentKai, districtLead, schoolAdmin } = USER_IDS
 const importBody = { sourceKind: 'text', text: CBIEP_SAMPLE_TEXT }
-
-describe('aiFailureResponse', () => {
-  it('turns a provider failure into a clean 502 without details', async () => {
-    const res = aiFailureResponse(new Error('fetch failed: https://x?key=SECRET'))
-    expect(res?.status).toBe(502)
-    const body = (await res!.json()) as { error: { code: string } }
-    expect(body.error.code).toBe('ai_unavailable')
-    expect(JSON.stringify(body)).not.toContain('SECRET')
-  })
-  it('leaves contract errors to the normal handler', () => {
-    expect(aiFailureResponse(new AltamyraError('bad_request', 'x'))).toBeNull()
-  })
-})
 
 describe('parseCbIepText', () => {
   it('reads the sample offline and rejects text without a name', () => {

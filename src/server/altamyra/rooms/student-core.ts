@@ -2,6 +2,7 @@ import type { ConsentKind, GoalProgress, Label, Proficiency, ReviewTimeliness } 
 import type { DecisionOutcome } from '../services/analytics'
 import { evaluateObjective } from '../services/measurement'
 import { objectiveById } from '../repos/iep'
+import { activeConsent, latestProficiency } from '../repos/records'
 import type { CounterIncrement } from '../contract/insights'
 import type { SqlExecutor } from '../db/sql'
 
@@ -72,10 +73,6 @@ export function counterDimensions(sql: SqlExecutor, dataPointIds: readonly strin
       id,
     )
     if (!point) return []
-    const level = sql.get<{ level: Proficiency }>(
-      'SELECT level FROM proficiency_ratings WHERE goal_id = ? ORDER BY set_at DESC LIMIT 1',
-      point.goal_id,
-    )
     const labels = sql
       .all<{ label: Label | null }>(
         'SELECT label FROM suggestions WHERE id IN (SELECT value FROM json_each(?))',
@@ -89,7 +86,7 @@ export function counterDimensions(sql: SqlExecutor, dataPointIds: readonly strin
         : null
     const objective = objectiveById(sql, point.objective_id)
     const goalProgress = objective?.status === 'confirmed' ? PROGRESS_FOR[evaluateObjective(sql, objective).outcome] : null
-    return [{ goalArea: point.area, proficiencyLevel: level?.level ?? null, label, goalProgress, period: point.recorded_at.slice(0, 7) }]
+    return [{ goalArea: point.area, proficiencyLevel: latestProficiency(sql, point.goal_id)?.level ?? null, label, goalProgress, period: point.recorded_at.slice(0, 7) }]
   })
 }
 
@@ -117,11 +114,7 @@ export function reviewTimelinessSince(sql: SqlExecutor, mark: number): { period:
 }
 
 /** Design doc: student mode and audio capture require an active consents row. */
-export function hasActiveConsent(sql: SqlExecutor, kind: ConsentKind): boolean {
-  return (
-    sql.get<{ n: number }>('SELECT COUNT(*) AS n FROM consents WHERE kind = ? AND revoked_at IS NULL', kind)?.n ?? 0
-  ) > 0
-}
+export const hasActiveConsent = (sql: SqlExecutor, kind: ConsentKind): boolean => activeConsent(sql, kind) !== undefined
 
 /**
  * What live timeline sockets receive after confirmed data points. Ids only:

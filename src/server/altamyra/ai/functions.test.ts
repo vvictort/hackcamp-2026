@@ -4,9 +4,8 @@ import { AltamyraError } from '../contract/errors'
 import { CBIEP_SAMPLE_TEXT, STUDENT_FIXTURES, type StudentFixture } from '../fixtures'
 import { collectStrings, findIdentifiers } from './deidentify'
 import { AiDeidentificationError, AiOutputError, VERTEX_NOT_CONFIGURED } from './errors'
-import { FIXTURE_EXTRA_IDENTIFIERS, FIXTURE_LESSONS, fixtureRoster, tokenFor } from './fixture-data'
+import { FIXTURE_EXTRA_IDENTIFIERS, FIXTURE_LESSONS, fixtureRoster, fixtureProfile, tokenFor } from './fixture-data'
 import { createAi, type AiCall } from './functions'
-import { toAiProfile } from './profile'
 import { createFixtureProvider } from './providers/fixture'
 import { createVertexProvider } from './providers/vertex'
 import { fixtureNamesIn, recordingProvider } from './test-helpers'
@@ -15,7 +14,6 @@ const roster = fixtureRoster()
 const LESSONS = Object.values(FIXTURE_LESSONS)
 const CONSOLE_METHODS = ['log', 'info', 'warn', 'error', 'debug'] as const
 
-const profileOf = (f: StudentFixture) => toAiProfile({ token: tokenFor(f.studentId), iep: f.iep, goals: f.goals, objectives: f.objectives })
 const firstName = (f: StudentFixture) => f.iep.sections.student.firstName
 
 /** Runs every AI function over all fixture students and lessons, with names and identifiers planted in free text. */
@@ -36,7 +34,7 @@ async function runEverything(ai: ReturnType<typeof createAi>) {
         goalText: `${firstName(f)} ${f.iep.sections.student.lastName} (PEN: ${extra(f).studentNumber}, DOB ${extra(f).dateOfBirth}) will: ${g.text}`,
       })
     }
-    const profile = profileOf(f)
+    const profile = fixtureProfile(f)
     profile.strengths = [...profile.strengths, `${firstName(f)} helps Priya Sandhu hand out supplies`]
     for (const lesson of LESSONS) {
       const lens = await ai.lensForStudent({
@@ -123,7 +121,7 @@ describe('createAi', () => {
     const kai = STUDENT_FIXTURES[0]
     const lesson = FIXTURE_LESSONS.literacy
     const analysis = await ai.analyseLesson(lesson)
-    const out = await ai.lensForStudent({ lessonId: lesson.lessonId, subject: lesson.subject, analysis, lessonText: lesson.text, profile: profileOf(kai), whatWorks: [] })
+    const out = await ai.lensForStudent({ lessonId: lesson.lessonId, subject: lesson.subject, analysis, lessonText: lesson.text, profile: fixtureProfile(kai), whatWorks: [] })
     const whys = out.adaptations.map((a) => a.why)
     expect(whys.some((w) => w.startsWith(`Supports ${firstName(kai)}'s IEP goal`))).toBe(true)
     expect(whys.every((w) => !w.includes(tokenFor(kai.studentId)))).toBe(true)
@@ -146,7 +144,7 @@ describe('createAi', () => {
     }
     const sofia = STUDENT_FIXTURES[2]
     const analysis = await real.analyseLesson(FIXTURE_LESSONS.numeracy)
-    const input = { lessonId: 'l', subject: 'math', analysis, lessonText: null, profile: profileOf(sofia), whatWorks: [] }
+    const input = { lessonId: 'l', subject: 'math', analysis, lessonText: null, profile: fixtureProfile(sofia), whatWorks: [] }
     await expect(createAi({ provider: tooMany, roster }).lensForStudent(input)).rejects.toBeInstanceOf(AiOutputError)
   })
 

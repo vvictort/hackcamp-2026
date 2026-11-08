@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AI_SCHEMAS, LensForStudentOutput, ProposeObjectivesOutput } from './ai'
-import { CaptureEventBody, IepImportBody, InsightsQuery, LessonCreateBody, StudentProfileResponse } from './api'
+import { CaptureEventBody, IepImportBody, InsightsQuery, StudentProfileResponse } from './api'
 import { AltamyraError, ErrorBody } from './errors'
 import { PROMPT_LEVELS, promptLevelFromValue, promptLevelValue } from './enums'
 import { AdaptationSuggestion, Suggestion } from './student'
@@ -65,10 +65,9 @@ describe('API contracts', () => {
     expect(CaptureEventBody.safeParse({ kind: 'prompt_level', objectiveId: 'o', promptLevel: 'shout' }).success).toBe(false)
   })
 
-  it('imports and lessons require the matching payload', () => {
+  it('imports require the matching payload', () => {
     expect(IepImportBody.safeParse({ sourceKind: 'pdf' }).success).toBe(false)
     expect(IepImportBody.safeParse({ sourceKind: 'text', text: 'IEP' }).success).toBe(true)
-    expect(LessonCreateBody.safeParse({ title: 'Arrays', sourceKind: 'image' }).success).toBe(false)
   })
 
   it('the supports view carries no IEP sections', () => {

@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { AnalyseLessonOutput } from '../contract/ai'
 import { ADAPTATION_TYPES, LABELS } from '../contract/enums'
 import { STUDENT_FIXTURES } from '../fixtures'
-import { FIXTURE_LESSONS, tokenFor } from './fixture-data'
+import { FIXTURE_LESSONS, fixtureProfile, tokenFor } from './fixture-data'
 import { classifyAdaptation, type GuardrailAdaptation } from './guardrail'
-import { toAiProfile } from './profile'
 import { createFixtureProvider } from './providers/fixture'
 
 const analysis = { objectives: ['I can add two-digit numbers with regrouping and explain my strategy.'] }
@@ -79,7 +78,7 @@ describe('classifyAdaptation (PRD 1A-5)', () => {
     for (const lesson of Object.values(FIXTURE_LESSONS)) {
       const a: AnalyseLessonOutput = await p.analyseLesson(lesson)
       for (const f of STUDENT_FIXTURES) {
-        const profile = toAiProfile({ token: tokenFor(f.studentId), iep: f.iep, goals: f.goals, objectives: f.objectives })
+        const profile = fixtureProfile(f)
         const lens = await p.lensForStudent({ lessonId: lesson.lessonId, subject: lesson.subject, analysis: a, lessonText: lesson.text, profile, whatWorks: [] })
         for (const ad of lens.adaptations) {
           const r = classifyAdaptation({ ...ad, subject: lesson.subject }, a, f.iep)

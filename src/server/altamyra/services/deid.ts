@@ -1,8 +1,6 @@
 import { z } from 'zod'
 import { Id } from '../contract/common'
-import { AltamyraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
-import type { Actor } from '../contract/permissions'
 import type { SqlExecutor } from '../db/sql'
 
 /**

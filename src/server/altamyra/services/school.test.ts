@@ -2,14 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { MeResponse } from '../contract/api'
 import { AltamyraError } from '../contract/errors'
 import { userActor } from '../contract/permissions'
-import type { Lesson, LessonAnalysis, SheetCode } from '../contract/school'
+import type { Lesson, SheetCode } from '../contract/school'
 import { CLASS_IDS, FIXTURE_NAMES, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures'
-import { ACTORS, closeAll, countRows, runSchool, schoolRoom } from './testing'
+import { ACTORS, closeAll, runSchool, schoolRoom } from './testing'
 
 afterEach(closeAll)
 
 const admin = userActor(USER_IDS.schoolAdmin, { schoolAdminOf: [SCHOOL.id] })
-const analysis = { objectives: ['Describe the salmon life cycle'], readingLevel: 'grade 4', writingLoad: 'medium', modality: ['text'], competencies: ['Communicating'] }
 
 function lesson(sql = schoolRoom()) {
   const { lesson } = runSchool<{ lesson: Lesson }>(
@@ -21,26 +20,13 @@ function lesson(sql = schoolRoom()) {
   return { sql, lesson }
 }
 
-describe('dev.seed and actor.load', () => {
+describe('dev.seed', () => {
   it('seeds an empty school room once', () => {
     const sql = schoolRoom(false)
     const res = runSchool<{ schoolId: string; studentIds: string[] }>(sql, 'dev.seed', {}, ACTORS.system)
     expect(res.schoolId).toBe(SCHOOL.id)
     expect(res.studentIds).toHaveLength(3)
     expect(() => runSchool(sql, 'dev.seed', {}, ACTORS.system)).toThrow(/already seeded/)
-  })
-
-  it('builds actor roles from memberships; teachers get their roster students', () => {
-    const sql = schoolRoom()
-    const teacher = runSchool<{ studentRoles: Record<string, string[]>; classIds: string[] }>(sql, 'actor.load', { userId: USER_IDS.teacher, schoolId: SCHOOL.id }, ACTORS.system)
-    expect(Object.keys(teacher.studentRoles).sort()).toEqual(Object.values(STUDENT_IDS).sort())
-    expect(teacher.classIds).toHaveLength(5)
-    const ea = runSchool<{ studentRoles: Record<string, string[]> }>(sql, 'actor.load', { userId: USER_IDS.ea, schoolId: SCHOOL.id }, ACTORS.system)
-    expect(ea.studentRoles).toEqual({ [STUDENT_IDS.kai]: ['ea'], [STUDENT_IDS.sofia]: ['ea'] })
-    const parent = runSchool<{ parentOf: string[] }>(sql, 'actor.load', { userId: USER_IDS.parentAmara, schoolId: SCHOOL.id }, ACTORS.system)
-    expect(parent.parentOf).toEqual([STUDENT_IDS.amara])
-    const adminParts = runSchool<{ schoolAdminOf: string[] }>(sql, 'actor.load', { userId: USER_IDS.schoolAdmin, schoolId: SCHOOL.id }, ACTORS.system)
-    expect(adminParts.schoolAdminOf).toEqual([SCHOOL.id])
   })
 })
 
@@ -62,22 +48,12 @@ describe('memberships.assign', () => {
   })
 })
 
-describe('lessons and the cached analysis (PRD 1A-2)', () => {
+describe('lessons (PRD 1A-1)', () => {
   it('teachers create lessons; EAs cannot', () => {
     const { sql, lesson: l } = lesson()
     expect(l.createdBy).toBe(USER_IDS.teacher)
     expect(() => runSchool(sql, 'lessons.create', { classId: CLASS_IDS.literacy, title: 'x', sourceKind: 'text', text: 'y' }, ACTORS.ea)).toThrow(/lesson_plan.edit/)
     expect(runSchool<{ subject: string }>(sql, 'lessons.get', { lessonId: l.id }, ACTORS.ea).subject).toBe('literacy')
-  })
-
-  it('keeps exactly one analysis per lesson', () => {
-    const { sql, lesson: l } = lesson()
-    const first = runSchool<{ analysis: LessonAnalysis; cached: boolean }>(sql, 'lessons.saveAnalysis', { lessonId: l.id, analysis, provider: 'fixture' }, ACTORS.teacher)
-    const second = runSchool<{ analysis: LessonAnalysis; cached: boolean }>(sql, 'lessons.saveAnalysis', { lessonId: l.id, analysis: { ...analysis, readingLevel: 'grade 9' }, provider: 'fixture' }, ACTORS.teacher)
-    expect(first.cached).toBe(false)
-    expect(second).toEqual({ analysis: first.analysis, cached: true })
-    expect(countRows(sql, 'lesson_analyses')).toBe(1)
-    expect(runSchool<{ analysis: LessonAnalysis }>(sql, 'lessons.getAnalysis', { lessonId: l.id }, ACTORS.teacher).analysis.id).toBe(first.analysis.id)
   })
 })
 

@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import { altamyraOnError, type AltamyraEnv } from '../middleware/auth'
+import { jsonResponse } from '../middleware/errors'
 import { captureRoutes } from './capture'
 import { createKit } from './context'
+import { daysRoutes } from './days'
 import { demoDayRoutes } from './demo-day'
 import type { AltamyraRouteDeps } from './deps'
 import { familyRoutes } from './family'
@@ -10,13 +12,11 @@ import { lessonPlanRoutes } from './lesson-plans'
 import { meRoutes } from './me'
 import { progressRoutes } from './progress'
 import { studentRoutes } from './students'
+import { summariesRoutes } from './summaries'
 import { ticketRoutes } from './tickets'
 
 /** Answers anything that is not an Altamyra error with a generic 500 and no details. */
-const genericError = () => new Response(JSON.stringify({ error: { code: 'internal', message: 'Internal error' } }), {
-  status: 500,
-  headers: { 'Content-Type': 'application/json' },
-})
+const genericError = () => jsonResponse({ error: { code: 'internal', message: 'Internal error' } }, 500)
 
 /**
  * The /api/v1 sub-app (design doc "API routes"). It has no Workers imports,
@@ -32,17 +32,14 @@ export function createAltamyraApi(deps: AltamyraRouteDeps, options: { internal?:
   lensUsageRoutes(api, kit)
   lessonPlanRoutes(api, kit)
   ticketRoutes(api, kit)
+  daysRoutes(api, kit)
   captureRoutes(api, kit)
   progressRoutes(api, kit)
+  summariesRoutes(api, kit)
   familyRoutes(api, kit)
   // A registered catch-all (not notFound, which a mounted sub-app does not carry) keeps unknown
   // /api/v1 paths from falling through to the SPA fallback.
-  api.all('*', () =>
-    new Response(JSON.stringify({ error: { code: 'not_found', message: 'Unknown Altamyra route' } }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    }),
-  )
+  api.all('*', () => jsonResponse({ error: { code: 'not_found', message: 'Unknown Altamyra route' } }, 404))
   api.onError(altamyraOnError(deps.fallbackError ?? genericError))
   return api
 }

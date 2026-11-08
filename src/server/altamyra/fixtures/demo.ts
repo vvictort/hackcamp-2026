@@ -10,6 +10,8 @@ import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
 import type { SqlExecutor } from '../db/sql'
 import { CLASS_IDS, SCHOOL, STUDENT_IDS, USER_IDS } from './school'
+import { nowIso } from '../repos/base'
+import { DAY_MS } from '../services/thresholds'
 import { seedSchool } from './seed'
 import { STUDENT_FIXTURES, type StudentFixture } from './students'
 
@@ -20,7 +22,6 @@ import { STUDENT_FIXTURES, type StudentFixture } from './students'
  * Reached only through POST /dev/seed, which 404s unless ALTAMYRA_DEV_SEED is "true".
  */
 
-const DAY_MS = 86_400_000
 const SEED_ACTOR = 'system:fixtures'
 
 export const daysAgo = (now: string, days: number): string => new Date(Date.parse(now) - days * DAY_MS).toISOString()
@@ -369,7 +370,7 @@ export const studentDevSeedDemo = defineOp({
     if (!fixture) throw new AltamyraError('not_found', `no fixture for student ${args.studentId}`)
     if (args.reset) wipeRoom(sql)
     else if (sql.get('SELECT 1 AS x FROM iep_versions LIMIT 1')) throw new AltamyraError('bad_request', 'student room is already seeded')
-    seedDemoStudent(sql, fixture, args.now ?? new Date().toISOString())
+    seedDemoStudent(sql, fixture, nowIso(args.now))
     return { studentId: fixture.studentId, key: fixture.key }
   },
 })
@@ -412,7 +413,7 @@ export const devResetSchool = defineOp({
   room: 'school',
   args: z.object({}),
   run(sql) {
-    const at = new Date().toISOString()
+    const at = nowIso()
     wipeRoom(sql)
     seedSchool(sql)
     seedSchoolDemo(sql, at)
@@ -423,7 +424,7 @@ export const devResetSchool = defineOp({
 /**
  * Dev only: fictional de-identified counters for other students at the demo school, so District Insights has groups
  * over the 10-student minimum (Reading, Math) and groups under it (Writing, Science) that must stay suppressed.
- * Student keys are made-up hash-like strings, never ids. Push with the `counters.push` insights op after the seed.
+ * Student keys are made-up hash-like strings, never ids.
  */
 export function demoPeerIncrements(period: string): {
   schoolId: string

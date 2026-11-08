@@ -10,7 +10,7 @@ import { audit, insertEntity, newId, nowIso } from '../repos/base'
 import * as ev from '../repos/evidence'
 import { confirmedObjectiveForGoal, currentConfirmedObjectives, goalById } from '../repos/iep'
 import { latestKeyedCheck } from '../repos/lens'
-import { aimline, dataNeeded, suggestProficiency, type ProficiencySuggestion, type WhatWorksRow } from './analytics'
+import { aimline, dataNeeded, type WhatWorksRow } from './analytics'
 import { Now, StudentArgs, authorize } from './authz'
 import { whatWorksFor } from './student-common'
 import { DATA_NEEDED_ATTEMPT_DAYS, RATE_PROBE_SECONDS, daysToMs } from './thresholds'
@@ -136,23 +136,6 @@ export const dataNeededScan = defineOp({
 
 // ---------- proficiency (PRD principle 7: the teacher sets it) ----------
 
-function suggestionFor(sql: SqlExecutor, goalId: string): ProficiencySuggestion {
-  const objective = confirmedObjectiveForGoal(sql, goalId)
-  if (!objective) return suggestProficiency([], { baseline: null, target: 0, reviewDate: null })
-  return suggestProficiency(ev.confirmedPoints(sql, objective.id), objective)
-}
-
-export const proficiencySuggest = defineOp({
-  name: 'proficiency.suggest',
-  room: 'student',
-  capability: 'proficiency.set',
-  args: StudentArgs.extend({ goalId: Id }),
-  run(sql, args, actor): ProficiencySuggestion {
-    authorize(actor, 'proficiency.set', args.studentId)
-    return suggestionFor(sql, requireGoal(sql, args.goalId).id)
-  },
-})
-
 export const proficiencySet = defineOp({
   name: 'proficiency.set',
   room: 'student',
@@ -176,4 +159,4 @@ export const proficiencySet = defineOp({
   },
 })
 
-export const insightOpList = [aimlineGet, whatWorksGet, dataNeededScan, proficiencySuggest, proficiencySet]
+export const progressOpList = [aimlineGet, whatWorksGet, dataNeededScan, proficiencySet]

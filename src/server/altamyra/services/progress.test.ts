@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { AMARA, KAI, SOFIA, STUDENT_IDS } from '../fixtures'
+import { KAI, STUDENT_IDS } from '../fixtures'
 import { ACTORS, closeAll, runStudent, studentRoom } from './testing'
 
 afterEach(closeAll)
@@ -64,14 +64,6 @@ describe('proficiency (PRD principle 7)', () => {
     expect(() => runStudent(sql, 'proficiency.set', { studentId: kai, goalId: selfRegGoal, level: 'Proficient', period: 'T1' }, ACTORS.ea)).toThrow(/not_permitted/)
   })
 
-  it('suggests IE when the minimum is unmet, never Emerging or Developing by default', () => {
-    const sql = studentRoom('amara')
-    const s = runStudent<{ level: string; basis: string }>(sql, 'proficiency.suggest', { studentId: STUDENT_IDS.amara, goalId: AMARA.goals[0].id }, ACTORS.teacher)
-    expect(s).toMatchObject({ level: 'IE', basis: 'in relation to IEP goals' })
-    const sofia = studentRoom('sofia')
-    const m = runStudent<{ level: string }>(sofia, 'proficiency.suggest', { studentId: STUDENT_IDS.sofia, goalId: SOFIA.goals[0].id }, ACTORS.teacher)
-    expect(m.level).toBe('IE')
-  })
 })
 
 describe('aimline and what works', () => {
@@ -93,7 +85,7 @@ describe('removed insight features', () => {
   it('have no digest, decision job or draft ops', () => {
     const sql = studentRoom('kai')
     for (const op of ['digest.weekly', 'decisions.evaluate', 'drafts.save', 'drafts.update', 'drafts.markUsed', 'drafts.context', 'drafts.get']) {
-      expect(() => runStudent(sql, op, { studentId: kai }, ACTORS.caseManager)).toThrow(/no op/)
+      expect(() => runStudent(sql, op, { studentId: kai }, ACTORS.caseManager)).toThrow(/Unknown student op/)
     }
   })
 })

@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { AI_SCHEMAS, type AnalyseLessonOutput, type LensForStudentInput } from '../contract/ai'
 import { STUDENT_FIXTURES } from '../fixtures'
 import { VERTEX_NOT_CONFIGURED } from './errors'
-import { FIXTURE_LESSONS, tokenFor } from './fixture-data'
+import { FIXTURE_LESSONS, fixtureProfile, tokenFor } from './fixture-data'
 import { getProvider } from './provider'
-import { toAiProfile } from './profile'
 import { createFixtureProvider } from './providers/fixture'
 import { createVertexProvider } from './providers/vertex'
 
@@ -21,7 +20,7 @@ async function lensInputs(): Promise<LensForStudentInput[]> {
         subject: lesson.subject,
         analysis,
         lessonText: lesson.text,
-        profile: toAiProfile({ token: tokenFor(f.studentId), iep: f.iep, goals: f.goals, objectives: f.objectives }),
+        profile: fixtureProfile(f),
         whatWorks: [],
       })
     }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { closeAll } from '../services/testing'
 import { amara, kai, sofia, U } from './flows'
-import { createHarness, type Harness } from './harness'
+import { createHarness } from './harness'
 
 afterEach(closeAll)
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { userActor } from '../contract/permissions'
 import { DISTRICT, SCHOOL, demoPeerIncrements } from '../fixtures'
+import { applyCounterIncrements } from '../rooms/insights-core'
 import type { InsightGroup } from './insights'
 import { parseSourceRef } from './sources'
 import { ACTORS, closeAll, insightsRoom, runInsights } from './testing'
@@ -13,7 +14,7 @@ const keys = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => 
 describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
   it('suppresses groups with fewer than 10 students, and the smallest sibling so it cannot be subtracted out', () => {
     const sql = insightsRoom()
-    const push = (increments: unknown[]) => runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments }, ACTORS.system)
+    const push = (increments: unknown[]) => applyCounterIncrements(sql, DISTRICT.id, increments)
     push([...keys('r', 9).map((k) => inc(k, 'Reading')), ...keys('w', 10).map((k) => inc(k, 'Writing')), ...keys('m', 12).map((k) => inc(k, 'Math'))])
     // Repeat pushes raise counts, never the student count.
     push(keys('r', 9).map((k) => inc(k, 'Reading')))
@@ -28,7 +29,7 @@ describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
   it('a finer grouping cannot be differenced against a coarser one (complementary suppression)', () => {
     const sql = insightsRoom()
     // 12 Writing students: 11 with adaptations, 1 with a modification.
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('w', 12).map((k, i) => ({ ...inc(k, 'Writing'), label: i === 0 ? 'modification' : 'adaptation' })) }, ACTORS.system)
+    applyCounterIncrements(sql, DISTRICT.id, keys('w', 12).map((k, i) => ({ ...inc(k, 'Writing'), label: i === 0 ? 'modification' : 'adaptation' })))
     const coarse = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalArea'] }, ACTORS.districtLead)
     expect(coarse.groups[0]).toMatchObject({ students: 12, suppressed: false })
     const fine = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalArea', 'label'] }, ACTORS.districtLead)
@@ -38,8 +39,8 @@ describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
 
   it('groups by goal progress and review timeliness', () => {
     const sql = insightsRoom()
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('g', 10).map((k) => ({ ...inc(k, 'Math'), goalProgress: 'near_goal_line' })) }, ACTORS.system)
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('g', 10).map((k) => ({ ...inc(k, 'Math'), goalArea: null, reviewTimeliness: 'on_time' })) }, ACTORS.system)
+    applyCounterIncrements(sql, DISTRICT.id, keys('g', 10).map((k) => ({ ...inc(k, 'Math'), goalProgress: 'near_goal_line' })))
+    applyCounterIncrements(sql, DISTRICT.id, keys('g', 10).map((k) => ({ ...inc(k, 'Math'), goalArea: null, reviewTimeliness: 'on_time' })))
     const progress = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalProgress'] }, ACTORS.districtLead)
     expect(progress.groups.find((g) => g.dims.goalProgress === 'near_goal_line')).toMatchObject({ students: 10, suppressed: false })
     const timely = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['reviewTimeliness'] }, ACTORS.districtLead)
@@ -48,7 +49,7 @@ describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
 
   it('suppresses at every grouping, including combined dimensions', () => {
     const sql = insightsRoom()
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('w', 12).map((k, i) => ({ ...inc(k, 'Writing'), label: i < 3 ? 'modification' : 'adaptation' })) }, ACTORS.system)
+    applyCounterIncrements(sql, DISTRICT.id, keys('w', 12).map((k, i) => ({ ...inc(k, 'Writing'), label: i < 3 ? 'modification' : 'adaptation' })))
     const { groups } = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalArea', 'label'] }, ACTORS.districtLead)
     expect(groups.find((g) => g.dims.label === 'modification')).toMatchObject({ suppressed: true, students: null })
     expect(groups.find((g) => g.dims.label === 'adaptation')).toMatchObject({ suppressed: true, students: null })
@@ -57,7 +58,7 @@ describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
 
   it('accepts only hashed student keys and only district leads of that district read', () => {
     const sql = insightsRoom()
-    expect(() => runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: [inc('57d00000-0000-4000-8000-00000000000a', 'Reading')] }, ACTORS.system)).toThrow(/hash/)
+    expect(() => applyCounterIncrements(sql, DISTRICT.id, [inc('57d00000-0000-4000-8000-00000000000a', 'Reading')])).toThrow(/hash/)
     expect(() => runInsights(sql, 'insights.get', { districtId: DISTRICT.id }, ACTORS.caseManager)).toThrow(/insights.view/)
     expect(() => runInsights(sql, 'insights.get', { districtId: 'other' }, userActor('x', { districtLeadOf: [DISTRICT.id] }))).toThrow(/not_in_scope/)
   })
@@ -86,7 +87,7 @@ describe('district monthly narrative (template text, not AI)', () => {
 
   it('reports shown groups only and never mentions a suppressed group or its size', () => {
     const sql = insightsRoom()
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: [...keys('r', 12).map((k) => inMonth(k, 'Reading')), ...keys('w', 3).map((k) => inMonth(k, 'Writing')), ...keys('m', 15).map((k) => inMonth(k, 'Math')), ...keys('s', 20).map((k) => inMonth(k, 'Science'))] }, ACTORS.system)
+    applyCounterIncrements(sql, DISTRICT.id, [...keys('r', 12).map((k) => inMonth(k, 'Reading')), ...keys('w', 3).map((k) => inMonth(k, 'Writing')), ...keys('m', 15).map((k) => inMonth(k, 'Math')), ...keys('s', 20).map((k) => inMonth(k, 'Science'))])
     const n = narrative(sql)
     expect(n.period).toBe('2026-11')
     expect(n.text).toContain('Math: 15 students')
@@ -96,14 +97,14 @@ describe('district monthly narrative (template text, not AI)', () => {
     expect(n.text).not.toMatch(/hash-|student key|studentKey|[0-9a-f]{8}-[0-9a-f]{4}/i)
     // Only one group of three: nothing to report, and the small group is not named.
     const small = insightsRoom()
-    runInsights(small, 'counters.push', { districtId: DISTRICT.id, increments: keys('w', 3).map((k) => inMonth(k, 'Writing')) }, ACTORS.system)
+    applyCounterIncrements(small, DISTRICT.id, keys('w', 3).map((k) => inMonth(k, 'Writing')))
     expect(narrative(small).text).toMatch(/nothing to report/)
     expect(narrative(small).text).not.toMatch(/Writing|3/)
   })
 
   it('follows the requested period', () => {
     const sql = insightsRoom()
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: [...keys('a', 10).map((k) => inMonth(k, 'Reading', '2026-10')), ...keys('b', 10).map((k) => inMonth(k, 'Math', '2026-11'))] }, ACTORS.system)
+    applyCounterIncrements(sql, DISTRICT.id, [...keys('a', 10).map((k) => inMonth(k, 'Reading', '2026-10')), ...keys('b', 10).map((k) => inMonth(k, 'Math', '2026-11'))])
     expect(narrative(sql, '2026-10').text).toContain('Reading')
     expect(narrative(sql, '2026-10').text).not.toContain('Math')
     expect(narrative(sql).period).toBe('2026-11')
@@ -113,7 +114,7 @@ describe('district monthly narrative (template text, not AI)', () => {
 describe('district monthly narrative with demo peers', () => {
   it('reads sensibly from aggregates and hides the small demo groups', () => {
     const sql = insightsRoom()
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: demoPeerIncrements('2026-11') }, ACTORS.system)
+    applyCounterIncrements(sql, DISTRICT.id, demoPeerIncrements('2026-11'))
     const n = runInsights<{ monthlyNarrative: { period: string | null; text: string } }>(sql, 'insights.get', { districtId: DISTRICT.id }, ACTORS.districtLead).monthlyNarrative
     expect(n.period).toBe('2026-11')
     expect(n.text).toContain('Reading: 14 students')
