@@ -20,7 +20,7 @@ import {
 import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
 import { ApiError, apiGet, apiPost } from '@/lib/altamira/api'
-import { assignBody, type Member } from '@/lib/altamira/roles-admin'
+import { assignBody, NEEDS_STUDENT, type Member } from '@/lib/altamira/roles-admin'
 import { RoleGate } from '@/lib/altamira/RoleGate'
 import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
 
@@ -32,7 +32,6 @@ const ROLE_KEY: Record<AltamiraRole, MessageKey> = {
   district_lead: 'app.role.district_lead',
   school_admin: 'app.role.school_admin',
 }
-const NEEDS_STUDENT: AltamiraRole[] = ['ea', 'parent']
 
 export default function RolesPage() {
   return (
@@ -45,8 +44,7 @@ export default function RolesPage() {
 function RolesBody() {
   const { t } = useLang()
   const toast = useToast()
-  const { me } = useAltamiraMe()
-  const schoolId = (me as (typeof me & { schoolId?: string }) | null)?.schoolId ?? null
+  const { me, schoolId } = useAltamiraMe()
   const [members, setMembers] = useState<Member[] | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [form, setForm] = useState({ userId: '', displayName: '', role: 'teacher' as AltamiraRole, studentId: '' })

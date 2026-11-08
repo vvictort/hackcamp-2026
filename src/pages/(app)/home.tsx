@@ -1,14 +1,16 @@
 /**
- * Altamira dashboard. Everything comes from the /api/v1 backend: Pulse is goal
- * data coverage (fresh, stale, data needed), Coming up is today's schedule and
- * Parents, district leads and school administrators are sent to their own page. The dev panel (load demo data, act as
- * a role) shows only when the backend has ALTAMIRA_DEV_SEED=true.
+ * Altamira home, built around the school day. Teacher: today's lesson plans to
+ * approve and students missing a plan. EA: today's approved plans and the end
+ * of day review. Both: summaries waiting for approval. Case manager: weekly
+ * summary and students. Parents, district leads and school administrators are
+ * sent to their own page. The dev panel (load demo data, act as a role) shows
+ * only when the backend has ALTAMIRA_DEV_SEED=true.
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
-import { ArrowUpRight, CalendarDays, ClipboardCheck, FlaskConical, Hourglass, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, CircleCheck, FileText, FlaskConical, MoonStar, UsersRound } from 'lucide-react'
 import {
   Button,
   Card,
@@ -20,7 +22,6 @@ import {
   DialogTitle,
   EmptyState,
   PageHeader,
-  Progress,
   Select,
   SelectContent,
   SelectItem,
@@ -28,6 +29,7 @@ import {
   SelectValue,
   Spinner,
   StatusBadge,
+  buttonVariants,
   useToast,
 } from '@/components/ui'
 import { OnboardingRedirect } from '@/components/auth/onboarding'
@@ -35,10 +37,20 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useLang } from '@/i18n'
 import { T } from '@/i18n/rich'
 import type { MessageKey } from '@/i18n/en'
-import { apiGet, apiPost, type ComingUpItem } from '@/lib/altamira/api'
-import { canOpen, START_PATH } from '@/lib/altamira/RoleGate'
+import { apiPost } from '@/lib/altamira/api'
+import { START_PATH } from '@/lib/altamira/RoleGate'
 import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
-import { coverageOf, tallyCoverage, type Coverage, type CoverageCounts, type GoalStatusLite } from '@/lib/altamira/coverage'
+import {
+  getDayReview,
+  getPendingSummaries,
+  getTodayPlans,
+  reviewProgress,
+  splitToday,
+  summaryLink,
+  type DayReview,
+  type PendingSummary,
+  type TodayPlans,
+} from '@/lib/altamira/home-api'
 
 const ROLE_LABEL: Record<AltamiraRole, MessageKey> = {
   ea: 'app.role.ea',
@@ -49,13 +61,171 @@ const ROLE_LABEL: Record<AltamiraRole, MessageKey> = {
   school_admin: 'app.role.school_admin',
 }
 
-const UP_META: Record<ComingUpItem['kind'], { Icon: LucideIcon; key: MessageKey; to: (id: string) => string }> = {
-  iep_meeting: { Icon: CalendarDays, key: 'app.home.upIep', to: (id) => `/students/${id}` },
-  review_queue: { Icon: ClipboardCheck, key: 'app.home.upReview', to: () => '/review' },
-  data_due: { Icon: Hourglass, key: 'app.home.upData', to: () => '/capture' },
+const planLink = (id: string) => `/students/${encodeURIComponent(id)}?tab=plan`
+const linkClass = 'rounded-md font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2'
+
+type Today = { plans: TodayPlans; pending: PendingSummary[]; review: DayReview }
+
+function useToday(enabled: boolean, role: AltamiraRole | null) {
+  const [data, setData] = useState<Today | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const load = useCallback(async () => {
+    setStatus('loading')
+    try {
+      const [plans, pending, review] = await Promise.all([
+        getTodayPlans(),
+        getPendingSummaries(),
+        role === 'ea' ? getDayReview() : Promise.resolve({ date: '', students: [] } as DayReview),
+      ])
+      setData({ plans, pending, review })
+      setStatus('ready')
+    } catch {
+      setStatus('error')
+    }
+  }, [role])
+  useEffect(() => {
+    if (enabled) void load()
+  }, [enabled, load])
+  return { data, status, reload: load }
 }
 
-type Pulse = { counts: CoverageCounts; total: number }
+function PendingCard({ pending }: { pending: PendingSummary[] }) {
+  const { t } = useLang()
+  return (
+    <Card title={t('app.home.pendingTitle')}>
+      {pending.length === 0 ? (
+        <p className="text-body text-muted-foreground">{t('app.home.pendingNone')}</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {pending.map((s) => (
+            <li key={s.id} className="flex items-center gap-3">
+              <FileText className="size-4 shrink-0" aria-hidden />
+              <Link to={summaryLink(s)} className={linkClass}>
+                {t('app.home.pendingItem', { kind: t(`app.summaries.kind.${s.kind}`), student: s.label })}
+              </Link>
+              <span className="ml-auto text-small text-muted-foreground">{s.period}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+function TeacherHome({ today }: { today: Today }) {
+  const { t } = useLang()
+  const { withPlan, missing } = splitToday(today.plans)
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card title={t('app.home.plansTitle')}>
+        {withPlan.length === 0 ? (
+          <p className="text-body text-muted-foreground">{t('app.home.plansEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {withPlan.map((s) => (
+              <li key={s.studentId} className="flex flex-wrap items-center justify-between gap-3">
+                <span className="flex flex-col">
+                  <span className="text-body font-semibold">{s.label}</span>
+                  <span className="text-small text-muted-foreground">{s.plan?.title}</span>
+                </span>
+                {s.plan?.status === 'approved' ? (
+                  <StatusBadge tone="success">{t('app.home.planApproved')}</StatusBadge>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-3">
+                    <StatusBadge tone="warning">{t('app.home.planDraft')}</StatusBadge>
+                    <Link to={planLink(s.studentId)} className={buttonVariants({ size: 'sm' })}>
+                      {t('app.home.reviewApprove')}
+                    </Link>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      <Card title={t('app.home.missingTitle')}>
+        {missing.length === 0 ? (
+          <p className="flex items-center gap-2 text-body text-muted-foreground">
+            <CircleCheck className="size-4" aria-hidden /> {t('app.home.missingNone')}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {missing.map((s) => (
+              <li key={s.studentId} className="flex items-center justify-between gap-3">
+                <span className="text-body font-semibold">{s.label}</span>
+                <Link to={planLink(s.studentId)} className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                  {t('app.home.addPlan')}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      <div className="lg:col-span-2">
+        <PendingCard pending={today.pending} />
+      </div>
+    </div>
+  )
+}
+
+function EaHome({ today }: { today: Today }) {
+  const { t } = useLang()
+  const { done, total } = reviewProgress(today.review)
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card title={t('app.home.eodTitle')}>
+        <p className="text-body text-muted-foreground">{t('app.home.eodBody')}</p>
+        <p className="text-label font-semibold">{total === 0 ? t('app.home.eodNone') : t('app.home.eodProgress', { done, total })}</p>
+        <Link to="/end-of-day" className={buttonVariants({ className: 'w-fit' })}>
+          <MoonStar aria-hidden /> {t('app.home.eodStart')}
+        </Link>
+      </Card>
+      <Card title={t('app.home.eaPlansTitle')}>
+        {today.plans.students.length === 0 ? (
+          <p className="text-body text-muted-foreground">{t('app.home.eaPlansEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {today.plans.students.map((s) => (
+              <li key={s.studentId} className="flex items-center justify-between gap-3">
+                <span className="text-body font-semibold">{s.label}</span>
+                {s.plan?.status === 'approved' ? (
+                  <Link to={planLink(s.studentId)} className={linkClass}>
+                    {s.plan.title}
+                  </Link>
+                ) : (
+                  <span className="text-small text-muted-foreground">{t('app.home.eaWaiting')}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      <div className="lg:col-span-2">
+        <PendingCard pending={today.pending} />
+      </div>
+    </div>
+  )
+}
+
+function CaseManagerHome() {
+  const { t } = useLang()
+  const cards = [
+    { to: '/summaries', Icon: FileText, title: 'app.home.cmWeeklyTitle', body: 'app.home.cmWeeklyBody', cta: 'app.home.cmWeeklyOpen' },
+    { to: '/students', Icon: UsersRound, title: 'app.home.cmTitle', body: 'app.home.cmStudentsBody', cta: 'app.home.cmStudentsOpen' },
+  ] as const
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {cards.map((c) => (
+        <Card key={c.to} title={t(c.title)}>
+          <p className="text-body text-muted-foreground">{t(c.body)}</p>
+          <Link to={c.to} className={buttonVariants({ className: 'w-fit' })}>
+            <c.Icon aria-hidden /> {t(c.cta)} <ArrowUpRight aria-hidden />
+          </Link>
+        </Card>
+      ))}
+    </div>
+  )
+}
 
 export default function HomePage() {
   const { user } = useAuthProfileReady({ requireUser: true })
@@ -65,42 +235,9 @@ export default function HomePage() {
   const firstName = user?.name?.split(' ')[0] ?? ''
   const [busy, setBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
-  const [pulse, setPulse] = useState<Pulse | null>(null)
-  const [upcoming, setUpcoming] = useState<ComingUpItem[]>([])
-
-  const staffStudents = me ? (me.caseload.length ? me.caseload : me.students) : []
-  const staffKey = staffStudents.map((s) => s.id).join(',')
   const seeded = !!me && me.memberships.length + me.parentOf.length > 0
-
-  const loadPulse = useCallback(async () => {
-    const ids = staffKey ? staffKey.split(',') : []
-    const statuses: GoalStatusLite[] = []
-    await Promise.all(
-      ids.map(async (id) => {
-        try {
-          const profile = await apiGet<{ goals?: { id: string }[] }>(`/students/${id}`)
-          const results = await Promise.allSettled((profile.goals ?? []).map((g) => apiGet<GoalStatusLite>(`/students/${id}/goals/${g.id}/status`)))
-          for (const r of results) if (r.status === 'fulfilled') statuses.push(r.value)
-        } catch {
-          /* no access to this student: skip */
-        }
-      }),
-    )
-    setPulse({ counts: tallyCoverage(statuses.map(coverageOf)), total: statuses.length })
-    try {
-      setUpcoming((await apiGet<{ items: ComingUpItem[] }>('/me/coming-up')).items)
-    } catch {
-      setUpcoming([])
-    }
-  }, [staffKey])
-
-  useEffect(() => {
-    if (me && (role === 'ea' || role === 'teacher' || role === 'case_manager')) void loadPulse()
-    else {
-      setPulse(null)
-      setUpcoming([])
-    }
-  }, [me, role, loadPulse])
+  const staffRole = role === 'ea' || role === 'teacher'
+  const today = useToday(!!me && seeded && staffRole, role)
 
   const run = async (fn: () => Promise<void>, ok?: string) => {
     setBusy(true)
@@ -113,16 +250,6 @@ export default function HomePage() {
       setBusy(false)
     }
   }
-
-  const tokenOf = (studentId: string) => me?.students.concat(me.caseload).find((s) => s.id === studentId)?.displayToken ?? studentId.slice(0, 6)
-  const coverageRow = (key: Coverage, tone: 'success' | 'warning' | 'destructive', label: MessageKey) => (
-    <li key={key} className="flex items-center justify-between gap-3">
-      <StatusBadge tone={tone}>{t(label)}</StatusBadge>
-      <span className="text-h2 font-extrabold tabular-nums">{pulse?.counts[key] ?? 0}</span>
-    </li>
-  )
-  const todayIso = new Date().toLocaleDateString('en-CA')
-  const freshPct = pulse && pulse.total ? Math.round((pulse.counts.fresh / pulse.total) * 100) : 0
 
   if (!loading && role && START_PATH[role] !== '/home' && !devEnabled) return <Navigate to={START_PATH[role]} replace />
 
@@ -186,7 +313,7 @@ export default function HomePage() {
                 void run(async () => {
                   await apiPost('/dev/seed', { reset: true })
                   await switchRole(role ?? 'case_manager')
-                  await loadPulse()
+                  if (staffRole) await today.reload()
                 }, t('app.home.resetDone'))
               }}
             >
@@ -205,73 +332,25 @@ export default function HomePage() {
           <EmptyState title={t('app.home.emptyTitle')} description={devEnabled ? t('app.home.emptyBodyDev') : t('app.home.emptyBody')} />
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {pulse && (
-            <Card title={t('app.home.pulseTitle')} className="lg:col-span-1">
-              <p className="text-body text-muted-foreground">{t('app.home.pulseBody', { n: pulse.total })}</p>
-              <Progress value={freshPct} label={t('app.home.pulseFreshLabel')} tone="signal" />
-              <ul className="flex flex-col gap-3">
-                {coverageRow('fresh', 'success', 'app.home.coverFresh')}
-                {coverageRow('stale', 'warning', 'app.home.coverStale')}
-                {coverageRow('data_needed', 'destructive', 'app.home.coverNeeded')}
-              </ul>
-            </Card>
+        <>
+          {staffRole && today.status === 'loading' && (
+            <p role="status" className="flex items-center gap-3 text-body text-muted-foreground">
+              <Spinner /> {t('app.home.loading')}
+            </p>
           )}
-
-          <Card title={t('app.home.comingUp')} className="lg:col-span-1">
-            {me.todaySchedule.length === 0 && upcoming.length === 0 ? (
-              <p className="text-body text-muted-foreground">{t('app.home.nothingToday')}</p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {me.todaySchedule.map((b) => (
-                  <li key={`${b.classId}-${b.startsAt}`} className="flex flex-col">
-                    <span className="text-label font-semibold">
-                      {b.startsAt} to {b.endsAt}
-                    </span>
-                    <span className="text-body">{b.lessonTitle ? `${b.className}: ${b.lessonTitle}` : b.className}</span>
-                  </li>
-                ))}
-                {upcoming.filter((u) => canOpen(UP_META[u.kind].to(u.studentId).split('/').slice(0, 2).join('/'), role)).map((u, i) => {
-                  const { Icon, key, to } = UP_META[u.kind]
-                  return (
-                    <li key={`${u.kind}-${u.studentId}-${i}`}>
-                      <Link to={to(u.studentId)} className="flex items-start gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2">
-                        <Icon className="mt-1 size-4 shrink-0" aria-hidden />
-                        <span className="flex flex-col">
-                          <span className="text-label font-semibold">{u.date === todayIso ? t('app.home.upToday') : u.date}</span>
-                          <span className="text-body">{t(key, { n: u.count ?? 0, student: tokenOf(u.studentId) })}</span>
-                        </span>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </Card>
-
-          {role === 'ea' && (
-            <Card title={t('app.nav.ea')} className="lg:col-span-3">
-              <Link
-                to="/ea"
-                className="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-3 text-label font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
-              >
-                {t('app.nav.ea')} <ArrowUpRight className="size-4" aria-hidden />
-              </Link>
-            </Card>
+          {staffRole && today.status === 'error' && (
+            <div className="flex flex-col items-start gap-3">
+              <p role="alert" className="text-body text-destructive">
+                {t('app.home.loadFailed')}
+              </p>
+              <Button variant="outline" onClick={() => void today.reload()}>
+                {t('app.home.retry')}
+              </Button>
+            </div>
           )}
-
-          {role === 'teacher' && (
-            <Card title={t('app.home.lessonLens')} className="lg:col-span-3">
-              <p className="text-body text-muted-foreground">{t('app.home.lensCardBody')}</p>
-              <Link
-                to="/lesson-lens"
-                className="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-3 text-label font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
-              >
-                {t('app.home.openLens')} <ArrowUpRight className="size-4" aria-hidden />
-              </Link>
-            </Card>
-          )}
-        </div>
+          {staffRole && today.status === 'ready' && today.data && (role === 'teacher' ? <TeacherHome today={today.data} /> : <EaHome today={today.data} />)}
+          {role === 'case_manager' && <CaseManagerHome />}
+        </>
       )}
     </div>
   )

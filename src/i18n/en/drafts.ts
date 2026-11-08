@@ -9,8 +9,6 @@ export const drafts = {
   'drafts.family.student': 'Student',
   'drafts.family.none': 'No students linked to this account',
   'drafts.family.noneHint': 'Ask the school to link your child to your account.',
-  'drafts.family.summaries': 'Updates from the school',
-  'drafts.family.noSummaries': 'No approved updates yet. A teacher or education assistant reviews each update before you see it.',
   'drafts.family.consents': 'Sharing choices',
   'drafts.family.consentsHint': 'Turn a choice off to stop that use. Your choice applies right away.',
   'drafts.family.consent.voice_note': 'Voice notes',

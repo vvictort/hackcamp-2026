@@ -1,6 +1,6 @@
 /** Parent view: the approved monthly update (with audio) and consent toggles for the parent's own child. */
 import { useEffect, useMemo, useState } from 'react'
-import { Users } from 'lucide-react'
+import { FileText, Users } from 'lucide-react'
 import {
   Button,
   Card,
@@ -20,12 +20,13 @@ import { useLang } from '@/i18n'
 import { RoleGate } from '@/lib/altamira/RoleGate'
 import {
   FAMILY_CONSENT_KINDS,
-  getFamilyProgress,
+  familyText,
+  getFamilySummaries,
   getMe,
   setConsent,
   type Consent,
   type FamilyConsentKind,
-  type FamilyProgress,
+  type FamilySummary,
   type MeResponse,
 } from '@/lib/altamira/family-api'
 
@@ -96,43 +97,72 @@ function FamilyBody() {
 
 function ParentView({ studentId }: { studentId: string }) {
   const { t } = useLang()
-  const [progress, setProgress] = useState<FamilyProgress | null>(null)
+  const [rows, setRows] = useState<FamilySummary[] | null>(null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
     let live = true
-    getFamilyProgress(studentId)
-      .then((p) => live && setProgress(p))
+    getFamilySummaries(studentId)
+      .then((r) => live && setRows(r))
       .catch(() => live && setError(true))
     return () => {
       live = false
     }
   }, [studentId])
 
+  const [latest, ...earlier] = rows ?? []
+
   return (
     <>
-      {error && (
+      {error ? (
         <p role="alert" className="text-body text-destructive">
           {t('drafts.family.loadFailed')}
         </p>
-      )}
-      {progress && (
-        <Card title={t('drafts.family.summaries')}>
-          {progress.summaries.length === 0 ? (
-            <p className="text-body text-muted-foreground">{t('drafts.family.noSummaries')}</p>
-          ) : (
-            progress.summaries.map((s) => (
-              <article key={s.id} lang={s.language} className="flex flex-col gap-2">
-                <p className="text-body">{s.text}</p>
-                <p className="text-small text-muted-foreground">{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : ''}</p>
-                <ReadAloudButton text={s.text} lang={s.language} studentId={studentId} className="self-start" />
-              </article>
-            ))
-          )}
+      ) : !rows ? (
+        <p role="status" className="flex items-center gap-3 text-body text-muted-foreground">
+          <Spinner /> {t('drafts.family.loading')}
+        </p>
+      ) : !latest ? (
+        <Card>
+          <EmptyState className="py-10" icon={<FileText aria-hidden />} title={t('app.family.empty')} />
         </Card>
+      ) : (
+        <>
+          <Card title={t('app.family.latest')}>
+            <SummaryText s={latest} studentId={studentId} />
+          </Card>
+          {earlier.length > 0 && (
+            <Card title={t('app.family.earlier')}>
+              <ul className="flex flex-col gap-3">
+                {earlier.map((s) => (
+                  <li key={s.id}>
+                    <details>
+                      <summary className="cursor-pointer text-label font-semibold">{t('app.family.month', { period: s.period })}</summary>
+                      <div className="mt-3">
+                        <SummaryText s={s} studentId={studentId} />
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </>
       )}
       <ConsentsCard studentId={studentId} />
     </>
+  )
+}
+
+function SummaryText({ s, studentId }: { s: FamilySummary; studentId: string }) {
+  const { t } = useLang()
+  const { text, lang } = familyText(s)
+  return (
+    <article lang={lang} className="flex flex-col gap-3">
+      <p className="text-small text-muted-foreground">{t('app.family.month', { period: s.period })}</p>
+      <p className="whitespace-pre-line text-body">{text}</p>
+      <ReadAloudButton text={text} lang={lang} studentId={studentId} className="self-start" />
+    </article>
   )
 }
 
