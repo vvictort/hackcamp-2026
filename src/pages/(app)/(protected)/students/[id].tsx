@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, FileUp } from 'lucide-react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, FileUp, Send } from 'lucide-react'
 import { Badge, Button, Card, PageHeader } from '@/components/ui'
 import { GoalCard } from '@/components/students/GoalCard'
 import { IepImportDialog } from '@/components/students/IepImportDialog'
+import { HandoffDialog } from '@/components/students/HandoffDialog'
+import { ParentInputPanel } from '@/components/students/ParentInputPanel'
 import { ProposalForm } from '@/components/students/ProposalForm'
 import { ProposalsPanel } from '@/components/students/ProposalsPanel'
 import { Timeline } from '@/components/students/Timeline'
@@ -25,6 +27,9 @@ export default function StudentProfilePage() {
   const { id = '' } = useParams()
   const [rev, setRev] = useState(0)
   const [importing, setImporting] = useState(false)
+  const [handoffOpen, setHandoffOpen] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const handoffParam = params.get('handoff')
   const bump = () => setRev((n) => n + 1)
 
   const me = useLoad(getMe, 'me')
@@ -73,7 +78,14 @@ export default function StudentProfilePage() {
       <PageHeader
         title={p.displayToken}
         description={s('students.profile.summary', { grade: p.grade, version: p.iepVersion ?? '-', review: fmtDate(sec?.reviewDate) || '-' })}
-        actions={isCm && <Button onClick={() => setImporting(true)}><FileUp aria-hidden />{s('students.import.open')}</Button>}
+        actions={
+          isCm && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setHandoffOpen(true)}><Send aria-hidden />{s('students.handoff.open')}</Button>
+              <Button onClick={() => setImporting(true)}><FileUp aria-hidden />{s('students.import.open')}</Button>
+            </div>
+          )
+        }
       />
       {roles.length > 0 && <p className="flex flex-wrap gap-2">{roles.map((r) => <Badge key={r} variant="outline">{r.replace('_', ' ')}</Badge>)}</p>}
 
@@ -103,7 +115,7 @@ export default function StudentProfilePage() {
           <h2 id="goals-h" className="text-h2 font-extrabold">{s('students.goals')}</h2>
           {objectives.status === 'error' && <p role="alert" className="text-small">{objectives.error.message}</p>}
           {p.goals.map((g) => (
-            <GoalCard key={g.id} studentId={id} goal={g} objectives={objs.filter((o) => o.goalId === g.id)} canConfirm={isCm} onChanged={bump} />
+            <GoalCard key={g.id} studentId={id} goal={g} objectives={objs.filter((o) => o.goalId === g.id)} canConfirm={isCm} canRate={canPropose} onChanged={bump} />
           ))}
         </section>
       )}
@@ -121,6 +133,16 @@ export default function StudentProfilePage() {
       )}
       {canPropose && <ProposalsPanel studentId={id} canResolve={isCm} refreshKey={rev} onResolved={bump} />}
 
+      {isCm && <ParentInputPanel studentId={id} />}
+
+      <HandoffDialog studentId={id} canCreate={isCm} open={handoffOpen} onOpenChange={setHandoffOpen} />
+      <HandoffDialog
+        studentId={id}
+        canCreate={false}
+        open={!!handoffParam}
+        handoffId={handoffParam}
+        onOpenChange={(o) => { if (!o) setParams((p) => { p.delete('handoff'); return p }, { replace: true }) }}
+      />
       <IepImportDialog studentId={id} open={importing} onOpenChange={setImporting} onConfirmed={bump} />
     </div>
   )

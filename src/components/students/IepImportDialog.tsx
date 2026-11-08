@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormField, Input, Textarea, useToast } from '@/components/ui'
-import { confirmIep, fileToBase64, importIep } from '@/lib/altamira/students-api'
+import { importIepTimed } from '@/lib/altamira/profile-api'
+import { confirmIep, fileToBase64 } from '@/lib/altamira/students-api'
 import type { IepImportResponse } from '@/server/altamira/contract/api'
 import type { IepSections } from '@/server/altamira/contract/student'
 import { SAMPLE_IEP_TEXT } from './sampleIep'
@@ -43,7 +44,7 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
     setError(null)
     try {
       const file = fileRef.current?.files?.[0]
-      const res = await importIep(
+      const res = await importIepTimed(
         studentId,
         file
           ? { sourceKind: 'pdf', fileName: file.name, contentType: file.type || 'application/pdf', bytesBase64: await fileToBase64(file) }
@@ -54,7 +55,7 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
       setDraft(res.iep.sections)
       setModSubjects(res.iep.modificationSubjects.join(', '))
     } catch (e) {
-      setError(e instanceof Error ? e.message : s('students.error.action'))
+      setError(s('students.import.failed', { message: e instanceof Error ? e.message : s('students.error.action') }))
     } finally {
       setBusy(false)
     }
@@ -151,6 +152,7 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
           </div>
         )}
 
+        {busy && !result && <p role="status" className="text-small text-muted-foreground">{s('students.import.working')}</p>}
         {error && <p role="alert" className="text-small font-semibold text-destructive-strong">{error}</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={() => close(false)}>{s('students.cancel')}</Button>

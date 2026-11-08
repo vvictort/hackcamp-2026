@@ -483,7 +483,8 @@ export const dataPointsAddPending = defineOp({
 /** Which metric types an EA event can feed. */
 const EVENT_METRICS: Record<CaptureEventBody['kind'], readonly MetricType[]> = {
   prompt_level: ['prompt_level'],
-  counter: ['frequency'],
+  // A teacher's one-tap rating records a whole-number score (accuracy %, rubric level, rate) as a counter.
+  counter: ['frequency', 'accuracy', 'rate', 'rubric'],
   timer: ['duration', 'latency'],
 }
 
