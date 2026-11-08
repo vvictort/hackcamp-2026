@@ -115,13 +115,16 @@ export function createFixtureSummaryProvider(): SummaryProvider {
 
 // ---------- Gemini ----------
 
+// Names are replaced by tokens before the call; the model must write the token itself, which the app turns back into the name.
+const NAME_RULE = ' Refer to the student only by the exact studentToken value from the input (for example S-K7Q4), never by a placeholder such as [studentToken].'
+
 const INSTRUCTIONS: Record<SummaryName, string> = {
   draftDailySummary:
-    'Write a daily summary for the classroom team in plain language, at most 120 words, from the confirmed data points, events and notes only. Add 0 to 5 short highlights. citations lists the ids of the items relied on. Invent nothing.',
+    'Write a daily summary for the classroom team in plain language, at most 120 words, from the confirmed data points, events and notes only. Add 0 to 5 short highlights. citations lists the ids of the items relied on. Invent nothing.' + NAME_RULE,
   draftWeeklyCaseloadSummary:
-    'Write a weekly caseload summary for a case manager: a short overview (at most 150 words) and one entry per student (at most 60 words, studentRef copied exactly) with flag on_track, watch or needs_attention based on the confirmed trend. citations lists ids relied on. Use only the supplied data.',
+    'Write a weekly caseload summary for a case manager: a short overview (at most 150 words) and one entry per student (at most 60 words, studentRef copied exactly) with flag on_track, watch or needs_attention based on the confirmed trend. citations lists ids relied on. Use only the supplied data.' + NAME_RULE,
   draftMonthlyFamilySummary:
-    'Write a warm, plain-language monthly progress summary for the family, at most 200 words, no jargon or acronyms, from the supplied objectives progress and highlights only. citations lists data point ids relied on.',
+    'Write a warm, plain-language monthly progress summary for the family, at most 200 words, no jargon or acronyms, from the supplied objectives progress and highlights only. citations lists data point ids relied on.' + NAME_RULE,
   translateSummary: 'Translate the text into the requested language. Keep tokens in square brackets unchanged. Add no new facts. Return the language tag used.',
 }
 
