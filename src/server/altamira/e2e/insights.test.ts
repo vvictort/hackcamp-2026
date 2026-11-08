@@ -6,7 +6,7 @@ import { applyCounterIncrements } from '../rooms/insights-core'
 import type { SchoolRoomRpc, InsightsRoomRpc } from '../rooms/rpc'
 import { loadActor, listStudentIds } from '../middleware/actor'
 import { issueToken, resolveToken } from '../middleware/tokens'
-import { DISTRICT, SCHOOL, USER_IDS } from '../fixtures'
+import { DISTRICT, SCHOOL, USER_IDS, demoPeerIncrements } from '../fixtures'
 import { createKit } from '../routes/context'
 import type { AltamiraRouteDeps } from '../routes/deps'
 import { insightsRoutes } from '../routes/insights'
@@ -16,7 +16,7 @@ import { closeAll, insightsRoom, schoolRoom } from '../services/testing'
 
 afterEach(closeAll)
 
-function setup() {
+function setup(demo = false) {
   const school = schoolRoom(true)
   const insights = insightsRoom()
   const inc = (n: number, goalArea: string) =>
@@ -24,7 +24,8 @@ function setup() {
       schoolId: SCHOOL.id, period: '2026-T1', studentKey: `${goalArea}-${i}`, goalArea,
       proficiencyLevel: null, label: null, reviewTimeliness: null, goalProgress: null, by: 1,
     }))
-  applyCounterIncrements(insights, DISTRICT.id, [...inc(12, 'Reading'), ...inc(12, 'Math'), ...inc(2, 'Writing')] as never)
+  if (demo) applyCounterIncrements(insights, DISTRICT.id, demoPeerIncrements('2026-11'))
+  else applyCounterIncrements(insights, DISTRICT.id, [...inc(12, 'Reading'), ...inc(12, 'Math'), ...inc(2, 'Writing')] as never)
   const schoolRpc: SchoolRoomRpc = {
     run: async (op, args, actor) => structuredClone(runRoomOp(school, schoolOps, op, structuredClone(args), structuredClone(actor), { room: 'school', requireAudit: true })),
     loadActor: async (u, s) => loadActor(school, u, s),
@@ -46,8 +47,8 @@ function setup() {
   const api = new Hono<AltamiraEnv>()
   insightsRoutes(api, createKit(deps))
   api.onError(altamiraOnError((err, c) => c.json({ error: { code: 'internal', message: String(err) } }, 500)))
-  const get = async (user: string | null) => {
-    const res = await api.request('/insights?groupBy=goalArea', { headers: user ? { 'x-test-user': user } : {} }, {} as Env)
+  const get = async (user: string | null, groupBy = 'goalArea') => {
+    const res = await api.request(`/insights?groupBy=${groupBy}`, { headers: user ? { 'x-test-user': user } : {} }, {} as Env)
     return { status: res.status, body: await res.json() as any }
   }
   return { get }
@@ -63,6 +64,15 @@ describe('GET /insights', () => {
     expect(by.Reading).toMatchObject({ students: 12, suppressed: false })
     expect(by.Writing).toMatchObject({ students: null, count: null, suppressed: true })
     expect(JSON.stringify(res.body)).not.toMatch(/Writing-\d/)
+  })
+  it('demo peer counters give district lead shown and suppressed groups by school and goal area', async () => {
+    const { get } = setup(true)
+    const res = await get(USER_IDS.districtLead, 'schoolId,goalArea')
+    expect(res.status).toBe(200)
+    const groups = res.body.groups as { suppressed: boolean }[]
+    expect(groups.some((g) => !g.suppressed)).toBe(true)
+    expect(groups.some((g) => g.suppressed)).toBe(true)
+    expect(JSON.stringify(res.body)).not.toMatch(/demopeer/)
   })
   it('teacher gets 403, anonymous 401', async () => {
     const { get } = setup()
