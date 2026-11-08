@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Info } from 'lucide-react'
 import {
   Button,
   Dialog,
@@ -22,20 +23,22 @@ import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { useDraftsT } from './useDraftsT'
 
 /** Family Bridge: plain-language summary from a draft, language pick, browser audio, approve. */
-export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string; open: boolean; onClose: () => void }) {
+export function FamilyBridgeDialog({ draftId, studentId, open, onClose }: { draftId: string; studentId: string; open: boolean; onClose: () => void }) {
   const t = useDraftsT()
   const toast = useToast()
   const [language, setLanguage] = useState('en')
   const [summary, setSummary] = useState<FamilySummary | null>(null)
   const [text, setText] = useState('')
+  const [requested, setRequested] = useState('en')
   const [busy, setBusy] = useState<'make' | 'approve' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const make = async () => {
     setBusy('make')
     setError(null)
+    setRequested(language)
     try {
-      const { summary: s } = await createFamilySummary(draftId, language)
+      const { summary: s } = await createFamilySummary(draftId, studentId, language)
       setSummary(s)
       setText(s.text)
     } catch (e) {
@@ -50,7 +53,7 @@ export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string
     setBusy('approve')
     setError(null)
     try {
-      const { summary: s } = await approveFamilySummary(summary.id, summary.version, text !== summary.text ? text : undefined)
+      const { summary: s } = await approveFamilySummary(summary.id, studentId, summary.version, text !== summary.text ? text : undefined)
       setSummary(s)
       setText(s.text)
       toast.success(t('drafts.fb.approvedToast'))
@@ -61,6 +64,7 @@ export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string
     }
   }
 
+  const untranslated = !!summary && summary.language.toLowerCase().split('-')[0] !== requested.toLowerCase().split('-')[0]
   const approved = summary?.status === 'approved'
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -94,6 +98,12 @@ export function FamilyBridgeDialog({ draftId, open, onClose }: { draftId: string
                 <Label htmlFor="fb-text">{t('drafts.fb.text')}</Label>
                 <StatusBadge tone={approved ? 'success' : 'warning'}>{approved ? t('drafts.fb.approved') : t('drafts.fb.pending')}</StatusBadge>
               </div>
+              {untranslated && (
+                <p role="status" className="flex items-center gap-2 text-body text-muted-foreground">
+                  <Info className="size-4 shrink-0" aria-hidden />
+                  {t('drafts.fb.notTranslated')}
+                </p>
+              )}
               <Textarea id="fb-text" value={text} onChange={(e) => setText(e.target.value)} readOnly={approved} rows={6} />
               <div className="flex flex-wrap gap-3">
                 {open && <ReadAloudButton text={text} lang={summary.language} />}

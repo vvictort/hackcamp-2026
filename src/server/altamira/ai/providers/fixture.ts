@@ -442,8 +442,8 @@ function summariseForFamily(input: SummariseForFamilyInput): SummariseForFamilyO
   const body = input.draft.sentences.map((s) => s.text.trim()).join(' ')
   const template = FAMILY_TEMPLATES[lang]
   if (template) return { language: input.language, text: template(input.studentToken, body).trim() }
-  // The fixture provider has no translations beyond English and French; it says so instead of pretending.
-  return { language: 'en', text: `(Fixture mode: no ${input.language} translation.) ${FAMILY_TEMPLATES.en(input.studentToken, body)}`.trim() }
+  // No translation beyond English and French: return clean English and report language 'en' so callers can tell.
+  return { language: 'en', text: FAMILY_TEMPLATES.en(input.studentToken, body).trim() }
 }
 
 export function createFixtureProvider(): AiProvider {

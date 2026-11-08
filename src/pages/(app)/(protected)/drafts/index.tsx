@@ -145,7 +145,7 @@ export default function DraftsPage() {
           {drafts.length === 0 ? (
             <EmptyState icon={<FileText aria-hidden />} title={t('drafts.empty')} description={t('drafts.emptyHint')} />
           ) : (
-            drafts.map((d) => <DraftCard key={d.id} draft={d} goalText={goals.find((g) => g.id === d.goalId)?.text} onChange={replace} />)
+            drafts.map((d) => <DraftCard key={d.id} draft={d} studentId={studentId} goalText={goals.find((g) => g.id === d.goalId)?.text} onChange={replace} />)
           )}
           {studentId && <TodayLinkCard studentId={studentId} />}
         </>

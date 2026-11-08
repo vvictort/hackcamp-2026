@@ -10,7 +10,7 @@ import { useDraftsT } from './useDraftsT'
 const TONE = { draft: 'info', edited: 'warning', used: 'success' } as const
 
 /** One Progress Draft: claims with citation chips, inline edit, mark used, family summary. */
-export function DraftCard({ draft, goalText, onChange }: { draft: ProgressDraft; goalText?: string; onChange: (d: ProgressDraft) => void }) {
+export function DraftCard({ draft, studentId, goalText, onChange }: { draft: ProgressDraft; studentId: string; goalText?: string; onChange: (d: ProgressDraft) => void }) {
   const t = useDraftsT()
   const toast = useToast()
   const [editing, setEditing] = useState(false)
@@ -33,7 +33,7 @@ export function DraftCard({ draft, goalText, onChange }: { draft: ProgressDraft;
     setError(null)
     try {
       const sentences = draft.sentences.map((s, i) => ({ ...s, text: texts[i]?.trim() || s.text }))
-      const { draft: d } = await patchDraft(draft.id, sentences, draft.version)
+      const { draft: d } = await patchDraft(draft.id, studentId, sentences, draft.version)
       onChange(d)
       setEditing(false)
       toast.success(t('drafts.saved'))
@@ -47,7 +47,7 @@ export function DraftCard({ draft, goalText, onChange }: { draft: ProgressDraft;
     setBusy(true)
     setError(null)
     try {
-      const { draft: d } = await markDraftUsed(draft.id, draft.version)
+      const { draft: d } = await markDraftUsed(draft.id, studentId, draft.version)
       onChange(d)
       toast.success(t('drafts.markedUsed'))
     } catch (e) {
@@ -133,7 +133,7 @@ export function DraftCard({ draft, goalText, onChange }: { draft: ProgressDraft;
         )}
       </div>
       <SourceDialog dataPointId={source} onClose={() => setSource(null)} />
-      <FamilyBridgeDialog draftId={draft.id} open={bridge} onClose={() => setBridge(false)} />
+      <FamilyBridgeDialog draftId={draft.id} studentId={studentId} open={bridge} onClose={() => setBridge(false)} />
     </Card>
   )
 }
