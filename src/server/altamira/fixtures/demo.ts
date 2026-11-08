@@ -15,7 +15,7 @@ import { STUDENT_FIXTURES, type StudentFixture } from './students'
 /**
  * Dev-only demo layer. The static fixtures keep fixed dates for the test
  * suite; the demo layer re-dates every record relative to the seed time (now
- * minus N days) so Pulse, Coming up and the digest look alive on any day.
+ * minus N days) so Pulse and Coming up look alive on any day.
  * Reached only through POST /dev/seed, which 404s unless ALTAMIRA_DEV_SEED is "true".
  */
 
@@ -50,7 +50,7 @@ type Plan = {
   decisions: { objectiveIndex: number; rule: Decision['rule']; daysAgo: number }[]
   /** Days ahead of the seed for the IEP review meeting. */
   iepMeetingInDays: number
-  extraConsent?: 'audio'
+  extraConsent?: 'voice_note'
 }
 
 const PLANS: Record<string, Plan> = {
@@ -78,7 +78,7 @@ const PLANS: Record<string, Plan> = {
     pending: { objectiveIndex: 0, days: 1, value: 40 },
     decisions: [{ objectiveIndex: 1, rule: 'below_aimline', daysAgo: 1 }],
     iepMeetingInDays: 6,
-    extraConsent: 'audio',
+    extraConsent: 'voice_note',
   },
   amara: {
     series: [
@@ -354,7 +354,7 @@ export const studentDevSeedDemo = defineOp({
   },
 })
 
-/** Demo lessons for today and tomorrow (school calendar), so Today View and Coming up have lessons. */
+/** Demo lessons for today and tomorrow (school calendar), so the lesson plan screens and Coming up have lessons. */
 export function seedSchoolDemo(sql: SqlExecutor, now: string): void {
   const lessons: Lesson[] = [
     { id: DEMO_LESSON_IDS.salmon, classId: CLASS_IDS.literacy, title: 'Salmon life cycle (fictional lesson)', sourceKind: 'text', text: 'Read the short text about the salmon life cycle. Retell the main idea. Then write two sentences about one stage.', scheduledFor: SCHOOL_DATE.format(new Date(now)), createdBy: USER_IDS.teacher, createdAt: daysAgo(now, 1), version: 1 },
@@ -366,32 +366,16 @@ export function seedSchoolDemo(sql: SqlExecutor, now: string): void {
   })
 }
 
-/**
- * Dev only: with {reset:true} wipes the school room and reloads it. Otherwise "Act as student" links the caller to Kai as a staff-style
- * membership, so POST /students/:id/sessions (evidence.capture) is in scope
- * for his student-mode consent. Run after the role switch.
- */
-export const devLinkStudent = defineOp({
-  name: 'dev.linkStudent',
+/** Dev only: wipes the school room and reloads the fictional school (the route then re-seeds the students). */
+export const devResetSchool = defineOp({
+  name: 'dev.resetSchool',
   room: 'school',
-  args: z.object({ reset: z.boolean().optional() }),
-  run(sql, args, actor) {
+  args: z.object({}),
+  run(sql) {
     const at = new Date().toISOString()
-    if (args.reset) {
-      // Dev reset of the school room: clear it and load the fictional school again (the route then re-seeds the students).
-      wipeRoom(sql)
-      seedSchool(sql)
-      seedSchoolDemo(sql, at)
-      return { studentId: STUDENT_IDS.kai }
-    }
-    sql.run('DELETE FROM parent_links WHERE parent_user_id = ?', actor.userId)
-    sql.run("DELETE FROM memberships WHERE user_id = ? AND role = 'ea'", actor.userId)
-    insertRow(
-      sql,
-      'memberships',
-      toRow({ id: crypto.randomUUID(), userId: actor.userId, role: 'ea', studentId: STUDENT_IDS.kai, classId: null, districtId: null, createdAt: at, version: 1 }),
-    )
-    appendAudit(sql, { actorId: actor.userId, action: 'dev.linkStudent', tableName: 'memberships', rowId: actor.userId, after: { studentId: STUDENT_IDS.kai }, at })
+    wipeRoom(sql)
+    seedSchool(sql)
+    seedSchoolDemo(sql, at)
     return { studentId: STUDENT_IDS.kai }
   },
 })

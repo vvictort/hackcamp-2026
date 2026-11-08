@@ -5,7 +5,6 @@ import { runRoomOp } from '../rooms/core'
 import { applyCounterIncrements } from '../rooms/insights-core'
 import type { SchoolRoomRpc, InsightsRoomRpc } from '../rooms/rpc'
 import { loadActor, listStudentIds } from '../middleware/actor'
-import { issueToken, resolveToken } from '../middleware/tokens'
 import { DISTRICT, SCHOOL, USER_IDS, demoPeerIncrements } from '../fixtures'
 import { createKit } from '../routes/context'
 import type { AltamiraRouteDeps } from '../routes/deps'
@@ -29,8 +28,6 @@ function setup(demo = false) {
   const schoolRpc: SchoolRoomRpc = {
     run: async (op, args, actor) => structuredClone(runRoomOp(school, schoolOps, op, structuredClone(args), structuredClone(actor), { room: 'school', requireAudit: true })),
     loadActor: async (u, s) => loadActor(school, u, s),
-    issueToken: async (i) => issueToken(school, i),
-    resolveToken: async (h, k, n) => resolveToken(school, h, k, n),
     listStudentIds: async () => listStudentIds(school),
   }
   const insightsRpc: InsightsRoomRpc = {

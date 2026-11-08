@@ -34,18 +34,11 @@ describe('M2 measurement core through /api/v1', () => {
     }
   })
 
-  it('a teacher proposal with evidence reaches the case manager, who resolves it', async () => {
+  it('teacher proposals are gone', async () => {
     const h = createHarness()
-    const created = await h.post(U.teacher, `/students/${kai}/proposals`, { target: 'iep', change: { goal: 'Add a writing stamina goal' } })
-    expect(created.status).toBe(200)
-    const inbox = await h.get(U.caseManager, '/me/proposals?status=open')
-    expect(inbox.body.proposals).toEqual(expect.arrayContaining([expect.objectContaining({ id: created.body.proposal.id, studentId: kai })]))
-    const resolved = await h.post(U.caseManager, `/proposals/${created.body.proposal.id}/resolve?studentId=${kai}`, {
-      expectedVersion: created.body.proposal.version,
-      decision: 'accepted',
-    })
-    expect(resolved.status).toBe(200)
-    expect(resolved.body.proposal.status).toBe('accepted')
+    expect((await h.post(U.teacher, `/students/${kai}/proposals`, { target: 'iep', change: {} })).status).toBe(404)
+    expect((await h.get(U.caseManager, '/me/proposals')).status).toBe(404)
+    expect((await h.post(U.caseManager, `/proposals/x/resolve?studentId=${kai}`, {})).status).toBe(404)
   })
 
   it('photo batch: coded sheet scored, low confidence goes to the review queue, teacher confirms', async () => {

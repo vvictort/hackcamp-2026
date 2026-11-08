@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { closeAll } from '../services/testing'
-import { SESSION_HEADER } from '../middleware/auth'
 import { WHAT_WORKS_MIN_N } from '../services/thresholds'
 import { coverageOf } from '../../../lib/altamira/coverage'
 import { amara, kai, sofia } from './flows'
@@ -41,10 +40,9 @@ describe('relative-dated demo seed', () => {
     expect(new Set(kinds)).toEqual(new Set(['fresh', 'stale', 'data_needed']))
   })
 
-  it('fires a decision, ranks strategies with evidence counts and lists coming-up items', async () => {
+  it('ranks strategies with evidence counts and lists coming-up items; the digest is gone', async () => {
     const h = await seeded()
-    const digest = await h.get(U, '/me/digest')
-    expect(digest.body.items.some((i: { decision: { rule: string } }) => i.decision.rule === 'below_aimline')).toBe(true)
+    expect((await h.get(U, '/me/digest')).status).toBe(404)
 
     const ww = await h.get(U, `/students/${kai}/what-works`)
     const shown = ww.body.rows.filter((r: { hidden: boolean }) => !r.hidden)
@@ -55,13 +53,6 @@ describe('relative-dated demo seed', () => {
     expect(up.status).toBe(200)
     const kindsUp = new Set(up.body.items.map((i: { kind: string }) => i.kind))
     expect(kindsUp).toEqual(new Set(['iep_meeting', 'review_queue', 'data_due']))
-  })
-
-  it('links the student role to Kai so a session can start', async () => {
-    const h = await seeded()
-    expect((await h.post(U, '/dev/role', { role: 'student' })).status).toBe(200)
-    expect((await h.post(U, `/students/${kai}/sessions`, {})).status).toBe(201)
-    expect((await h.post(U, `/students/${amara}/sessions`, {})).status).toBe(403)
   })
 
   it('gives every student non-empty what-works rows with enough evidence, and a worked-before strategy', async () => {
@@ -79,7 +70,7 @@ describe('relative-dated demo seed', () => {
     }
   })
 
-  it('has fresh goals right after the seed and a probe with an answer key for the student role', async () => {
+  it('has fresh goals right after the seed', async () => {
     const h = await seeded()
     let fresh = 0
     for (const id of [kai, amara, sofia]) {
@@ -87,13 +78,15 @@ describe('relative-dated demo seed', () => {
       for (const g of profile.body.goals) fresh += coverageOf((await h.get(U, `/students/${id}/goals/${g.id}/status`)).body) === 'fresh' ? 1 : 0
     }
     expect(fresh).toBeGreaterThan(0)
-    expect((await h.post(U, '/dev/role', { role: 'student' })).status).toBe(200)
-    const started = await h.post(U, `/students/${kai}/sessions`, {})
-    expect(started.status).toBe(201)
-    const { sessionId, token } = started.body
-    const next = await h.get(null, `/sessions/${sessionId}/next`, { [SESSION_HEADER]: token })
-    expect(next.status).toBe(200)
-    expect(next.body.item).toBeTruthy()
+  })
+
+  it('lists fictional users for exactly the six roles and no student role', async () => {
+    const h = await seeded()
+    const roles = await h.get(U, '/dev/roles')
+    expect([...roles.body.roles].sort()).toEqual(['case_manager', 'district_lead', 'ea', 'parent', 'school_admin', 'teacher'])
+    expect((await h.post(U, '/dev/role', { role: 'student' })).status).toBe(400)
+    expect((await h.post(U, '/dev/role', { role: 'school_admin' })).status).toBe(200)
+    expect((await h.get(U, '/me')).body.memberships.map((m: { role: string }) => m.role)).toEqual(['school_admin'])
   })
 
   it('reset wipes the demo rows and re-seeds them; second seed without reset is still refused', async () => {

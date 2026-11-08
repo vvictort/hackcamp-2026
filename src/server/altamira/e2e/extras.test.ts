@@ -7,11 +7,12 @@ import { createHarness } from './harness'
 afterEach(closeAll)
 
 describe('remaining /api/v1 flows', () => {
-  it('voice notes need audio consent; the recording is deleted either way', async () => {
+  it('voice notes need the parent\'s voice-note consent (403 consent_required); the recording is deleted either way', async () => {
     const h = createHarness()
     const audio = (key: string) => ({ audio: { fileKey: key, contentType: 'audio/webm' } })
     const refused = await h.post(U.teacher, `/students/${amara}/voice-notes`, audio('ea/note-1.webm'))
     expect(refused.status).toBe(403)
+    expect(refused.body.error.message).toContain('consent_required')
     expect(h.deletedFiles).toContain('ea/note-1.webm')
     expect(h.aiCalls.parseVoiceNote).toBe(0)
 
@@ -27,22 +28,19 @@ describe('remaining /api/v1 flows', () => {
     expect(h.deletedFiles).toContain('ea/note-2.webm')
   })
 
-  it('family summary is drafted from a Progress Draft and approved by the case manager', async () => {
+  it('voice notes follow the parent toggle: off refuses, on accepts', async () => {
     const h = createHarness()
-    const goal = h.studentSql(kai).get<{ goal_id: string }>(
-      "SELECT o.goal_id FROM data_points d JOIN objectives o ON o.id = d.objective_id WHERE d.status IN ('confirmed','auto_confirmed') LIMIT 1",
-    )!
-    const draft = await h.post(U.caseManager, `/students/${kai}/drafts`, { goalId: goal.goal_id, period: 'Term 1' })
-    expect(draft.status).toBe(201)
-    const summary = await h.post(U.caseManager, `/drafts/${draft.body.draft.id}/family-summary?studentId=${kai}`, { language: 'fr' })
-    expect(summary.status).toBe(201)
-    expect(summary.body.summary.language).toBe('fr')
-    const approved = await h.post(U.caseManager, `/family-summaries/${summary.body.summary.id}/approve?studentId=${kai}`, {
-      expectedVersion: summary.body.summary.version,
-    })
-    expect(approved.status).toBe(200)
-    const family = await h.get(U.parentKai, `/family/${kai}/progress`)
-    expect(family.body.summaries.map((s: { id: string }) => s.id)).toContain(summary.body.summary.id)
+    const note = (key: string) => ({ audio: { fileKey: key, contentType: 'audio/webm' } })
+    expect((await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'voice_note', granted: false })).status).toBe(200)
+    const off = await h.post(U.ea, `/students/${sofia}/voice-notes`, note('ea/off.webm'))
+    expect(off.status).toBe(403)
+    expect(off.body.error.message).toContain('consent_required')
+    expect(h.aiCalls.parseVoiceNote).toBe(0)
+    expect((await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'voice_note', granted: true })).status).toBe(200)
+    expect((await h.post(U.ea, `/students/${sofia}/voice-notes`, note('ea/on.webm'))).status).toBe(201)
+    // A video consent does not unlock voice notes.
+    expect((await h.call(U.parentKai, 'PUT', `/family/${kai}/consents`, { kind: 'video', granted: true })).status).toBe(200)
+    expect((await h.post(U.ea, `/students/${kai}/voice-notes`, note('ea/kai.webm'))).status).toBe(403)
   })
 
   it('district insights: district lead only, small groups suppressed', async () => {

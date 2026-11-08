@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { CBIEP_SAMPLE_TEXT, SOFIA } from '../fixtures'
 import { closeAll } from '../services/testing'
-import { approveAdaptation, approvedMathSheets, fictionalPdf, kai, sofia, toBase64, U } from './flows'
+import { amara, approveAdaptation, approvedMathSheets, fictionalPdf, kai, sofia, toBase64, U } from './flows'
 import { createHarness, type Harness } from './harness'
 
 afterEach(closeAll)
@@ -60,36 +60,28 @@ describe('voice notes: the recording never outlives the request (PRD NFR Consent
   })
 })
 
-describe('EA scope: assigned students, today (PRD matrix)', () => {
-  it('aimline, goal status and data point sources show nothing from before today', async () => {
+describe('EA scope: assigned students, full history (role model)', () => {
+  it('aimline, goal status and data point sources show the same history to the EA and the teacher', async () => {
     const h = createHarness()
     const teacherLine = await h.get(U.teacher, `/students/${sofia}/goals/${sofiaMathGoal}/aimline`)
-    expect(teacherLine.body.points.length).toBeGreaterThan(0)
     const eaLine = await h.get(U.ea, `/students/${sofia}/goals/${sofiaMathGoal}/aimline`)
     expect(eaLine.status).toBe(200)
-    expect(eaLine.body).toEqual({ start: null, end: null, points: [] })
+    expect(eaLine.body.points.length).toBeGreaterThan(0)
+    expect(eaLine.body).toEqual(teacherLine.body)
     const status = await h.get(U.ea, `/students/${sofia}/goals/${sofiaMathGoal}/status`)
-    expect(status.body).toMatchObject({ current: null, recentCount: 0, trend: null })
-    expect((await h.get(U.ea, `/data-points/${sofiaOldPoint}/source?studentId=${sofia}`)).status).toBe(404)
-    expect((await h.get(U.teacher, `/data-points/${sofiaOldPoint}/source?studentId=${sofia}`)).status).toBe(200)
+    expect(status.status).toBe(200)
+    expect((await h.get(U.ea, `/data-points/${sofiaOldPoint}/source?studentId=${sofia}`)).status).toBe(200)
   })
 
-  it('EAs cannot list IEP objectives', async () => {
+  it('an EA reads the full IEP and objectives of an assigned student only', async () => {
     const h = createHarness()
-    expect((await h.get(U.ea, `/students/${kai}/objectives`)).status).toBe(403)
-  })
-
-  it('"today" is the school day in Vancouver, not the UTC day', async () => {
-    const h = createHarness()
-    const counter = SOFIA.objectives[1]
-    await h.post(U.caseManager, `/objectives/${counter.id}/confirm?studentId=${sofia}`, { expectedVersion: counter.version })
-    // 10:00 Vancouver on Monday 2026-11-09.
-    const event = await h.post(U.ea, `/students/${sofia}/events`, { kind: 'counter', objectiveId: counter.id, count: 2, recordedAt: '2026-11-09T18:00:00.000Z' })
-    expect(event.status).toBe(201)
-    // 16:30 Vancouver the same day is already 2026-11-10 in UTC.
-    h.clock.now = Date.parse('2026-11-10T00:30:00.000Z')
-    const timeline = await h.get(U.ea, `/students/${sofia}/timeline`)
-    expect(timeline.body.dataPoints.map((p: { id: string }) => p.id)).toEqual([event.body.dataPoint.id])
+    const profile = await h.get(U.ea, `/students/${kai}`)
+    expect(profile.status).toBe(200)
+    expect(profile.body.view).toBe('full')
+    expect(profile.body.sections).not.toBeNull()
+    expect((await h.get(U.ea, `/students/${kai}/objectives`)).status).toBe(200)
+    expect((await h.get(U.ea, `/students/${amara}`)).status).toBe(403)
+    expect((await h.get(U.ea, `/students/${amara}/objectives`)).status).toBe(403)
   })
 })
 
@@ -124,18 +116,7 @@ describe('Lens approval route (replaces the removed 1A routes)', () => {
   })
 })
 
-describe('M2/M4 reads and imports added by the fix pass', () => {
-  it('the case manager reads what parents sent', async () => {
-    const h = createHarness()
-    const sent = await h.post(U.parentKai, `/family/${kai}/input`, { text: 'He slept badly this week.', language: 'en' })
-    expect(sent.status).toBe(201)
-    const inbox = await h.get(U.caseManager, `/students/${kai}/parent-input`)
-    expect(inbox.status).toBe(200)
-    expect(inbox.body.inputs.map((i: { id: string }) => i.id)).toEqual([sent.body.input.id])
-    expect((await h.get(U.teacher, `/students/${kai}/parent-input`)).status).toBe(403)
-    expect((await h.get(U.parentKai, `/students/${kai}/parent-input`)).status).toBe(403)
-  })
-
+describe('IEP import fixes', () => {
   it('an unmeasurable goal is stored as flagged for the IEP team', async () => {
     const h = createHarness({ ai: { proposeObjectives: async (input) => ({ measurable: false, goalId: input.goalId, reason: 'No observable behaviour' }) } })
     const body = await importAndConfirm(h, CBIEP_SAMPLE_TEXT)
@@ -161,12 +142,5 @@ describe('M2/M4 reads and imports added by the fix pass', () => {
       file: { fileKey: 'iep/scan.pdf', contentType: 'application/pdf', bytesBase64: toBase64(new TextEncoder().encode('%PDF-1.4\n%%EOF')) },
     })
     expect(noText.status).toBe(400)
-  })
-
-  it('the handoff packet carries suggested next goals', async () => {
-    const h = createHarness()
-    const res = await h.post(U.caseManager, `/students/${kai}/handoffs`, { toSchool: null })
-    expect(res.status).toBe(201)
-    expect(res.body.handoff.packet.suggestedNextGoals.length).toBe(res.body.handoff.packet.goals.length)
   })
 })
