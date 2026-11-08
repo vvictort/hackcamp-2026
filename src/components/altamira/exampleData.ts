@@ -1,6 +1,8 @@
 /**
- * EXAMPLE data for the Altamyra dashboard. Every student and staff member is
- * fictional. Swap these arrays for real collections once the data model exists.
+ * EXAMPLE classroom for the Altamyra dashboard. Every student and staff member
+ * is fictional. This is only the SEED: "Load example classroom" copies it into
+ * the signed-in teacher's own collections (src/lib/classroom.ts), and the
+ * dashboard reads from the database, never from this file.
  */
 
 export type Proficiency = 'Emerging' | 'Developing' | 'Proficient' | 'Extending'
@@ -16,7 +18,7 @@ export type Student = {
   modified?: boolean
 }
 
-const STUDENTS: Student[] = [
+export const STUDENTS: Student[] = [
   {
     id: 'kai',
     name: 'Kai Nakamura',
