@@ -11,7 +11,7 @@ import { sha256Hex } from '../middleware/tokens'
 import { studentOps } from '../services/registry'
 import { auditMark, runRoomOp } from './core'
 import type { StudentRoomRpc } from './rpc'
-import { confirmedDataPointsSince, counterDimensions, hasActiveConsent, liveMessage } from './student-core'
+import { confirmedDataPointsSince, hasActiveConsent, insightIncrements, liveMessage } from './student-core'
 import { altamiraDistrictId, altamiraSchoolId, insightsRoom } from './stubs'
 
 const LIVE_TAG = 'live'
@@ -34,10 +34,8 @@ export class AltamiraStudentRoom extends DurableObject<Env> implements StudentRo
     const result = runRoomOp(this.sql, studentOps, opName, args, actor, { room: 'student', requireAudit: true })
     if (!result.ok) return result
     const confirmed = confirmedDataPointsSince(this.sql, mark)
-    if (confirmed.length > 0) {
-      this.broadcast(confirmed)
-      await this.pushCounters(confirmed)
-    }
+    if (confirmed.length > 0) this.broadcast(confirmed)
+    await this.pushCounters(insightIncrements(this.sql, mark, confirmed))
     return result
   }
 
@@ -81,23 +79,15 @@ export class AltamiraStudentRoom extends DurableObject<Env> implements StudentRo
    * committed (design doc "Request flow"). The student key is a one-way hash of
    * this room's Durable Object id; no names and no student ids leave the room.
    */
-  private async pushCounters(dataPointIds: string[]): Promise<void> {
+  private async pushCounters(increments: Omit<CounterIncrement, 'schoolId' | 'studentKey'>[]): Promise<void> {
+    if (increments.length === 0) return
     try {
       const districtId = altamiraDistrictId(this.env)
       const studentKey = await sha256Hex(`${districtId}:${this.ctx.id.toString()}`)
-      const increments: CounterIncrement[] = counterDimensions(this.sql, dataPointIds).map((d) => ({
-        schoolId: altamiraSchoolId(this.env),
-        period: d.period,
-        studentKey,
-        goalArea: d.goalArea,
-        proficiencyLevel: d.proficiencyLevel,
-        label: d.label,
-        reviewTimeliness: null,
-        by: 1,
-      }))
-      if (increments.length > 0) await insightsRoom(this.env).increment(districtId, increments)
+      const schoolId = altamiraSchoolId(this.env)
+      await insightsRoom(this.env).increment(districtId, increments.map((i) => ({ ...i, schoolId, studentKey })))
     } catch {
-      // Counters are best effort; the confirmed data point is already committed. No details: logs stay scrubbed.
+      // Counters are best effort; the op is already committed. No details: logs stay scrubbed.
       console.error('altamira: insights counter push failed')
     }
   }

@@ -1,4 +1,8 @@
-import type { ConsentKind, Label, Proficiency } from '../contract/enums'
+import type { ConsentKind, GoalProgress, Label, Proficiency, ReviewTimeliness } from '../contract/enums'
+import type { DecisionOutcome } from '../services/analytics'
+import { evaluateObjective } from '../services/measurement'
+import { objectiveById } from '../repos/iep'
+import type { CounterIncrement } from '../contract/insights'
 import type { SqlExecutor } from '../db/sql'
 
 /** Pure student-room helpers used by AltamiraStudentRoom, testable on node:sqlite. */
@@ -38,7 +42,16 @@ export type CounterDimensions = {
   goalArea: string | null
   proficiencyLevel: Proficiency | null
   label: Label | null
+  goalProgress: GoalProgress | null
   period: string
+}
+
+/** Goal progress from the PRD 1B decision rule on the objective's confirmed data. */
+const PROGRESS_FOR: Record<DecisionOutcome, GoalProgress> = {
+  raise_goal: 'above_goal_line',
+  keep_collecting: 'near_goal_line',
+  change_approach: 'below_goal_line',
+  silent: 'insufficient_data',
 }
 
 /**
@@ -50,8 +63,8 @@ export type CounterDimensions = {
  */
 export function counterDimensions(sql: SqlExecutor, dataPointIds: readonly string[]): CounterDimensions[] {
   return dataPointIds.flatMap((id) => {
-    const point = sql.get<{ recorded_at: string; active_adaptations_json: string; goal_id: string; area: string }>(
-      `SELECT d.recorded_at, d.active_adaptations_json, o.goal_id, g.area
+    const point = sql.get<{ recorded_at: string; active_adaptations_json: string; objective_id: string; goal_id: string; area: string }>(
+      `SELECT d.recorded_at, d.active_adaptations_json, d.objective_id, o.goal_id, g.area
          FROM data_points d
          JOIN objectives o ON o.id = d.objective_id
          JOIN goals g ON g.id = o.goal_id
@@ -74,7 +87,32 @@ export function counterDimensions(sql: SqlExecutor, dataPointIds: readonly strin
       : labels.includes('adaptation')
         ? 'adaptation'
         : null
-    return [{ goalArea: point.area, proficiencyLevel: level?.level ?? null, label, period: point.recorded_at.slice(0, 7) }]
+    const objective = objectiveById(sql, point.objective_id)
+    const goalProgress = objective?.status === 'confirmed' ? PROGRESS_FOR[evaluateObjective(sql, objective).outcome] : null
+    return [{ goalArea: point.area, proficiencyLevel: level?.level ?? null, label, goalProgress, period: point.recorded_at.slice(0, 7) }]
+  })
+}
+
+/**
+ * Review timeliness for District Insights (PRD "review timeliness"): an IEP
+ * confirmed during the op that started at `mark` is on time when it was
+ * confirmed by the review date of the IEP version it replaces. The first IEP
+ * has nothing to be timely against and yields nothing.
+ */
+export function reviewTimelinessSince(sql: SqlExecutor, mark: number): { period: string; reviewTimeliness: ReviewTimeliness }[] {
+  const confirmed = sql.all<{ version: number; confirmed_at: string }>(
+    `SELECT v.version, v.confirmed_at FROM audit_log a JOIN iep_versions v ON v.id = a.row_id
+      WHERE a.rowid > ? AND a.action = 'iep_versions.confirm' AND v.confirmed_at IS NOT NULL ORDER BY a.rowid`,
+    mark,
+  )
+  return confirmed.flatMap((c) => {
+    const due = sql.get<{ review_date: string | null }>(
+      `SELECT json_extract(sections_json, '$.reviewDate') AS review_date FROM iep_versions
+        WHERE version < ? AND confirmed_at IS NOT NULL ORDER BY version DESC LIMIT 1`,
+      c.version,
+    )?.review_date
+    if (!due) return []
+    return [{ period: c.confirmed_at.slice(0, 7), reviewTimeliness: c.confirmed_at.slice(0, 10) <= due ? 'on_time' : 'late' }]
   })
 }
 
@@ -93,3 +131,22 @@ export function hasActiveConsent(sql: SqlExecutor, kind: ConsentKind): boolean {
 export type LiveMessage = { type: 'timeline.updated'; dataPointIds: string[] }
 
 export const liveMessage = (dataPointIds: string[]): LiveMessage => ({ type: 'timeline.updated', dataPointIds })
+
+/**
+ * Counter increments for one committed op (without school id and student key,
+ * which the room adds): one per newly confirmed data point and one per IEP
+ * review confirmed in the op.
+ */
+export function insightIncrements(sql: SqlExecutor, mark: number, confirmedIds: readonly string[]): Omit<CounterIncrement, 'schoolId' | 'studentKey'>[] {
+  const points = counterDimensions(sql, confirmedIds).map((d) => ({ ...d, reviewTimeliness: null, by: 1 }))
+  const reviews = reviewTimelinessSince(sql, mark).map((r) => ({
+    period: r.period,
+    goalArea: null,
+    proficiencyLevel: null,
+    label: null,
+    goalProgress: null,
+    reviewTimeliness: r.reviewTimeliness,
+    by: 1,
+  }))
+  return [...points, ...reviews]
+}
