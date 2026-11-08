@@ -14,7 +14,7 @@ import { AltamyraError } from '../contract/errors'
 import { dayReviewToday, daysComplete, daysGet, daysList } from '../services/day-record'
 import { familySummariesList } from '../services/summaries'
 import type { Kit, Req } from './context'
-import { draftSummary, studentToken } from './student-flows'
+import { draftSummary, studentLabel, studentToken } from './student-flows'
 
 function dateParam(r: Req): string {
   const parsed = DateString.safeParse(r.param('date'))
@@ -70,7 +70,7 @@ export function daysRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     for (const studentId of r.staffStudentIds().filter((id) => r.can('evidence.capture', id))) {
       const today = await r.student(studentId, dayReviewToday)
       date = today.date
-      students.push({ studentId, label: (await studentToken(r, studentId)).token, entriesToday: today.entriesToday, reviewed: today.reviewed })
+      students.push({ studentId, label: await studentLabel(r, studentId, (await studentToken(r, studentId)).token), entriesToday: today.entriesToday, reviewed: today.reviewed })
     }
     students.sort((a, b) => Number(a.reviewed) - Number(b.reviewed) || b.entriesToday - a.entriesToday || a.label.localeCompare(b.label))
     return r.json(MyDayReviewResponse, { date, students })

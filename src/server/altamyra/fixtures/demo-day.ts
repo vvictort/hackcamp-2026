@@ -21,6 +21,14 @@ export const devDemoStudent = defineOp({
   run(sql: SqlExecutor, args) {
     const at = nowIso(args.now)
     const create = (table: string, value: object) => insertEntity(sql, table, value)
+    // One demo-day student at a time: remove the school rows of any earlier run (found by the fictional parent's link),
+    // so pressing the button again replaces Simi instead of adding a second one.
+    const earlier = sql.all<{ student_id: string }>('SELECT student_id FROM parent_links WHERE parent_user_id = ?', DEMO_PARENT.id).map((r) => r.student_id)
+    for (const id of earlier) {
+      for (const table of ['sheet_codes', 'lesson_plans', 'iep_change_tickets', 'roster', 'memberships', 'parent_links']) sql.run(`DELETE FROM ${table} WHERE student_id = ?`, id)
+      sql.run('DELETE FROM students WHERE id = ?', id)
+      appendAudit(sql, { actorId: ACTOR, action: 'demo.student.replaced', tableName: 'students', rowId: id, at })
+    }
     create('students', { id: args.studentId, displayToken: args.displayToken, grade: DEMO_STUDENT.grade, createdAt: at, version: 1 })
     if (!sql.get('SELECT 1 FROM users WHERE id = ?', DEMO_PARENT.id)) create('users', { id: DEMO_PARENT.id, displayName: DEMO_PARENT.displayName, createdAt: at })
     const member = (userId: string, role: 'case_manager' | 'ea') =>
