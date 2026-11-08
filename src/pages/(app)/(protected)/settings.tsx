@@ -59,7 +59,8 @@ export default function SettingsPage() {
   const { success, error } = useToast()
   const { records } = useQuery<Profile>('users')
   const { put, ready } = useMutations<Profile>('users')
-  const me = records[0]
+  // Admins can read every users row, so pick this person's own (recordId is the user id).
+  const me = records.find((r) => r.recordId === user?.id)
 
   const [section, setSection] = useState<Section>('profile')
   const [school, setSchool] = useState('')
