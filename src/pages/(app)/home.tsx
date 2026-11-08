@@ -1,5 +1,5 @@
 /**
- * Altamira teacher dashboard. EXAMPLE data only (fictional students, see
+ * Altamyra teacher dashboard. EXAMPLE data only (fictional students, see
  * src/components/altamira/exampleData.ts). Nothing here saves or sends.
  *
  * Look: ink-first bento. White cards and near-black cards on a grey canvas,

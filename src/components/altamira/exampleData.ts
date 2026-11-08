@@ -1,5 +1,5 @@
 /**
- * EXAMPLE data for the Altamira dashboard. Every student and staff member is
+ * EXAMPLE data for the Altamyra dashboard. Every student and staff member is
  * fictional. Swap these arrays for real collections once the data model exists.
  */
 

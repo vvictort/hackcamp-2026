@@ -3,7 +3,7 @@
  * providers, prerendered at build). Keep it renderable without a browser:
  * no window/document or Date during render. `<Seo>` comes first.
  *
- * Altamira: a living IEP for BC grade-school teachers. Copy follows the product
+ * Altamyra: a living IEP for BC grade-school teachers. Copy follows the product
  * doc: the AI suggests, a person approves; MyEducation BC stays the legal
  * record; names are removed before the AI; data is stored in Canada. Canadian
  * spelling.
@@ -81,7 +81,7 @@ const MODULES = [
 const STEPS = [
   { img: '/images/teachers.webp', alt: 'A teacher and students working around a table covered in sticky notes', title: 'Adapt the lesson', body: 'Lesson Lens suggests adaptations for each student, tied to their IEP goals. You pick what to use.' },
   { img: '/images/students.webp', alt: 'A student writing in a spiral notebook with a ruler', title: 'Capture evidence', body: 'After class, a tap or a short voice note records what happened, tagged to the right goals.' },
-  { img: '/images/feedback.webp', alt: 'An open textbook of equations beside a notebook and pen', title: 'Draft the report', body: 'Altamira drafts the progress report from your evidence. Review it, then copy it into MyEd.' },
+  { img: '/images/feedback.webp', alt: 'An open textbook of equations beside a notebook and pen', title: 'Draft the report', body: `${APP_NAME} drafts the progress report from your evidence. Review it, then copy it into MyEd.` },
 ]
 
 const CONTROL = [
@@ -101,9 +101,9 @@ const TEAM = [
 ]
 
 const FAQ = [
-  { q: 'Does Altamira replace MyEducation BC?', a: 'No. MyEd stays the legal IEP record. Altamira is the working layer around it, where lessons, evidence and drafts live.' },
+  { q: `Does ${APP_NAME} replace MyEducation BC?`, a: `No. MyEd stays the legal IEP record. ${APP_NAME} is the working layer around it, where lessons, evidence and drafts live.` },
   { q: 'Will the AI change an IEP or contact families?', a: 'Never on its own. It only suggests. A person approves every change, every family message and every report.' },
-  { q: 'What is the difference between an adaptation and a modification?', a: 'An adaptation changes how a student learns or shows learning. A modification changes the learning outcomes themselves, so Altamira marks it with a warning and asks you to confirm.' },
+  { q: 'What is the difference between an adaptation and a modification?', a: `An adaptation changes how a student learns or shows learning. A modification changes the learning outcomes themselves, so ${APP_NAME} marks it with a warning and asks you to confirm.` },
   { q: 'Where is student data stored?', a: 'In Canada. Student names are removed before anything is sent to the AI.' },
   { q: 'Is it in French?', a: 'The interface is in English and French. Family summaries can be written in any home language.' },
   { q: 'What does it cost?', a: 'Free for teachers using fictional or de-identified profiles. Schools and districts license the team features.' },
