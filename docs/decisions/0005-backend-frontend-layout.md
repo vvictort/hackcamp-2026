@@ -7,7 +7,7 @@ We considered a separate Vite React `frontend/` with DeepSpace as backend only. 
 
 ## Decision
 One DeepSpace full-stack app at the repo root:
-- backend: `worker.ts`, `src/server/**`, `src/actions/`, `src/cron.ts`;
+- backend: `worker.ts`, `src/server/**`, `src/cron.ts`;
 - shared: `src/schemas.ts` and `src/schemas/`;
 - frontend: the rest of `src/`.
 No top-level `server/` or `client/` folders.

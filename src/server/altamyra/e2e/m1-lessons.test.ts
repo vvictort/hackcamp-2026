@@ -6,7 +6,7 @@ import { createHarness } from './harness'
 afterEach(closeAll)
 const DEMO_USER = 'demo-user-1'
 
-describe('M1 lesson approvals through /api/v1 (Lens analysis itself lives in src/actions)', () => {
+describe('M1 lens usage and coded sheets through /api/v1', () => {
   it('lists the seeded approved adaptations on lens-usage, one event per usage row, tagged to current goals', async () => {
     const h = createHarness({ seed: false, devSeed: true })
     expect((await h.post(DEMO_USER, '/dev/seed')).status).toBe(200)
