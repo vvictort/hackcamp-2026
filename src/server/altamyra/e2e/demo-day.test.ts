@@ -48,7 +48,7 @@ describe('POST /dev/demo-day', () => {
     const parent = await h.get(DEMO_PARENT.id, `/family/${studentId}/summaries`)
     expect(parent.status).toBe(200)
     expect(parent.body.summaries).toHaveLength(1)
-    expect(parent.body.summaries[0]).toMatchObject({ kind: 'monthly', status: 'approved', language: 'pa' })
+    expect(parent.body.summaries[0]).toMatchObject({ kind: 'monthly', status: 'approved', language: 'zh-Hans' })
     expect(parent.body.summaries[0].translatedText).toBeTruthy()
     expect(parent.body.summaries[0].audioScript).toBeTruthy()
     expect((await h.get(DEMO_PARENT.id, '/me')).body.parentOf).toEqual([studentId])
