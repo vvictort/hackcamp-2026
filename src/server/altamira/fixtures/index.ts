@@ -18,3 +18,5 @@ const names = [
 const withoutAccents = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '')
 
 export const FIXTURE_NAMES: string[] = [...new Set([...names, ...names.map(withoutAccents)])]
+export * from './demo-iep-sd23'
+export * from './demo-day'
