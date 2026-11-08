@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { InsightsQuery } from '../contract/api'
 import { Id } from '../contract/common'
 import { AltamyraError } from '../contract/errors'
 import { CounterIncrement, INSIGHT_DIMENSIONS, InsightDimension, MIN_GROUP_SIZE } from '../contract/insights'
@@ -118,11 +118,7 @@ export function monthlyNarrative(sql: SqlExecutor, districtId: string, period?: 
 export const insightsGet = defineOp({
   name: 'insights.get',
   room: 'insights',
-  args: z.object({
-    districtId: Id,
-    period: z.string().optional(),
-    groupBy: z.array(InsightDimension).min(1).default(['goalArea']),
-  }),
+  args: InsightsQuery.extend({ districtId: Id }),
   run(sql, args, actor): { groups: InsightGroup[]; monthlyNarrative: { period: string | null; text: string } } {
     authorize(actor, 'insights.view', null, { districtId: args.districtId })
     const dims = INSIGHT_DIMENSIONS.filter((d) => args.groupBy.includes(d))

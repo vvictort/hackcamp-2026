@@ -20,13 +20,13 @@ export function latestKeyedCheck(sql: SqlExecutor, objectiveId: string): Check |
   return row ? parseRow(Check, row) : undefined
 }
 
-/** Approved adaptations, optionally limited to one lesson's lens runs. */
-export function approvedAdaptations(sql: SqlExecutor, lessonId?: string): (AdaptationSuggestion & { lessonId: string })[] {
+/** Approved adaptations of one lesson's lens runs. */
+export function approvedAdaptations(sql: SqlExecutor, lessonId: string): (AdaptationSuggestion & { lessonId: string })[] {
   const rows = sql.all<Row>(
     `SELECT s.*, r.lesson_id AS run_lesson_id FROM suggestions s JOIN lens_runs r ON r.id = s.lens_run_id
-     WHERE s.kind = 'adaptation' AND s.status = 'approved'${lessonId ? ' AND r.lesson_id = ?' : ''}
+     WHERE s.kind = 'adaptation' AND s.status = 'approved' AND r.lesson_id = ?
      ORDER BY s.rowid`,
-    ...(lessonId ? [lessonId] : []),
+    lessonId,
   )
   return rows.map((row) => {
     const { run_lesson_id: runLessonId, ...rest } = row

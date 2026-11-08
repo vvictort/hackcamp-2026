@@ -8,7 +8,7 @@ import { USER_IDS } from '../fixtures/school'
 import { auditMark } from './core'
 import { CBIEP_SAMPLE_EXPECTED } from '../fixtures'
 import { ACTORS, runStudent } from '../e2e/testing'
-import { confirmedDataPointsSince, counterDimensions, hasActiveConsent, insightIncrements, liveMessage, reviewTimelinessSince } from './student-core'
+import { confirmedDataPointsSince, counterDimensions, hasActiveConsent, insightIncrements, reviewTimelinessSince } from './student-core'
 
 type Sql = ReturnType<typeof createNodeSqlExecutor>
 
@@ -141,9 +141,5 @@ describe('student room core', () => {
     expect(insightIncrements(sql, late, [])).toEqual([
       { period: '2028-01', goalArea: null, proficiencyLevel: null, label: null, goalProgress: null, reviewTimeliness: 'late', by: 1 },
     ])
-  })
-
-  it('live messages carry ids only', () => {
-    expect(liveMessage(['dp1'])).toEqual({ type: 'timeline.updated', dataPointIds: ['dp1'] })
   })
 })

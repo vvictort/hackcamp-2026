@@ -117,15 +117,6 @@ export function reviewTimelinessSince(sql: SqlExecutor, mark: number): { period:
 export const hasActiveConsent = (sql: SqlExecutor, kind: ConsentKind): boolean => activeConsent(sql, kind) !== undefined
 
 /**
- * What live timeline sockets receive after confirmed data points. Ids only:
- * clients refetch through the scoped API, so each viewer still sees only what
- * its role allows.
- */
-export type LiveMessage = { type: 'timeline.updated'; dataPointIds: string[] }
-
-export const liveMessage = (dataPointIds: string[]): LiveMessage => ({ type: 'timeline.updated', dataPointIds })
-
-/**
  * Counter increments for one committed op (without school id and student key,
  * which the room adds): one per newly confirmed data point and one per IEP
  * review confirmed in the op.

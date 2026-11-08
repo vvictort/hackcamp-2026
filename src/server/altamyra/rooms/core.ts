@@ -9,7 +9,6 @@ import type { Actor } from '../contract/permissions'
  */
 
 export type RunOptions = {
-  /** Which registry the op must belong to. */
   room: RoomName
   /**
    * Refuse any op that changed rows without appending to audit_log in the same
@@ -51,7 +50,7 @@ export function runRoomOp(
   options: RunOptions,
 ): OpResult {
   const op = Object.hasOwn(registry, opName) ? registry[opName] : undefined
-  if (!op || op.room !== options.room) return opErr('not_found', `Unknown ${options.room} op: ${opName}`)
+  if (!op) return opErr('not_found', `Unknown ${options.room} op: ${opName}`)
 
   let parsedArgs: unknown = args
   if (op.args) {

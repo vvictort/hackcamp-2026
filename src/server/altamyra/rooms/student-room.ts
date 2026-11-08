@@ -10,7 +10,7 @@ import { sha256Hex } from '../middleware/tokens'
 import { studentOps } from '../services/registry'
 import { auditMark, runRoomOp } from './core'
 import type { StudentRoomRpc } from './rpc'
-import { confirmedDataPointsSince, hasActiveConsent, insightIncrements, liveMessage } from './student-core'
+import { confirmedDataPointsSince, hasActiveConsent, insightIncrements } from './student-core'
 import { altamyraDistrictId, altamyraSchoolId, insightsRoom } from './stubs'
 
 const LIVE_TAG = 'live'
@@ -63,7 +63,7 @@ export class AltamyraStudentRoom extends DurableObject<Env> implements StudentRo
   }
 
   private broadcast(dataPointIds: string[]): void {
-    const message = JSON.stringify(liveMessage(dataPointIds))
+    const message = JSON.stringify({ type: 'timeline.updated', dataPointIds })
     for (const ws of this.ctx.getWebSockets(LIVE_TAG)) {
       try {
         ws.send(message)

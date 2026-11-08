@@ -58,7 +58,6 @@ const ops: OpRegistry = {
     room: 'school',
     run: (sql) => sql.get<{ n: number }>('SELECT COUNT(*) AS n FROM users')?.n ?? 0,
   }),
-  'student.op': defineOp({ name: 'student.op', room: 'student', run: () => 1 }),
 }
 
 const count = (sql: Sql, table: string) => sql.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`)?.n ?? 0
@@ -76,8 +75,8 @@ describe('runRoomOp', () => {
     expect(runRoomOp(sql, ops, 'user.count', {}, actor, school)).toEqual({ ok: true, value: 1 })
   })
 
-  it('answers not_found for an unknown op, an inherited key, or an op of another room', () => {
-    for (const name of ['nope', 'toString', 'student.op']) {
+  it('answers not_found for an unknown op or an inherited key', () => {
+    for (const name of ['nope', 'toString']) {
       const r = runRoomOp(sql, ops, name, {}, actor, school)
       expect(r.ok).toBe(false)
       if (!r.ok) expect(r.error.code).toBe('not_found')

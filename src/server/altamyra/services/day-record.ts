@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { DayCountsSchema } from '../contract/api'
 import { DateString, Id } from '../contract/common'
 import { AltamyraError } from '../contract/errors'
 import { defineOp, type SqlExecutor } from '../contract/ops'
@@ -35,14 +36,7 @@ export function categoryOf(p: Pick<DataPoint, 'sourceRef'>): DayCategory {
   return (p.sourceRef.split(':')[2] ?? '').startsWith('voice-') ? 'voiceNotes' : 'events'
 }
 
-export const DayCounts = z.object({
-  dataPoints: z.number().int(),
-  events: z.number().int(),
-  notes: z.number().int(),
-  videos: z.number().int(),
-  voiceNotes: z.number().int(),
-})
-export type DayCounts = z.infer<typeof DayCounts>
+type DayCounts = z.infer<typeof DayCountsSchema>
 
 const emptyCounts = (): DayCounts => ({ dataPoints: 0, events: 0, notes: 0, videos: 0, voiceNotes: 0 })
 
