@@ -1,3 +1,4 @@
+import { getAuthToken } from 'deepspace'
 import type { z } from 'zod'
 import type {
   GoalStatusResponse,
@@ -52,11 +53,15 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const hasBody = opts.body !== undefined
   let res: Response
+  const token = await getAuthToken().catch(() => null)
+  const headers: Record<string, string> = { accept: 'application/json' }
+  if (hasBody) headers['content-type'] = 'application/json'
+  if (token) headers.authorization = `Bearer ${token}`
   try {
     res = await fetch(buildUrl(path, opts.query), {
       method: opts.method ?? (hasBody ? 'POST' : 'GET'),
       credentials: 'include',
-      headers: hasBody ? { 'content-type': 'application/json', accept: 'application/json' } : { accept: 'application/json' },
+      headers,
       body: hasBody ? JSON.stringify(opts.body) : undefined,
     })
   } catch {

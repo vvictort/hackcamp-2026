@@ -1,3 +1,4 @@
+import { getAuthToken } from 'deepspace'
 /**
  * Fetch helpers for photo capture, the review queue and EA capture over the
  * Altamira /api/v1 routes. Same-origin, cookies included, JSON bodies.
@@ -37,10 +38,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  const token = await getAuthToken().catch(() => null)
+  const headers: Record<string, string> = {}
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (token) headers.Authorization = `Bearer ${token}`
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: 'include',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   const text = await res.text()
