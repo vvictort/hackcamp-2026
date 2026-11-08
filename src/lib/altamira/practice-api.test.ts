@@ -6,10 +6,6 @@ import {
   getCaptureObjectives,
   PracticeApiError,
   sampleFileKey,
-  optionSymbol,
-  sessionRespond,
-  startStudentMode,
-  symbolsFor,
 } from "./practice-api";
 
 const fetchMock = vi.fn();
@@ -35,22 +31,12 @@ describe("practice api", () => {
       "Bearer tok",
     );
   });
-  it("sends the session header, not the bearer, for student-mode calls", async () => {
-    reply({ correct: true }, 201);
-    await sessionRespond(
-      { sessionId: "a", token: "sess", expiresAt: "" },
-      { itemId: "f/q1", response: "12" },
-    );
-    const h = last()[1].headers as Record<string, string>;
-    expect(h["X-Altamira-Session"]).toBe("sess");
-    expect(h.Authorization).toBeUndefined();
-  });
-  it("posts sample sheet and start requests, and surfaces errors", async () => {
+  it("posts sample sheet requests and surfaces errors", async () => {
     reply({ code: "AL-ABC", studentId: "s", checkId: "c" });
     expect((await createSampleSheet("s")).code).toBe("AL-ABC");
     expect(JSON.parse(last()[1].body as string)).toEqual({ studentId: "s" });
     reply({ error: { code: "forbidden", message: "no consent" } }, 403);
-    await expect(startStudentMode("s")).rejects.toMatchObject({
+    await expect(createSampleSheet("s")).rejects.toMatchObject({
       status: 403,
       message: "no consent",
     } satisfies Partial<PracticeApiError>);
@@ -59,24 +45,5 @@ describe("practice api", () => {
     expect(sampleFileKey("AL-X1", 7)).toBe(
       "captures/7/sample-sheet-code-AL-X1.png",
     );
-  });
-  it("picks symbols from the prompt", () => {
-    expect(symbolsFor("How many apples? 3 + 2")).toEqual([
-      "apple",
-      "three",
-      "two",
-    ]);
-    expect(symbolsFor("Explain your thinking")).toEqual([]);
-  });
-});
-
-describe("option symbols", () => {
-  it("maps the self-rating options to their own symbols", () => {
-    expect(optionSymbol("I did it")).toBe("thumbs");
-    expect(optionSymbol("I need help")).toBe("help");
-  });
-  it("falls back to a word in the label, else none", () => {
-    expect(optionSymbol("cat")).toBe("cat");
-    expect(optionSymbol("purple")).toBeNull();
   });
 });

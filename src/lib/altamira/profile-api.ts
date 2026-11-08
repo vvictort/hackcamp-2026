@@ -3,12 +3,9 @@ import type { z } from 'zod'
 import type {
   CaptureEventBody,
   GoalStatusResponse,
-  HandoffResponse,
   IepImportResponse,
-  ParentInputsResponse,
   ProficiencyResponse,
   ProficiencySetBody,
-  ProposalCreateBody,
 } from '@/server/altamira/contract/api'
 import type { Objective } from '@/server/altamira/contract/student'
 import type { Proficiency } from '@/server/altamira/contract/enums'
@@ -77,24 +74,6 @@ export const importIepTimed = (id: string, input: IepImportInput) =>
     IMPORT_TIMEOUT_MS,
   )
 
-// ---------- proposals ----------
-
-export interface ProposalDraft {
-  target: 'iep' | 'profile' | 'objective'
-  goalId: string | null
-  newText: string
-  reason: string
-  evidenceIds: string[]
-}
-
-/** Each form field maps to its own key of `change`; empty goal / reason are left out. */
-export function buildProposalBody(d: ProposalDraft): ProposalCreateBody {
-  const change: Record<string, unknown> = { newText: d.newText.trim() }
-  if (d.goalId) change.goalId = d.goalId
-  if (d.reason.trim()) change.reason = d.reason.trim()
-  return { target: d.target, change, evidenceIds: d.evidenceIds }
-}
-
 // ---------- quick rating ----------
 
 export type QuickRating = 'not_yet' | 'emerging' | 'got_it'
@@ -161,11 +140,3 @@ export const defaultPeriod = (now = new Date()) => now.toISOString().slice(0, 7)
 
 export const saveProficiency = (studentId: string, goalId: string, body: Pick<ProficiencySetBody, 'level' | 'period'> & { narrative?: string | null }) =>
   call<R<typeof ProficiencyResponse>>('POST', `/goals/${seg(goalId)}/proficiency?studentId=${seg(studentId)}`, { narrative: null, ...body })
-
-// ---------- parent input, handoff ----------
-
-export const listParentInput = (studentId: string) => call<R<typeof ParentInputsResponse>>('GET', `/students/${seg(studentId)}/parent-input`)
-export const createHandoff = (studentId: string, toSchool: string | null) =>
-  call<R<typeof HandoffResponse>>('POST', `/students/${seg(studentId)}/handoffs`, { toSchool })
-export const getHandoff = (studentId: string, handoffId: string) =>
-  call<R<typeof HandoffResponse>>('GET', `/handoffs/${seg(handoffId)}?studentId=${seg(studentId)}`)
