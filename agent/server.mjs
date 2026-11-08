@@ -10,7 +10,7 @@ const PORT = Number(process.env.PORT || 8080)
 const DATA_DIR = process.env.DATA_DIR || '/data'
 const AGENT_TOKEN = process.env.AGENT_TOKEN || ''
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash'
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
 // Test seam: lets the suite point at a fake Gemini. Production leaves it unset.
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'
 const GEMINI_TIMEOUT_MS = 20_000
