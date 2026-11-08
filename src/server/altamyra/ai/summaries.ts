@@ -39,6 +39,13 @@ export type SummaryAi = {
 
 const ID_KEYS = new Set(['id'])
 
+/**
+ * A model sometimes writes the input's field name ("[studentToken]", "{studentToken}") instead of its value. Put the
+ * student's token back so re-identification turns it into the name, and no placeholder reaches a family.
+ */
+const PLACEHOLDER = /[[{<]\s*student[_ ]?(?:token|ref|name)\s*[\]}>]|\bstudent(?:Token|Ref|_token|_ref)\b/gi
+const fillPlaceholder = (text: string, token: unknown): string => (typeof token === 'string' && token ? text.replace(PLACEHOLDER, token) : text)
+
 export function createSummaryAi(options: SummaryAiOptions): SummaryAi {
   const { prepare, call } = guardedAi(SUMMARY_SCHEMAS, options.provider ?? createFixtureSummaryProvider(), options.roster)
 
@@ -53,7 +60,8 @@ export function createSummaryAi(options: SummaryAiOptions): SummaryAi {
       const { payload, map } = prepare('draftDailySummary', withConfirmedOnly(input, ['dataPoints']))
       const out = await call('draftDailySummary', payload)
       checkCitations('draftDailySummary', out.citations, payload)
-      return { ...reidentify(out, map), ...DRAFT_STAMP }
+      const token = (payload as { studentToken?: unknown }).studentToken
+      return { ...reidentify({ ...out, text: fillPlaceholder(out.text, token), highlights: out.highlights.map((h) => fillPlaceholder(h, token)) }, map), ...DRAFT_STAMP }
     },
 
     async draftWeeklyCaseloadSummary(input) {
@@ -72,14 +80,15 @@ export function createSummaryAi(options: SummaryAiOptions): SummaryAi {
       const { data, payload, map } = prepare('draftMonthlyFamilySummary', withMonthlyConfirmedOnly(input))
       const english = await call('draftMonthlyFamilySummary', payload)
       checkCitations('draftMonthlyFamilySummary', english.citations, payload)
-      let text = english.text
+      const englishText = fillPlaceholder(english.text, payload.studentToken)
+      let text = englishText
       let outLanguage = 'en'
       if (!/^en(-|$)/i.test(data.language)) {
-        const tr = await call('translateSummary', { text: english.text, language: data.language, studentToken: payload.studentToken })
-        text = tr.text
+        const tr = await call('translateSummary', { text: englishText, language: data.language, studentToken: payload.studentToken })
+        text = fillPlaceholder(tr.text, payload.studentToken)
         outLanguage = tr.language
       }
-      const restored = reidentify({ text, englishText: english.text, citations: english.citations }, map)
+      const restored = reidentify({ text, englishText, citations: english.citations }, map)
       return { ...restored, language: outLanguage, ...DRAFT_STAMP }
     },
   }
