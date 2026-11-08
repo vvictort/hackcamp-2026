@@ -21,11 +21,14 @@ const PROVIDERS: { id: Provider; name: string; Glyph: () => ReactElement }[] = [
  */
 export function OAuthButtons({
   onError,
+  onStart,
   disabled = false,
   className,
 }: {
   /** Called with a ready-to-show message when the redirect cannot start. */
   onError?: (message: string) => void
+  /** Called just before the browser leaves for the provider. */
+  onStart?: (provider: Provider) => void
   /** Disable both, e.g. while an email sign-in is pending. */
   disabled?: boolean
   className?: string
@@ -46,6 +49,7 @@ export function OAuthButtons({
       return
     }
     setPending(provider)
+    onStart?.(provider)
     window.location.assign(`/api/auth/social-redirect?provider=${provider}`)
   }
 

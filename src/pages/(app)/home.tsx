@@ -13,6 +13,7 @@ import { useAuthProfileReady } from 'deepspace'
 import { ArrowUpRight, Bell, ChevronRight, Search } from 'lucide-react'
 import { Button, Card, EmptyState, PageHeader, Progress, Spinner, StatusBadge, useToast } from '@/components/ui'
 import { useClassroom } from '@/lib/classroom'
+import { OnboardingRedirect } from '@/components/auth/onboarding'
 import { cn } from '@/lib/utils'
 
 /** Pill button with a round arrow tucked inside the right end. One tap target. */
@@ -43,6 +44,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
+      <OnboardingRedirect />
       <PageHeader
         titleClassName="sm:text-hero"
         title={

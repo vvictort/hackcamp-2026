@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, type Key, type ReactNode, type Ref } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui'
 import { Logo, LogoMark } from '../LogoMark'
@@ -15,6 +15,12 @@ interface AuthLayoutProps {
   footer?: ReactNode
   /** One line of product copy for an ink side panel, shown on lg only. */
   aside?: ReactNode
+  /** Above the heading and outside `contentKey`, e.g. a step indicator that persists across stages. */
+  eyebrow?: ReactNode
+  /** Change it to re-mount (and re-rise) the heading, content and footer, e.g. per stage. */
+  contentKey?: Key
+  /** Makes the h1 focusable from script (tabIndex -1), for moving focus on a stage change. */
+  headingRef?: Ref<HTMLHeadingElement>
   className?: string
 }
 
@@ -24,7 +30,17 @@ interface AuthLayoutProps {
  * on load and its content stack follows one --stagger step apart, the same
  * language as PageHeader + stagger-rise on app pages.
  */
-export function AuthLayout({ title, description, children, footer, aside, className }: AuthLayoutProps) {
+export function AuthLayout({
+  title,
+  description,
+  children,
+  footer,
+  aside,
+  eyebrow,
+  contentKey,
+  headingRef,
+  className,
+}: AuthLayoutProps) {
   const titleId = useId()
   return (
     <div className={cn('flex justify-center py-2 sm:py-8 lg:min-h-[calc(100dvh-3rem)] lg:items-center lg:py-0', className)}>
@@ -39,9 +55,15 @@ export function AuthLayout({ title, description, children, footer, aside, classN
             <Logo />
           </Link>
           <Card aria-labelledby={titleId} className="animate-rise gap-0 p-6 sm:p-8">
-            <div className="stagger-rise flex flex-col gap-8">
+            {eyebrow && <div className="mb-6">{eyebrow}</div>}
+            <div key={contentKey} className="stagger-rise flex flex-col gap-8">
               <header className="flex flex-col gap-2">
-                <h1 id={titleId} className="text-h1 font-extrabold sm:text-display-sm">
+                <h1
+                  id={titleId}
+                  ref={headingRef}
+                  tabIndex={headingRef ? -1 : undefined}
+                  className="text-h1 font-extrabold focus:outline-none sm:text-display-sm"
+                >
                   {title}
                 </h1>
                 {description && <p className="text-body text-muted-foreground">{description}</p>}
