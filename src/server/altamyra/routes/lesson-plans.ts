@@ -49,7 +49,7 @@ function teachAgent(r: Req, studentId: string, proposed: ProposedChange[]): void
   try {
     r.c.executionCtx.waitUntil(job)
   } catch {
-    // No ExecutionContext outside the worker (tests): the job still runs.
+    return
   }
 }
 
