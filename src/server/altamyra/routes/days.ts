@@ -14,7 +14,7 @@ import { HttpError } from '../middleware/errors'
 import { dayReviewToday, daysComplete, daysGet, daysList } from '../services/day-record'
 import { familySummariesList } from '../services/summaries'
 import type { Kit, Req } from './context'
-import { draftSummary, studentToken } from './lens-flow'
+import { draftSummary, studentToken } from './student-flows'
 
 function dateParam(r: Req): string {
   const parsed = DateString.safeParse(r.param('date'))

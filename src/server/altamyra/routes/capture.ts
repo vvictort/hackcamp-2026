@@ -48,7 +48,7 @@ import {
 import { classesList, lessonsCreate, rosterList, sheetCodesIssue, sheetCodesResolve } from '../services/school'
 import { photoRef } from '../services/sources'
 import type { Kit, Req } from './context'
-import { studentToken } from './lens-flow'
+import { studentToken } from './student-flows'
 
 const CaptureObjectivesResponse = z.object({
   objectives: z.array(z.object({ objectiveId: Id, metricType: z.string(), unit: z.string() })),

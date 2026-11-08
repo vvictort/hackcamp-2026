@@ -10,7 +10,7 @@ import { lensContext } from '../services/lens'
 import { composeTailored, lessonPlansApprove, lessonPlansCreate, lessonPlansForStudent, lessonPlansToday, lessonPlansUpdate, toView } from '../services/lesson-plans'
 import { guardrail } from '../services/student-common'
 import type { Kit, Req } from './context'
-import { studentToken } from './lens-flow'
+import { studentToken } from './student-flows'
 
 const PlanResponse = z.object({ plan: LessonPlanView })
 const DateQuery = z.object({ date: DateString.optional() })

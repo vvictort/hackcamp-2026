@@ -10,7 +10,7 @@ import {
 import type { AltamyraEnv } from '../middleware/auth'
 import { familySummariesApprove, familySummariesList, summariesEdit, summariesPending } from '../services/summaries'
 import type { Kit } from './context'
-import { draftSummary, studentToken } from './lens-flow'
+import { draftSummary, studentToken } from './student-flows'
 
 /** Daily, weekly and monthly summaries: AI drafts, edited and approved by the EA or teacher only. */
 export function summariesRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
