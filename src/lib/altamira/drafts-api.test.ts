@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { ApiError, approveFamilySummary, createDraft, createTodayLink, getTodayView, patchDraft, setConsent, todayUrl } from './drafts-api'
+import { ApiError, approveFamilySummary, createDraft, createFamilySummary, createTodayLink, getTodayView, markDraftUsed, patchDraft, setConsent, todayUrl } from './drafts-api'
 
 const ok = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
@@ -26,14 +26,24 @@ describe('drafts-api', () => {
 
   it('patches with expectedVersion', async () => {
     fetchMock.mockResolvedValue(ok({ draft: {} }))
-    await patchDraft('d1', [{ text: 'x', citations: ['p1'] }], 3)
+    await patchDraft('d1', 's 1', [{ text: 'x', citations: ['p1'] }], 3)
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ sentences: [{ text: 'x', citations: ['p1'] }], expectedVersion: 3 })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/drafts/d1?studentId=s%201')
   })
 
   it('omits text on approve when not edited', async () => {
     fetchMock.mockResolvedValue(ok({ summary: {} }))
-    await approveFamilySummary('f1', 2)
+    await approveFamilySummary('f1', 's1', 2)
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expectedVersion: 2 })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/family-summaries/f1/approve?studentId=s1')
+  })
+
+  it('adds studentId to mark-used and family-summary', async () => {
+    fetchMock.mockResolvedValue(ok({ draft: {}, summary: {} }))
+    await markDraftUsed('d1', 's1', 1)
+    await createFamilySummary('d1', 's1', 'es')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/drafts/d1/mark-used?studentId=s1')
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/drafts/d1/family-summary?studentId=s1')
   })
 
   it('PUTs consents', async () => {

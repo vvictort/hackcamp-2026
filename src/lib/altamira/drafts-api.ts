@@ -68,17 +68,17 @@ export const getProfile = (studentId: string) => api<StudentProfileResponse>(`/s
 export type DraftInput = Pick<DraftCreateBody, 'goalId' | 'period'> & { dueDate?: string | null }
 export const createDraft = (studentId: string, body: DraftInput) =>
   api<{ draft: ProgressDraft }>(`/students/${enc(studentId)}/drafts`, { method: 'POST', body: { dueDate: null, ...body } })
-export const patchDraft = (draftId: string, sentences: DraftSentence[], expectedVersion: number) =>
-  api<{ draft: ProgressDraft }>(`/drafts/${enc(draftId)}`, { method: 'PATCH', body: { sentences, expectedVersion } })
-export const markDraftUsed = (draftId: string, expectedVersion: number) =>
-  api<{ draft: ProgressDraft }>(`/drafts/${enc(draftId)}/mark-used`, { method: 'POST', body: { expectedVersion } })
+export const patchDraft = (draftId: string, studentId: string, sentences: DraftSentence[], expectedVersion: number) =>
+  api<{ draft: ProgressDraft }>(`/drafts/${enc(draftId)}?studentId=${enc(studentId)}`, { method: 'PATCH', body: { sentences, expectedVersion } })
+export const markDraftUsed = (draftId: string, studentId: string, expectedVersion: number) =>
+  api<{ draft: ProgressDraft }>(`/drafts/${enc(draftId)}/mark-used?studentId=${enc(studentId)}`, { method: 'POST', body: { expectedVersion } })
 export const getDataPointSource = (dataPointId: string) => api<DataPointSource>(`/data-points/${enc(dataPointId)}/source`)
 
 // ---------- Family Bridge ----------
-export const createFamilySummary = (draftId: string, language: string) =>
-  api<{ summary: FamilySummary }>(`/drafts/${enc(draftId)}/family-summary`, { method: 'POST', body: { language } })
-export const approveFamilySummary = (summaryId: string, expectedVersion: number, text?: string) =>
-  api<{ summary: FamilySummary }>(`/family-summaries/${enc(summaryId)}/approve`, {
+export const createFamilySummary = (draftId: string, studentId: string, language: string) =>
+  api<{ summary: FamilySummary }>(`/drafts/${enc(draftId)}/family-summary?studentId=${enc(studentId)}`, { method: 'POST', body: { language } })
+export const approveFamilySummary = (summaryId: string, studentId: string, expectedVersion: number, text?: string) =>
+  api<{ summary: FamilySummary }>(`/family-summaries/${enc(summaryId)}/approve?studentId=${enc(studentId)}`, {
     method: 'POST',
     body: text ? { expectedVersion, text } : { expectedVersion },
   })
