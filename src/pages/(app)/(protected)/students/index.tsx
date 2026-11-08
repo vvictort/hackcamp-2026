@@ -8,7 +8,6 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/ui";
-import { RoleBadge } from "@/components/students/badges";
 import { s } from "@/components/students/text";
 import { useLoad } from "@/components/students/useLoad";
 import { getMe } from "@/lib/altamira/students-api";
@@ -65,11 +64,6 @@ function StudentsPageBody() {
                 </span>
                 <span className="text-small text-muted-foreground">
                   {s("students.grade", { grade: st.grade })}
-                </span>
-                <span className="flex flex-wrap gap-2">
-                  {st.roles.map((r) => (
-                    <RoleBadge key={r} role={r} />
-                  ))}
                 </span>
               </Link>
               {isTeacher &&

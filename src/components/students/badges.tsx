@@ -42,4 +42,3 @@ export const PointStatusBadge = ({ status }: { status: 'confirmed' | 'auto_confi
     <StatusBadge tone="success">{s(status === 'confirmed' ? 'students.point.confirmed' : 'students.point.auto')}</StatusBadge>
   )
 
-export const RoleBadge = ({ role }: { role: string }) => <Badge variant="secondary">{role.replace('_', ' ')}</Badge>
