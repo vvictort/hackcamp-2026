@@ -125,11 +125,12 @@ How it fits together:
 5. The teacher approves or rejects each one in the Lesson Lens card. Approving a **modification** asks for
    confirmation first, because it changes the learning outcome. Decisions are sent back to the agent (names removed).
 
-Configuration (`.dev.vars` locally, deploy secrets in production; restart the dev server after changing):
+Configuration lives in DeepSpace's secret store, which `npm run dev` and deploys both read. Don't edit
+`.dev.vars`: DeepSpace regenerates it on every dev, test and deploy run. Restart the dev server after changing:
 
-```
-MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
-MARITIME_AGENT_TOKEN=<Maritime mk_ key with the deploy scope>
+```sh
+npx deepspace secrets set MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
+read -rs MK && printf %s "$MK" | npx deepspace secrets set MARITIME_AGENT_TOKEN --stdin; unset MK   # mk_ key, deploy scope
 ```
 
 Without them, **Get suggestions** shows "Lesson Lens isn't connected yet." Deploying and testing the agent:

@@ -81,16 +81,17 @@ maritime status altamyra-lesson-lens --json      # wait for "active"; note the i
 # 5. Test through Maritime (fictional data); expect "source":"gemini" in a few seconds
 maritime agents chat <agent-id> --message '{"task":"lesson-lens","teacher":"demo0001","subject":"Numeracy","lesson":"Multiplication with arrays","students":[{"key":"Student A","goals":[{"id":"g1","area":"Math (modified)","text":"Count, compare and add groups to 20 with cubes","level":"Developing"}]}]}' --json
 
-# 6. A key for the app: chat is in the `deploy` scope (shown once; put it straight into .dev.vars)
+# 6. A key for the app: chat is in the `deploy` scope (shown once; store it with deepspace secrets set, below)
 maritime keys create --name altamyra-app --scopes deploy --json
 ```
 
 The app's worker calls `POST https://api.maritime.sh/api/agents/<agent-id>/chat` with
-`Authorization: Bearer <mk_ key>`. Set in `.dev.vars` (and the deploy secrets), then restart the dev server:
+`Authorization: Bearer <mk_ key>`. Put both in the app's DeepSpace secret store (not `.dev.vars`, which
+DeepSpace rewrites on every run), then restart the dev server:
 
-```
-MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
-MARITIME_AGENT_TOKEN=<mk_ key with the deploy scope>
+```sh
+npx deepspace secrets set MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
+read -rs MK && printf %s "$MK" | npx deepspace secrets set MARITIME_AGENT_TOKEN --stdin; unset MK
 ```
 
 Troubleshooting:
