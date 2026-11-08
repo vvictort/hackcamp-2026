@@ -5,6 +5,8 @@ import type { Goal, Objective } from '@/server/altamira/contract/student'
 import { AimlineChart } from './AimlineChart'
 import { DecisionBadge, GoalStateBadge, decisionHelp } from './badges'
 import { ObjectivesPanel } from './ObjectivesPanel'
+import { ProficiencyPanel } from './ProficiencyPanel'
+import { QuickRating } from './QuickRating'
 import { s } from './text'
 import { useLoad } from './useLoad'
 
@@ -13,12 +15,15 @@ interface Props {
   goal: Goal
   objectives: Objective[]
   canConfirm: boolean
+  /** Teacher or case manager: quick rating and proficiency. */
+  canRate?: boolean
   onChanged: () => void
 }
 
 /** One goal: state, decision-rule result, objectives, and an on-demand aimline chart. */
-export function GoalCard({ studentId, goal, objectives, canConfirm, onChanged }: Props) {
+export function GoalCard({ studentId, goal, objectives, canConfirm, canRate = false, onChanged }: Props) {
   const [open, setOpen] = useState(false)
+  const [profOpen, setProfOpen] = useState(false)
   const status = useLoad(() => getGoalStatus(studentId, goal.id), `${goal.id}:${objectives.map((o) => o.version).join()}`)
   const unit = objectives[0]?.unit ?? ''
   return (
@@ -41,11 +46,16 @@ export function GoalCard({ studentId, goal, objectives, canConfirm, onChanged }:
       )}
       <h3 className="text-label font-semibold">{s('students.objectives')}</h3>
       <ObjectivesPanel studentId={studentId} objectives={objectives} canConfirm={canConfirm} onChanged={onChanged} />
-      <div>
+      {canRate && <QuickRating studentId={studentId} objective={objectives.find((o) => o.status === 'confirmed')} onSaved={onChanged} />}
+      <div className="flex flex-wrap gap-2">
+        {canRate && status.status === 'ready' && (
+          <Button variant="outline" size="sm" aria-expanded={profOpen} onClick={() => setProfOpen((v) => !v)}>{s('students.prof.open')}</Button>
+        )}
         <Button variant="outline" size="sm" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? s('students.goal.hideChart') : s('students.goal.showChart')}
         </Button>
       </div>
+      {profOpen && status.status === 'ready' && <ProficiencyPanel studentId={studentId} goalId={goal.id} status={status.data} />}
       {open && <GoalChart studentId={studentId} goalId={goal.id} unit={unit} />}
     </Card>
   )

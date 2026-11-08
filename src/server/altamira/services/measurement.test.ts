@@ -3,6 +3,7 @@ import type { GoalStatusResponse } from '../contract/api'
 import type { DataPoint, Goal, IepVersion, Objective, Proposal, ReviewItem } from '../contract/student'
 import { CBIEP_SAMPLE_EXPECTED, KAI, STUDENT_IDS, USER_IDS } from '../fixtures'
 import { ACTORS, closeAll, countRows, runStudent, studentRoom } from './testing'
+import { eventValue } from './measurement'
 
 afterEach(closeAll)
 
@@ -104,6 +105,13 @@ describe('teacher proposals', () => {
 })
 
 describe('evidence capture', () => {
+  it('lets a one-tap rating feed accuracy, rate and rubric objectives as a counter', () => {
+    for (const metricType of ['accuracy', 'rate', 'rubric'] as const) {
+      expect(eventValue({ kind: 'counter', count: 3 }, { metricType } as never)).toBe(3)
+    }
+    expect(() => eventValue({ kind: 'counter', count: 3 }, { metricType: 'duration' } as never)).toThrow(/cannot feed/)
+  })
+
   it('records EA events with the recorder and a source reference', () => {
     const sql = studentRoom('kai')
     const { dataPoint } = runStudent<{ dataPoint: DataPoint }>(sql, 'events.record', { studentId: kai, event: { kind: 'counter', objectiveId: kaiSelfRegObj, count: 3 } }, ACTORS.ea)

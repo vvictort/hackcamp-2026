@@ -115,3 +115,16 @@ export function parseCbIepText(text: string): IepSections {
   }
   return parsed.data
 }
+
+/**
+ * Clean 502 body for a failed model call during import. The import itself is
+ * stored as a pending version; the case manager can retry. No provider detail
+ * (keys, URLs, raw responses) goes to the client.
+ */
+export function aiFailureResponse(err: unknown): Response | null {
+  if (err instanceof AltamiraError) return null
+  return new Response(
+    JSON.stringify({ error: { code: 'ai_unavailable', message: 'The AI service did not answer. Try again in a moment.' } }),
+    { status: 502, headers: { 'Content-Type': 'application/json' } },
+  )
+}

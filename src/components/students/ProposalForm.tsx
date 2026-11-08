@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, FormField, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, useToast } from '@/components/ui'
+import { buildProposalBody } from '@/lib/altamira/profile-api'
 import { createProposal } from '@/lib/altamira/students-api'
 import type { DataPoint, Goal } from '@/server/altamira/contract/student'
 import { fmtDate, s } from './text'
@@ -22,11 +23,7 @@ export function ProposalForm({ studentId, goals, dataPoints, onSent }: { student
     e.preventDefault()
     setBusy(true)
     try {
-      await createProposal(studentId, {
-        target,
-        change: { ...(goalId !== NO_GOAL ? { goalId } : {}), newText: newText.trim(), reason: reason.trim() },
-        evidenceIds: evidence,
-      })
+      await createProposal(studentId, buildProposalBody({ target, goalId: goalId === NO_GOAL ? null : goalId, newText, reason, evidenceIds: evidence }))
       toast.success(s('students.propose.sent'))
       setNewText('')
       setReason('')
