@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { useAsyncResource, getAuthToken } from 'deepspace'
-import { CircleX, EyeOff } from 'lucide-react'
+import { CircleX, EyeOff, Lock, Users } from 'lucide-react'
 import { useLang } from '@/i18n'
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/components/ui'
+import { useAltamiraMe } from '@/lib/altamira/role'
 
 type Group = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
 type InsightsData = { groups: Group[]; minGroupSize: number }
@@ -25,6 +26,33 @@ async function fetchInsights(signal: AbortSignal): Promise<InsightsData> {
 }
 
 export default function InsightsPage() {
+  const { t } = useLang()
+  const { role, loading } = useAltamiraMe()
+  if (loading) {
+    return (
+      <div className="flex w-full max-w-3xl flex-col gap-6">
+        <PageHeader title={t('insights.title')} description={t('insights.description')} />
+        <Card role="status" className="flex-row items-center justify-center gap-3 text-small text-muted-foreground">
+          <Spinner />
+          {t('insights.loading')}
+        </Card>
+      </div>
+    )
+  }
+  if (role !== 'district_lead') {
+    return (
+      <div className="flex w-full max-w-3xl flex-col gap-6">
+        <PageHeader title={t('insights.title')} description={t('insights.description')} />
+        <Card role="status">
+          <EmptyState className="py-10" icon={<Lock className="size-8" aria-hidden />} title={t('insights.notForRole')} description={t('insights.notForRoleBody')} />
+        </Card>
+      </div>
+    )
+  }
+  return <InsightsView />
+}
+
+function InsightsView() {
   const { t } = useLang()
   const data = useAsyncResource<InsightsData>(fetchInsights, [], { retry: 0 })
 
@@ -78,10 +106,11 @@ export default function InsightsPage() {
                     {g.suppressed ? (
                       <span className="flex items-center gap-2 text-small text-muted-foreground" title={t('insights.suppressedHelp', { n: data.data?.minGroupSize ?? 10 })}>
                         <EyeOff className="size-4" aria-hidden />
-                        {t('insights.suppressed')}
+                        {t('insights.suppressed', { n: data.data?.minGroupSize ?? 10 })}
                       </span>
                     ) : (
-                      <span className="text-small text-muted-foreground">
+                      <span className="flex items-center gap-2 text-small text-muted-foreground">
+                        <Users className="size-4" aria-hidden />
                         {t('insights.students', { n: g.students ?? 0 })} · {t('insights.events', { n: g.count ?? 0 })}
                       </span>
                     )}

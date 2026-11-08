@@ -28,7 +28,9 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
 
   app.get('/me', signedIn, async (c) => {
     const r = req(c)
-    return r.json(MeResponse, await r.school(meOverview, { date: r.today() }))
+    const me = MeResponse.parse(await r.school(meOverview, { date: r.today() }))
+    // devSeed tells the UI whether to show demo controls; true only when ALTAMIRA_DEV_SEED === 'true'.
+    return c.json({ ...me, devSeed: deps.devSeedEnabled(c.env) })
   })
 
   /** Case manager: every proposal for the caseload. Teacher: their own (PRD "Teachers propose"). */
