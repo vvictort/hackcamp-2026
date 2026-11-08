@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { DateString, Id, RowVersion, TimeOfDay, Timestamp } from './common'
-import { CaptureBatchStatus, LessonSourceKind, MembershipRole, ShareTokenKind } from './enums'
+import { CaptureBatchStatus, LessonSourceKind, MembershipRole } from './enums'
 
 /** Entities stored in AltamiraSchoolRoom (one room per school). Same naming rules as student.ts. */
 
@@ -138,23 +138,6 @@ export const SheetCode = z.object({
 })
 export type SheetCode = z.infer<typeof SheetCode>
 
-/**
- * Today View links and student-mode sessions. Only a hash of the token is
- * stored. Expired or revoked tokens answer 410.
- */
-export const ShareToken = z.object({
-  id: Id,
-  tokenHash: z.string().min(1),
-  kind: ShareTokenKind,
-  studentId: Id,
-  createdBy: Id,
-  createdAt: Timestamp,
-  expiresAt: Timestamp,
-  revokedAt: Timestamp.nullable(),
-  version: RowVersion,
-})
-export type ShareToken = z.infer<typeof ShareToken>
-
 export const CapturePageResult = z.object({
   fileKey: z.string().min(1),
   sheetCode: z.string().nullable(),
@@ -188,7 +171,6 @@ export const SCHOOL_TABLES = [
   'lesson_files',
   'lesson_analyses',
   'sheet_codes',
-  'share_tokens',
   'capture_batches',
   'audit_log',
 ] as const

@@ -37,8 +37,8 @@ describe('loadActor', () => {
   it('gives a parent only their own child', () => {
     const actor = loadActor(sql, USER_IDS.parentKai, SCHOOL.id)
     expect(actor.parentOf).toEqual(PARENT_LINKS.filter((p) => p.parentUserId === USER_IDS.parentKai).map((p) => p.studentId))
-    expect(can(actor, 'progress.view', STUDENT_IDS.kai).allowed).toBe(true)
-    expect(can(actor, 'progress.view', STUDENT_IDS.amara).allowed).toBe(false)
+    expect(can(actor, 'summary.view', STUDENT_IDS.kai).allowed).toBe(true)
+    expect(can(actor, 'summary.view', STUDENT_IDS.amara).allowed).toBe(false)
   })
 
   it('maps school admin and district lead memberships', () => {
@@ -50,7 +50,7 @@ describe('loadActor', () => {
 
   it('gives an unknown user nothing', () => {
     const actor = loadActor(sql, 'stranger', SCHOOL.id)
-    expect(actor).toMatchObject({ studentRoles: {}, parentOf: [], classIds: [], session: null })
+    expect(actor).toMatchObject({ studentRoles: {}, parentOf: [], classIds: [] })
   })
 
   it('lists student ids', () => {

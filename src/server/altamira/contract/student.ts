@@ -7,7 +7,6 @@ import {
   DataPointSource,
   DataPointStatus,
   DecisionRule,
-  DraftStatus,
   FamilySummaryStatus,
   GapType,
   GoalStatus,
@@ -15,8 +14,6 @@ import {
   MetricType,
   ObjectiveStatus,
   Proficiency,
-  ProposalStatus,
-  ProposalTarget,
   ReviewKind,
   ReviewStatus,
   SuggestionStatus,
@@ -278,32 +275,6 @@ export const UsageEvent = z.object({
 })
 export type UsageEvent = z.infer<typeof UsageEvent>
 
-export const Proposal = z.object({
-  id: Id,
-  target: ProposalTarget,
-  /** Free-form description of the proposed change, e.g. { goalId, newText }. */
-  change: z.record(z.string(), z.unknown()),
-  evidenceIds: z.array(Id),
-  proposedBy: Id,
-  createdAt: Timestamp,
-  status: ProposalStatus,
-  resolvedBy: Id.nullable(),
-  resolvedAt: Timestamp.nullable(),
-  resolutionNote: z.string().nullable(),
-  version: RowVersion,
-})
-export type Proposal = z.infer<typeof Proposal>
-
-export const ParentInput = z.object({
-  id: Id,
-  authorId: Id,
-  text: z.string().min(1),
-  language: z.string().min(2),
-  createdAt: Timestamp,
-  version: RowVersion,
-})
-export type ParentInput = z.infer<typeof ParentInput>
-
 export const Consent = z.object({
   id: Id,
   kind: ConsentKind,
@@ -328,64 +299,8 @@ export const ProficiencyRating = z.object({
 })
 export type ProficiencyRating = z.infer<typeof ProficiencyRating>
 
-export const DraftSentence = z.object({
-  text: z.string().min(1),
-  citations: z.array(Id),
-})
-export type DraftSentence = z.infer<typeof DraftSentence>
-
-export const ProgressDraft = z.object({
-  id: Id,
-  goalId: Id,
-  period: z.string().min(1),
-  dueDate: DateString.nullable(),
-  sentences: z.array(DraftSentence),
-  proficiencySuggestion: Proficiency.nullable(),
-  status: DraftStatus,
-  createdBy: Id,
-  createdAt: Timestamp,
-  updatedBy: Id.nullable(),
-  updatedAt: Timestamp.nullable(),
-  usedAt: Timestamp.nullable(),
-  version: RowVersion,
-})
-export type ProgressDraft = z.infer<typeof ProgressDraft>
-
-export const DraftCitation = z.object({
-  id: Id,
-  draftId: Id,
-  sentenceIndex: z.number().int().min(0),
-  dataPointId: Id,
-})
-export type DraftCitation = z.infer<typeof DraftCitation>
-
-export const HandoffPacket = z.object({
-  goals: z.array(
-    z.object({
-      goalId: Id,
-      area: z.string(),
-      text: z.string(),
-      trend: z.string().nullable(),
-      proficiency: Proficiency.nullable(),
-    }),
-  ),
-  whatWorks: z.array(z.object({ adaptationType: AdaptationType, n: z.number().int(), meanOutcome: z.number().nullable() })),
-  suggestedNextGoals: z.array(z.string()),
-})
-export type HandoffPacket = z.infer<typeof HandoffPacket>
-
-export const Handoff = z.object({
-  id: Id,
-  createdBy: Id,
-  createdAt: Timestamp,
-  toSchool: z.string().nullable(),
-  packet: HandoffPacket,
-})
-export type Handoff = z.infer<typeof Handoff>
-
 export const FamilySummary = z.object({
   id: Id,
-  draftId: Id,
   language: z.string().min(2),
   text: z.string().min(1),
   status: FamilySummaryStatus,
@@ -421,13 +336,8 @@ export const STUDENT_TABLES = [
   'review_queue',
   'decisions',
   'usage_events',
-  'proposals',
-  'parent_inputs',
   'consents',
   'proficiency_ratings',
-  'progress_drafts',
-  'draft_citations',
-  'handoffs',
   'family_summaries',
   'audit_log',
 ] as const

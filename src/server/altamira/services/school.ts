@@ -1,28 +1,25 @@
 import { z } from 'zod'
 import { AdminMembershipBody, type MeResponse, type ScheduleItem, type StudentSummary } from '../contract/api'
 import { DateString, Id, MediaRef } from '../contract/common'
-import { LessonSourceKind, ShareTokenKind } from '../contract/enums'
+import { LessonSourceKind, type MembershipRole } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
 import { can, type Actor, type StaffRole } from '../contract/permissions'
 import {
   Lesson as LessonSchema,
   LessonAnalysisBody,
-  ShareToken as ShareTokenSchema,
   type Lesson,
   type LessonAnalysis,
   type LessonFile,
   type Membership,
   type ParentLink,
   type SheetCode,
-  type ShareToken,
 } from '../contract/school'
 import type { SqlExecutor } from '../db/sql'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS, seedSchool, seedSchoolDemo } from '../fixtures'
-import { audit, insertEntity, mustFind, newId, nowIso, updateVersioned } from '../repos/base'
+import { audit, insertEntity, mustFind, newId, nowIso } from '../repos/base'
 import * as repo from '../repos/school'
 import { authorize, authorizeStaff } from './authz'
-import { STUDENT_SESSION_MINUTES } from './thresholds'
 
 /** School-room ops (AltamiraSchoolRoom). No student names live in this room. */
 
@@ -31,14 +28,13 @@ const weekdayOf = (date: string) => new Date(`${date}T12:00:00.000Z`).getUTCDay(
 
 /**
  * Class-level access through the permission matrix: the class teacher, or
- * anyone whose lesson.augment cell passes for a student on the roster.
+ * anyone whose lesson_plan.edit cell passes for a student on the roster.
  */
 function authorizeClass(sql: SqlExecutor, actor: Actor, classId: string, access: 'read' | 'write'): void {
   if (!repo.classById(sql, classId)) throw new AltamiraError('not_found', `class ${classId} not found`)
-  if (actor.session) throw new AltamiraError('forbidden', 'sessions and links cannot use lessons')
   if (actor.classIds.includes(classId)) return
-  const ok = repo.rosterOf(sql, classId).some((sid) => can(actor, 'lesson.augment', sid, { access }).allowed)
-  if (!ok) throw new AltamiraError('forbidden', `lesson.augment refused for class ${classId}`)
+  const ok = repo.rosterOf(sql, classId).some((sid) => can(actor, 'lesson_plan.edit', sid, { access }).allowed)
+  if (!ok) throw new AltamiraError('forbidden', `lesson_plan.edit refused for class ${classId}`)
 }
 
 // ---------- auth support ----------
@@ -138,6 +134,21 @@ export const membershipsAssign = defineOp({
   },
 })
 
+/** GET /admin/schools/:id/memberships: every role holder in the school, for the Roles page. */
+export const membershipsList = defineOp({
+  name: 'memberships.list',
+  room: 'school',
+  capability: 'membership.manage',
+  args: z.object({ schoolId: Id }),
+  run(sql, { schoolId }, actor): { memberships: { userId: string; displayName: string; role: MembershipRole | 'parent'; studentId: string | null; classId: string | null }[] } {
+    authorize(actor, 'membership.manage', null, { schoolId })
+    const name = (id: string) => repo.userById(sql, id)?.displayName ?? 'Unknown'
+    const staff = repo.listMemberships(sql).map((m) => ({ userId: m.userId, displayName: name(m.userId), role: m.role, studentId: m.studentId, classId: m.classId }))
+    const parents = repo.listParentLinks(sql).map((p) => ({ userId: p.parentUserId, displayName: name(p.parentUserId), role: 'parent' as const, studentId: p.studentId, classId: null }))
+    return { memberships: [...staff, ...parents] }
+  },
+})
+
 // ---------- roster, classes, schedule (reads used by the API) ----------
 
 export const studentsList = defineOp({
@@ -198,7 +209,7 @@ export const scheduleList = defineOp({
 export const lessonsCreate = defineOp({
   name: 'lessons.create',
   room: 'school',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: z.object({
     classId: Id,
     title: z.string().min(1),
@@ -249,7 +260,7 @@ export const lessonsCreate = defineOp({
 export const lessonsGet = defineOp({
   name: 'lessons.get',
   room: 'school',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: z.object({ lessonId: Id }),
   run(sql, args, actor) {
     const lesson = mustFind(sql, 'lessons', LessonSchema, args.lessonId)
@@ -269,7 +280,7 @@ export const lessonsGet = defineOp({
 export const lessonsSaveAnalysis = defineOp({
   name: 'lessons.saveAnalysis',
   room: 'school',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: z.object({ lessonId: Id, analysis: LessonAnalysisBody, provider: z.string().min(1), now: z.string().optional() }),
   run(sql, args, actor): { analysis: LessonAnalysis; cached: boolean } {
     const lesson = mustFind(sql, 'lessons', LessonSchema, args.lessonId)
@@ -287,7 +298,7 @@ export const lessonsSaveAnalysis = defineOp({
 export const lessonsGetAnalysis = defineOp({
   name: 'lessons.getAnalysis',
   room: 'school',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: z.object({ lessonId: Id }),
   run(sql, args, actor): { analysis: LessonAnalysis | null } {
     const lesson = mustFind(sql, 'lessons', LessonSchema, args.lessonId)
@@ -308,17 +319,17 @@ function randomCode(): string {
 export const sheetCodesIssue = defineOp({
   name: 'sheetCodes.issue',
   room: 'school',
-  capability: 'lesson.augment',
+  capability: 'lesson_plan.edit',
   args: z.object({ studentId: Id, lessonId: Id, checkId: Id, now: z.string().optional() }),
   run(sql, args, actor): { sheetCode: SheetCode } {
     // PRD matrix "Augment lessons": EAs and parents view approved materials, so readers get codes already issued;
     // only write access issues a new one.
-    authorize(actor, 'lesson.augment', args.studentId, { access: 'read' })
+    authorize(actor, 'lesson_plan.edit', args.studentId, { access: 'read' })
     if (!repo.studentById(sql, args.studentId)) throw new AltamiraError('not_found', `student ${args.studentId} not found`)
     mustFind(sql, 'lessons', LessonSchema, args.lessonId)
     const existing = repo.findSheetCode(sql, args.studentId, args.lessonId, args.checkId)
     if (existing) return { sheetCode: existing }
-    authorize(actor, 'lesson.augment', args.studentId)
+    authorize(actor, 'lesson_plan.edit', args.studentId)
     let code = randomCode()
     while (repo.sheetCodeByCode(sql, code)) code = randomCode()
     const at = nowIso(args.now)
@@ -341,92 +352,6 @@ export const sheetCodesResolve = defineOp({
     // The lesson's class goes on the data point (PRD 1B "Timeline persistence").
     const classId = sql.get<{ class_id: string }>('SELECT class_id FROM lessons WHERE id = ?', sheetCode.lessonId)?.class_id ?? null
     return { sheetCode, classId }
-  },
-})
-
-// ---------- share tokens (Today View links and student-mode sessions) ----------
-
-/**
- * Only the token hash reaches the room (services/tokens.ts hashes it in the
- * route, because hashing in Workers is async and room ops are synchronous).
- */
-export const shareTokensCreate = defineOp({
-  name: 'shareTokens.create',
-  room: 'school',
-  args: z.object({
-    kind: ShareTokenKind,
-    studentId: Id,
-    tokenHash: z.string().min(16),
-    /** Today View only; TodayLinkBody caps it at 24. */
-    ttlHours: z.number().positive().max(24).default(12),
-    now: z.string().optional(),
-  }),
-  run(sql, args, actor): { shareToken: ShareToken } {
-    if (args.kind === 'today_view') authorizeStaff(actor, 'today_link.create', args.studentId)
-    // Student sessions are started by a teacher or EA (PRD NFR Consent); the consent gate runs in the student room first.
-    else authorizeStaff(actor, 'evidence.capture', args.studentId)
-    if (!repo.studentById(sql, args.studentId)) throw new AltamiraError('not_found', `student ${args.studentId} not found`)
-    const at = nowIso(args.now)
-    const ttlMs = args.kind === 'today_view' ? args.ttlHours * 3_600_000 : STUDENT_SESSION_MINUTES * 60_000
-    const shareToken: ShareToken = {
-      id: newId(),
-      tokenHash: args.tokenHash,
-      kind: args.kind,
-      studentId: args.studentId,
-      createdBy: actor.userId,
-      createdAt: at,
-      expiresAt: new Date(Date.parse(at) + ttlMs).toISOString(),
-      revokedAt: null,
-      version: 1,
-    }
-    insertEntity(sql, 'share_tokens', shareToken)
-    audit(sql, actor, 'share_tokens.create', 'share_tokens', shareToken.id, undefined, { ...shareToken, tokenHash: '[hash]' }, at)
-    return { shareToken }
-  },
-})
-
-/** Resolves a link or session token. Expired or revoked tokens answer 410 (design doc). */
-export const shareTokensResolve = defineOp({
-  name: 'shareTokens.resolve',
-  room: 'school',
-  args: z.object({ tokenHash: z.string().min(1), kind: ShareTokenKind.optional(), now: z.string().optional() }),
-  run(sql, args) {
-    const token = repo.shareTokenByHash(sql, args.tokenHash)
-    if (!token || (args.kind && token.kind !== args.kind)) throw new AltamiraError('not_found', 'unknown link')
-    if (token.revokedAt || Date.parse(token.expiresAt) <= Date.parse(nowIso(args.now))) {
-      throw new AltamiraError('gone', 'this link has expired')
-    }
-    return { id: token.id, kind: token.kind, studentId: token.studentId, expiresAt: token.expiresAt, createdBy: token.createdBy }
-  },
-})
-
-/**
- * With id: revoke one token (staff for that student). Without id: the daily
- * job revokes every token past its expiry.
- */
-export const shareTokensExpire = defineOp({
-  name: 'shareTokens.expire',
-  room: 'school',
-  args: z.object({ id: Id.optional(), now: z.string().optional() }),
-  run(sql, args, actor): { expired: string[] } {
-    const at = nowIso(args.now)
-    const targets: ShareToken[] = []
-    if (args.id) {
-      const token = mustFind(sql, 'share_tokens', ShareTokenSchema, args.id)
-      authorizeStaff(actor, token.kind === 'today_view' ? 'today_link.create' : 'evidence.capture', token.studentId)
-      if (!token.revokedAt) targets.push(token)
-    } else {
-      targets.push(
-        ...sql
-          .all<{ id: string }>('SELECT id FROM share_tokens WHERE revoked_at IS NULL AND expires_at <= ?', at)
-          .map((r) => mustFind(sql, 'share_tokens', ShareTokenSchema, r.id)),
-      )
-    }
-    for (const token of targets) {
-      updateVersioned(sql, 'share_tokens', token.id, token.version, { revoked_at: at })
-      audit(sql, actor, 'share_tokens.expire', 'share_tokens', token.id, { revokedAt: null }, { revokedAt: at }, at)
-    }
-    return { expired: targets.map((t) => t.id) }
   },
 })
 
@@ -509,6 +434,7 @@ export const schoolDevSeed = defineOp({
 export const schoolOpList = [
   actorLoad,
   membershipsAssign,
+  membershipsList,
   studentsList,
   studentsGet,
   classesList,
@@ -521,9 +447,6 @@ export const schoolOpList = [
   lessonsGetAnalysis,
   sheetCodesIssue,
   sheetCodesResolve,
-  shareTokensCreate,
-  shareTokensResolve,
-  shareTokensExpire,
   meOverview,
   schoolDevSeed,
 ]

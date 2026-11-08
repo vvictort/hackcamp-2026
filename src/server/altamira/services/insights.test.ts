@@ -66,7 +66,8 @@ describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
 describe('parseSourceRef', () => {
   it('opens every source kind', () => {
     expect(parseSourceRef('photo:uploads/a.jpg#q2')).toEqual({ kind: 'photo', fileKey: 'uploads/a.jpg', itemId: 'q2' })
-    expect(parseSourceRef('student_response:s1:check-1/q1')).toEqual({ kind: 'student_response', sessionId: 's1', itemId: 'check-1/q1' })
+    // student_response refs belong to the removed student mode; an old row falls back to a plain note.
+    expect(parseSourceRef('student_response:s1:check-1/q1')).toEqual({ kind: 'teacher', note: 'student_response:s1:check-1/q1' })
     expect(parseSourceRef('ea_event:counter:abc')).toEqual({ kind: 'ea_event', eventKind: 'counter' })
     expect(parseSourceRef('usage:sg1')).toEqual({ kind: 'usage', suggestionId: 'sg1' })
     expect(parseSourceRef('teacher:quick rating')).toEqual({ kind: 'teacher', note: 'quick rating' })

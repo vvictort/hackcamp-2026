@@ -1,73 +1,80 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { FAMILY_VISIBLE_STATUSES } from '../contract/enums'
 import { closeAll } from '../services/testing'
-import { approveAdaptation, approvedMathSheets, kai, sofia, U } from './flows'
-import { createHarness } from './harness'
+import { amara, kai, sofia, U } from './flows'
+import { createHarness, type Harness } from './harness'
 
 afterEach(closeAll)
 
-describe('M4 families, Today View and handoff through /api/v1', () => {
-  it('parents see only confirmed data, never a pending AI score', async () => {
-    const h = createHarness({
-      devSeed: true,
-      ai: { scorePhotoPage: async (input) => ({ sheetCode: null, items: input.check.items.map((i) => ({ itemId: i.id, value: 0, confidence: 0.2 })) }) },
-    })
-    const { lesson, sheets } = await approvedMathSheets(h, sofia)
-    const batch = await h.post(U.teacher, '/captures/photos', {
-      pages: [{ fileKey: `captures/sheet-code-${sheets.pages[0].sheetCode}.jpg`, contentType: 'image/jpeg' }],
-    })
-    const pendingId = batch.body.batch.pages[0].dataPointIds[0]
-    expect(h.studentSql(sofia).get<{ status: string }>('SELECT status FROM data_points WHERE id = ?', pendingId)?.status).toBe('pending_review')
+/** Inserts an AI-written summary draft the way the next-round generator will: as a draft, not yet approved. */
+function insertDraftSummary(h: Harness, studentId: string, id = 'f5000000-0000-4000-8000-000000000001') {
+  h.studentSql(studentId).run(
+    "INSERT INTO family_summaries (id, language, text, status, created_at, version) VALUES (?, 'en', 'A fictional monthly summary.', 'draft', '2026-11-09T17:00:00.000Z', 1)",
+    id,
+  )
+  return id
+}
 
-    const family = await h.get(U.parentSofia, `/family/${sofia}/progress`)
-    expect(family.status).toBe(200)
-    const points = family.body.goals.flatMap((g: { dataPoints: { id: string; status: string }[] }) => g.dataPoints)
-    expect(points.length).toBeGreaterThan(0)
-    for (const p of points) expect(FAMILY_VISIBLE_STATUSES).toContain(p.status)
-    expect(points.map((p: { id: string }) => p.id)).not.toContain(pendingId)
-    // Approved adaptations show with the real lesson title.
-    const approved = await approveAdaptation(h, sofia, {})
-    expect(approved.status).toBe(201)
-    const again = await h.get(U.parentSofia, `/family/${sofia}/progress`)
-    expect(again.body.lessons.map((l: { lessonId: string }) => l.lessonId)).toContain(approved.body.lessonId)
-    expect(lesson.id).toEqual(expect.any(String))
+describe('parent access: own child, approved summaries and consent only', () => {
+  it('an unapproved AI summary is invisible to the parent and the case manager until the EA or teacher approves it', async () => {
+    const h = createHarness()
+    const id = insertDraftSummary(h, kai)
+    expect((await h.get(U.parentKai, `/family/${kai}/summaries`)).body.summaries).toEqual([])
+    expect((await h.get(U.caseManager, `/students/${kai}/summaries`)).body.summaries).toEqual([])
+    // The EA and the teacher see the draft.
+    expect((await h.get(U.ea, `/students/${kai}/summaries`)).body.summaries.map((s: { id: string }) => s.id)).toEqual([id])
+    expect((await h.get(U.teacher, `/students/${kai}/summaries`)).body.summaries).toHaveLength(1)
 
-    // Parents send input and manage consent for their own child.
-    expect((await h.post(U.parentSofia, `/family/${sofia}/input`, { text: 'Practised counting at home.', language: 'en' })).status).toBe(201)
-    const consents = await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'audio', granted: false })
-    expect(consents.status).toBe(200)
-    expect(consents.body.consents.find((c: { kind: string }) => c.kind === 'audio').revokedAt).not.toBeNull()
+    // Neither the parent nor the case manager can approve it.
+    for (const user of [U.parentKai, U.caseManager, U.districtLead, U.schoolAdmin]) {
+      expect((await h.post(user, `/family-summaries/${id}/approve?studentId=${kai}`, { expectedVersion: 1 })).status).toBe(403)
+    }
+    expect((await h.get(U.parentKai, `/family/${kai}/summaries`)).body.summaries).toEqual([])
+
+    const approved = await h.post(U.ea, `/family-summaries/${id}/approve?studentId=${kai}`, { expectedVersion: 1, text: 'Edited and approved.' })
+    expect(approved.status).toBe(200)
+    expect(approved.body.summary).toMatchObject({ status: 'approved', approvedBy: U.ea, text: 'Edited and approved.' })
+    expect((await h.get(U.parentKai, `/family/${kai}/summaries`)).body.summaries.map((s: { id: string }) => s.id)).toEqual([id])
+    expect((await h.get(U.caseManager, `/students/${kai}/summaries`)).body.summaries).toHaveLength(1)
   })
 
-  it('Today View link works without login, shows no IEP goal text, and expires with 410', async () => {
+  it('a parent cannot read another child, staff routes or removed routes', async () => {
     const h = createHarness()
-    const link = await h.post(U.caseManager, `/students/${kai}/today-links`, { ttlHours: 2 })
-    expect(link.status).toBe(201)
-    const view = await h.get(null, `/today/${link.body.token}`)
-    expect(view.status).toBe(200)
-    expect(view.body.supports.length).toBeGreaterThan(0)
-    expect(view.body.schedule.length).toBeGreaterThan(0)
-    const text = JSON.stringify(view.body)
-    for (const g of h.studentSql(kai).all<{ text: string }>('SELECT text FROM goals')) expect(text).not.toContain(g.text)
-    // Only the hash is stored.
-    expect(h.school.get<{ n: number }>('SELECT COUNT(*) AS n FROM share_tokens WHERE token_hash = ?', link.body.token)?.n).toBe(0)
-
-    expect((await h.get(null, '/today/not-a-real-token')).status).toBe(404)
-    h.clock.now += 3 * 60 * 60 * 1000
-    const expired = await h.get(null, `/today/${link.body.token}`)
-    expect(expired.status).toBe(410)
-    expect(expired.body.error.code).toBe('gone')
+    expect((await h.get(U.parentKai, `/family/${amara}/summaries`)).status).toBe(403)
+    for (const path of [`/students/${kai}`, `/students/${kai}/timeline`, `/students/${kai}/objectives`, `/students/${kai}/what-works`, '/review-queue', `/students/${kai}/capture-objectives`]) {
+      expect((await h.get(U.parentKai, path)).status, path).toBe(403)
+    }
+    expect((await h.get(U.parentKai, `/family/${kai}/progress`)).status).toBe(404)
+    expect((await h.post(U.parentKai, `/family/${kai}/input`, { text: 'x', language: 'en' })).status).toBe(404)
   })
 
-  it('case manager creates a transition handoff and reads it back', async () => {
+  it('parents toggle voice-note and video consent for their own child only', async () => {
     const h = createHarness()
-    const created = await h.post(U.caseManager, `/students/${kai}/handoffs`, { toSchool: 'Fictional Middle School' })
-    expect(created.status).toBe(201)
-    expect(created.body.handoff.packet.goals.length).toBeGreaterThan(0)
-    const read = await h.get(U.caseManager, `/handoffs/${created.body.handoff.id}?studentId=${kai}`)
-    expect(read.status).toBe(200)
-    expect(read.body.handoff.id).toBe(created.body.handoff.id)
-    // Parents cannot read handoffs.
-    expect((await h.get(U.parentKai, `/handoffs/${created.body.handoff.id}?studentId=${kai}`)).status).toBe(403)
+    const on = await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'video', granted: true })
+    expect(on.status).toBe(200)
+    const off = await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'voice_note', granted: false })
+    expect(off.body.consents.find((c: { kind: string }) => c.kind === 'voice_note').revokedAt).not.toBeNull()
+    expect((await h.call(U.parentSofia, 'PUT', `/family/${kai}/consents`, { kind: 'video', granted: true })).status).toBe(403)
+    // Staff cannot toggle consent for a family.
+    for (const user of [U.caseManager, U.teacher, U.ea]) {
+      expect((await h.call(user, 'PUT', `/family/${sofia}/consents`, { kind: 'voice_note', granted: true })).status).toBe(403)
+    }
+    expect((await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'student_mode', granted: true })).status).toBe(400)
+    expect((await h.call(U.parentSofia, 'PUT', `/family/${sofia}/consents`, { kind: 'audio', granted: true })).status).toBe(400)
+  })
+})
+
+describe('removed features have no routes', () => {
+  it('Today View, handoffs, parent input, drafts and the digest answer 404', async () => {
+    const h = createHarness()
+    expect((await h.post(U.caseManager, `/students/${kai}/today-links`, { ttlHours: 2 })).status).toBe(404)
+    expect((await h.get(null, '/today/some-token')).status).toBe(404)
+    expect((await h.post(U.caseManager, `/students/${kai}/handoffs`, {})).status).toBe(404)
+    expect((await h.get(U.caseManager, `/handoffs/x?studentId=${kai}`)).status).toBe(404)
+    expect((await h.get(U.caseManager, `/students/${kai}/parent-input`)).status).toBe(404)
+    expect((await h.post(U.caseManager, `/students/${kai}/drafts`, {})).status).toBe(404)
+    expect((await h.call(U.caseManager, 'PATCH', `/drafts/x?studentId=${kai}`, {})).status).toBe(404)
+    expect((await h.post(U.caseManager, `/drafts/x/family-summary?studentId=${kai}`, { language: 'es' })).status).toBe(404)
+    expect((await h.get(U.caseManager, '/me/digest')).status).toBe(404)
+    expect((await h.get(U.caseManager, '/me/proposals')).status).toBe(404)
   })
 })

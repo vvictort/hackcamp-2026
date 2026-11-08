@@ -9,7 +9,6 @@ import {
   SchoolClass,
   SchoolStudent,
   SheetCode,
-  ShareToken,
   User,
 } from '../contract/school'
 import type { SqlExecutor } from '../db/sql'
@@ -21,7 +20,6 @@ export const userById = (sql: SqlExecutor, id: string) => findById(sql, 'users',
 export const studentById = (sql: SqlExecutor, id: string) => findById(sql, 'students', SchoolStudent, id)
 export const classById = (sql: SqlExecutor, id: string) => findById(sql, 'classes', SchoolClass, id)
 export const lessonById = (sql: SqlExecutor, id: string) => findById(sql, 'lessons', Lesson, id)
-export const shareTokenById = (sql: SqlExecutor, id: string) => findById(sql, 'share_tokens', ShareToken, id)
 export const captureBatchById = (sql: SqlExecutor, id: string) => findById(sql, 'capture_batches', CaptureBatch, id)
 
 export function listStudents(sql: SqlExecutor): SchoolStudent[] {
@@ -108,7 +106,10 @@ export function findSheetCode(sql: SqlExecutor, studentId: string, lessonId: str
   return row ? parseRow(SheetCode, row) : undefined
 }
 
-export function shareTokenByHash(sql: SqlExecutor, tokenHash: string): ShareToken | undefined {
-  const row = sql.get<Row>('SELECT * FROM share_tokens WHERE token_hash = ?', tokenHash)
-  return row ? parseRow(ShareToken, row) : undefined
+export function listMemberships(sql: SqlExecutor): Membership[] {
+  return parseRows(Membership, sql.all<Row>('SELECT * FROM memberships ORDER BY rowid'))
+}
+
+export function listParentLinks(sql: SqlExecutor): ParentLink[] {
+  return parseRows(ParentLink, sql.all<Row>('SELECT * FROM parent_links ORDER BY rowid'))
 }

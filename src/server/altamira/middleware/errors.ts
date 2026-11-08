@@ -14,11 +14,9 @@ export class HttpError extends AltamiraError {
   }
 }
 
-/** Maps a can() refusal to an HttpError: an expired link is 410, everything else 403. */
+/** Maps a can() refusal to an HttpError: always 403. */
 export function httpErrorFromDeny(result: Extract<CanResult, { allowed: false }>): HttpError {
-  if (result.reason === 'expired') return new HttpError('gone', 'This link has expired.')
-  const via = result.via ? ` Use ${result.via} instead.` : ''
-  return new HttpError('forbidden', `Not allowed (${result.reason}).${via}`)
+  return new HttpError('forbidden', `Not allowed (${result.reason}).`)
 }
 
 /** Unwraps a room RPC result, or throws the op's error with its contract status. */

@@ -87,18 +87,13 @@ export const DECISION_RULES = ['below_aimline', 'above_aimline', 'data_needed'] 
 export const DecisionRule = z.enum(DECISION_RULES)
 export type DecisionRule = z.infer<typeof DecisionRule>
 
+/** @deprecated removed feature (teacher proposals). Kept only until the frontend drops its importers. */
 export const PROPOSAL_TARGETS = ['iep', 'profile', 'objective'] as const
-export const ProposalTarget = z.enum(PROPOSAL_TARGETS)
 
-export const PROPOSAL_STATUSES = ['open', 'accepted', 'declined'] as const
-export const ProposalStatus = z.enum(PROPOSAL_STATUSES)
-
-export const CONSENT_KINDS = ['student_mode', 'audio'] as const
+/** Voice notes and videos need a parent's consent before capture. TTS audio for parents needs none. */
+export const CONSENT_KINDS = ['voice_note', 'video'] as const
 export const ConsentKind = z.enum(CONSENT_KINDS)
 export type ConsentKind = z.infer<typeof ConsentKind>
-
-export const DRAFT_STATUSES = ['draft', 'edited', 'used'] as const
-export const DraftStatus = z.enum(DRAFT_STATUSES)
 
 export const FAMILY_SUMMARY_STATUSES = ['draft', 'approved'] as const
 export const FamilySummaryStatus = z.enum(FAMILY_SUMMARY_STATUSES)
@@ -111,10 +106,6 @@ export type MembershipRole = z.infer<typeof MembershipRole>
 /** PRD 1A-1 accepted lesson formats. PPTX arrives already converted to PDF. */
 export const LESSON_SOURCE_KINDS = ['pdf', 'docx', 'image', 'text'] as const
 export const LessonSourceKind = z.enum(LESSON_SOURCE_KINDS)
-
-export const SHARE_TOKEN_KINDS = ['today_view', 'student_session'] as const
-export const ShareTokenKind = z.enum(SHARE_TOKEN_KINDS)
-export type ShareTokenKind = z.infer<typeof ShareTokenKind>
 
 export const CAPTURE_BATCH_STATUSES = ['processing', 'done', 'failed'] as const
 export const CaptureBatchStatus = z.enum(CAPTURE_BATCH_STATUSES)

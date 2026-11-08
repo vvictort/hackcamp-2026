@@ -22,9 +22,7 @@ export const Now = z.object({ now: z.string().optional() })
 export function authorize(actor: Actor, capability: Capability, studentId: string | null, opts: CanOptions = {}): Allowed {
   const result = can(actor, capability, studentId, opts)
   if (result.allowed) return result
-  if (result.reason === 'expired') throw new AltamiraError('gone', 'this link or session has expired')
-  const hint = result.via ? `; use ${result.via}` : ''
-  throw new AltamiraError('forbidden', `${capability} refused: ${result.reason}${hint}`)
+  throw new AltamiraError('forbidden', `${capability} refused: ${result.reason}`)
 }
 
 /** Staff roles only: a student session or a link never passes. */
@@ -36,27 +34,13 @@ export function authorizeStaff(actor: Actor, capability: Capability, studentId: 
   return allowed
 }
 
-/** The student session behind the actor, checked against the student. */
-export function requireStudentSession(actor: Actor, studentId: string, now: string) {
-  authorize(actor, 'evidence.capture', studentId, { now: Date.parse(now) })
-  const session = actor.session
-  if (!session || session.kind !== 'student_session') throw new AltamiraError('forbidden', 'student mode needs a student session')
-  return session
-}
-
 /**
- * Reading a student's objectives (id, metric, unit, target, mastery rule, no
- * IEP wording). Staff roles, including an assigned EA, may read them so the EA
- * screen can list goals to record against; student mode and Today View links
- * may not. EAs still cannot edit the IEP: iep.write and objective.confirm stay
- * refused for them in the permission matrix.
+ * Reading a student's objectives (id, metric, unit, target, mastery rule). Any
+ * staff role in scope may read them so the capture screens can list goals to
+ * record against. Editing stays with the case manager at upload (objective.confirm).
  */
 export function authorizeObjectivesRead(actor: Actor, studentId: string, opts: CanOptions = {}): Allowed {
-  const allowed = authorize(actor, 'iep.view', studentId, opts)
-  if (allowed.filter === 'supports_applied' || allowed.filter === 'today_view') {
-    throw new AltamiraError('forbidden', 'objectives are not shown in this mode')
-  }
-  return allowed
+  return authorize(actor, 'iep.view', studentId, opts)
 }
 
 /** An EA (or any staff role) may record events and data points for a student they are assigned to. */

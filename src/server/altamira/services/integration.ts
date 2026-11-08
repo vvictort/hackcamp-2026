@@ -43,7 +43,7 @@ export const captureBatchesGet = defineOp({
   args: z.object({ batchId: Id }),
   run(sql, args, actor): { batch: CaptureBatch } {
     const batch = repo.captureBatchById(sql, args.batchId)
-    if (!batch || actor.session || batch.createdBy !== actor.userId) throw new AltamiraError('not_found', `capture batch ${args.batchId} not found`)
+    if (!batch || batch.createdBy !== actor.userId) throw new AltamiraError('not_found', `capture batch ${args.batchId} not found`)
     return { batch }
   },
 })

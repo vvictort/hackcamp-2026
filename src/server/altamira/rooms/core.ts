@@ -36,17 +36,18 @@ export function auditMark(sql: SqlExecutor): number {
   return sql.get<{ m: number | null }>('SELECT MAX(rowid) AS m FROM audit_log')?.m ?? 0
 }
 
-export const DEV_ROLES = ['case_manager', 'teacher', 'ea', 'parent', 'student', 'district_lead'] as const
+/** The six roles of the demo switcher; each copies a fictional fixture user. No student role. */
+export const DEV_ROLES = ['case_manager', 'teacher', 'ea', 'parent', 'district_lead', 'school_admin'] as const
 export type DevRole = (typeof DEV_ROLES)[number]
 
-/** Fixture user whose access each demo role copies. "student" reuses Kai's parent link (student mode is session based). */
+/** Fixture user whose access each demo role copies. */
 const DEV_ROLE_USER: Record<DevRole, string> = {
   case_manager: USER_IDS.caseManager,
   teacher: USER_IDS.teacher,
   ea: USER_IDS.ea,
   parent: USER_IDS.parentKai,
-  student: USER_IDS.parentKai,
   district_lead: USER_IDS.districtLead,
+  school_admin: USER_IDS.schoolAdmin,
 }
 
 const ROLE_TABLE = 'CREATE TABLE IF NOT EXISTS dev_role (user_id TEXT PRIMARY KEY, role TEXT NOT NULL)'

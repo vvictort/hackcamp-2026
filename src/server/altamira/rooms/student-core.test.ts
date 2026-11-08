@@ -110,17 +110,18 @@ describe('student room core', () => {
 
   it('checks for an active, unrevoked consent', () => {
     const kinds = new Set(KAI.consents.filter((c) => c.revokedAt === null).map((c) => c.kind))
-    expect(hasActiveConsent(sql, 'student_mode')).toBe(kinds.has('student_mode'))
+    expect(hasActiveConsent(sql, 'video')).toBe(kinds.has('video'))
+    expect(hasActiveConsent(sql, 'voice_note')).toBe(kinds.has('voice_note'))
     sql.run('UPDATE consents SET revoked_at = ?', '2026-11-01T00:00:00.000Z')
-    expect(hasActiveConsent(sql, 'student_mode')).toBe(false)
+    expect(hasActiveConsent(sql, 'video')).toBe(false)
   })
 
   it('Amara has no consents', () => {
     const other = createNodeSqlExecutor()
     migrateStudent(other)
     seedStudent(other, AMARA)
-    expect(hasActiveConsent(other, 'student_mode')).toBe(false)
-    expect(hasActiveConsent(other, 'audio')).toBe(false)
+    expect(hasActiveConsent(other, 'video')).toBe(false)
+    expect(hasActiveConsent(other, 'voice_note')).toBe(false)
     other.close()
   })
 

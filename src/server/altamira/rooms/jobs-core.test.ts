@@ -3,7 +3,7 @@ import { opErr, opOk } from '../contract/ops'
 import type { SqlExecutor } from '../db/sql'
 import { STUDENT_IDS } from '../fixtures/school'
 import { schoolOps, studentOps } from '../services/registry'
-import { closeAll, countRows, schoolRoom, studentRoom } from '../services/testing'
+import { closeAll, schoolRoom, studentRoom } from '../services/testing'
 import { runRoomOp } from './core'
 import { ALTAMIRA_CRON, runAltamiraCronTask, SYSTEM_ACTOR, type JobDeps } from './jobs-core'
 
@@ -51,7 +51,7 @@ describe('Altamira cron tasks', () => {
 
   it('skips a task whose op is not registered, without calling any room', async () => {
     const d = deps([])
-    expect(await runAltamiraCronTask(ALTAMIRA_CRON.weeklyDigest, d)).toEqual({ status: 'skipped', reason: 'op_missing', op: 'decisions.evaluate' })
+    expect(await runAltamiraCronTask(ALTAMIRA_CRON.dataNeeded, d)).toEqual({ status: 'skipped', reason: 'op_missing', op: 'dataNeeded.scan' })
     expect(d.runStudentOp).not.toHaveBeenCalled()
     expect(d.logs).toHaveLength(1)
   })
@@ -74,35 +74,24 @@ describe('Altamira cron tasks', () => {
     expect(d.logs.join(' ')).not.toMatch(/57d0/)
   })
 
-  it('runs link expiry in the school room', async () => {
-    const d = deps(['shareTokens.expire'])
-    expect(await runAltamiraCronTask(ALTAMIRA_CRON.todayLinkExpiry, d)).toEqual({ status: 'done', op: 'shareTokens.expire', ran: 1, failed: 0 })
-    expect(d.runSchoolOp).toHaveBeenCalledWith('shareTokens.expire', expect.any(Object))
-  })
-
   it('uses a system actor with no roles', () => {
     expect(SYSTEM_ACTOR.studentRoles).toEqual({})
-    expect(SYSTEM_ACTOR.session).toBeNull()
   })
 })
 
 describe('Altamira cron tasks through the real op registries', () => {
-  it('weekly: evaluates decision rules in every student room with the system actor', async () => {
-    const { d, rooms } = realDeps('2026-10-22T14:00:00.000Z')
-    expect(await runAltamiraCronTask(ALTAMIRA_CRON.weeklyDigest, d)).toEqual({ status: 'done', op: 'decisions.evaluate', ran: 3, failed: 0 })
-    // Kai's break-card series is above the aimline by then.
-    expect(countRows(rooms.get(STUDENT_IDS.kai)!, 'decisions')).toBe(1)
-  })
-
-  it('daily: the data-needed scan runs in every student room', async () => {
+  it('the data-needed scan runs in every student room', async () => {
     const { d, rooms } = realDeps('2026-11-20T14:00:00.000Z')
     expect(await runAltamiraCronTask(ALTAMIRA_CRON.dataNeeded, d)).toEqual({ status: 'done', op: 'dataNeeded.scan', ran: 3, failed: 0 })
     const attempts = rooms.get(STUDENT_IDS.kai)!.get<{ n: number }>("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'dataNeeded.schedule'")?.n
     expect(attempts).toBeGreaterThan(0)
   })
 
-  it('daily: link expiry runs in the school room', async () => {
-    const { d } = realDeps('2026-11-20T14:00:00.000Z')
-    expect(await runAltamiraCronTask(ALTAMIRA_CRON.todayLinkExpiry, d)).toEqual({ status: 'done', op: 'shareTokens.expire', ran: 1, failed: 0 })
+})
+
+describe('removed jobs', () => {
+  it('has no weekly digest or link expiry task', async () => {
+    expect(await runAltamiraCronTask('altamira.weekly-digest', deps([]))).toEqual({ status: 'not_altamira' })
+    expect(await runAltamiraCronTask('altamira.today-link-expiry', deps([]))).toEqual({ status: 'not_altamira' })
   })
 })

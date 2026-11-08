@@ -2,7 +2,6 @@ import {
   CAPTURE_BATCH_STATUSES,
   LESSON_SOURCE_KINDS,
   MEMBERSHIP_ROLES,
-  SHARE_TOKEN_KINDS,
 } from '../../contract/enums'
 import { sqlList as l } from '../mapping'
 import { AUDIT_LOG_DDL, runMigrations, type Migration } from '../migrate'
@@ -107,17 +106,6 @@ export const SCHOOL_DDL: string[] = [
     check_id TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`,
-  `CREATE TABLE IF NOT EXISTS share_tokens (
-    id TEXT PRIMARY KEY,
-    token_hash TEXT NOT NULL UNIQUE,
-    kind TEXT NOT NULL CHECK (kind IN (${l(SHARE_TOKEN_KINDS)})),
-    student_id TEXT NOT NULL REFERENCES students (id),
-    created_by TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
-    revoked_at TEXT,
-    version INTEGER NOT NULL DEFAULT 1
-  )`,
   `CREATE TABLE IF NOT EXISTS capture_batches (
     id TEXT PRIMARY KEY,
     created_by TEXT NOT NULL,
@@ -129,7 +117,10 @@ export const SCHOOL_DDL: string[] = [
   ...AUDIT_LOG_DDL,
 ]
 
-export const SCHOOL_MIGRATIONS: readonly Migration[] = [SCHOOL_DDL]
+/** v2: Today View links and student-mode sessions are gone, so their tokens table goes too. */
+export const SCHOOL_V2: string[] = ['DROP TABLE IF EXISTS share_tokens']
+
+export const SCHOOL_MIGRATIONS: readonly Migration[] = [SCHOOL_DDL, SCHOOL_V2]
 
 export const migrateSchool = (sql: SqlExecutor): number => runMigrations(sql, SCHOOL_MIGRATIONS)
 

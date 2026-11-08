@@ -205,7 +205,7 @@ export const KAI: StudentFixture = {
   consents: [
     {
       id: 'c0000000-0000-4000-8000-0000000000a1',
-      kind: 'student_mode',
+      kind: 'video',
       grantedBy: USER_IDS.parentKai,
       recordedBy: USER_IDS.parentKai,
       grantedAt: SEEDED_AT,
@@ -264,7 +264,7 @@ export const AMARA: StudentFixture = {
     }),
   ],
   dataPoints: [],
-  // No consents: student mode and audio must be refused for Amara.
+  // No consents: voice notes and videos must be refused for Amara.
   consents: [],
   proficiency: [rating('9f000000-0000-4000-8000-0000000000b1', AMARA_GOAL, 'Developing')],
 }
@@ -357,18 +357,18 @@ export const SOFIA: StudentFixture = {
       objectiveId: SOFIA_OBJ.math,
       value: 70,
       unit: '% correct',
-      source: 'student',
+      source: 'photo',
       recorderId: USER_IDS.ea,
       recordedAt: '2026-10-14T18:30:00.000Z',
       classId: CLASS_IDS.numeracy,
       status: 'confirmed',
-      sourceRef: 'student_response:fixture-session-1:item-2',
+      sourceRef: 'photo:fixtures/sheet-sofia-1.jpg#item-2',
     }),
   ],
   consents: [
     {
       id: 'c0000000-0000-4000-8000-0000000000c1',
-      kind: 'student_mode',
+      kind: 'video',
       grantedBy: USER_IDS.parentSofia,
       recordedBy: USER_IDS.parentSofia,
       grantedAt: SEEDED_AT,
@@ -377,10 +377,9 @@ export const SOFIA: StudentFixture = {
     },
     {
       id: 'c0000000-0000-4000-8000-0000000000c2',
-      kind: 'audio',
+      kind: 'voice_note',
       grantedBy: USER_IDS.parentSofia,
-      // Recorded by the case manager on the parent's behalf (PRD matrix: case manager "Records it").
-      recordedBy: USER_IDS.caseManager,
+      recordedBy: USER_IDS.parentSofia,
       grantedAt: SEEDED_AT,
       revokedAt: null,
       version: 1,

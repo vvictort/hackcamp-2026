@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { LensStudentResult, SuggestionResponse } from '../contract/api'
 import type { LensAdaptation, LensCheck } from '../contract/ai'
 import { AltamiraError } from '../contract/errors'
+import { userActor } from '../contract/permissions'
 import type { SqlExecutor } from '../db/sql'
 import { KAI, SOFIA, STUDENT_IDS } from '../fixtures'
 import { ACTORS, closeAll, countRows, runStudent, studentRoom } from './testing'
@@ -113,7 +114,7 @@ describe('suggestion approval (PRD 1A-7)', () => {
   it('refuses a blocked modification and writes nothing', () => {
     const sql = studentRoom('kai')
     const blocked = saveRun(sql, STUDENT_IDS.kai, 'math', [adaptation(kaiGoal, { changesOutcome: true })]).suggestions[1]
-    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: blocked.id, expectedVersion: 1 }, ACTORS.caseManager)).toThrow(
+    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: blocked.id, expectedVersion: 1 }, ACTORS.teacher)).toThrow(
       /not_iep_authorized/,
     )
     expect(countRows(sql, 'usage_events')).toBe(0)
@@ -133,7 +134,7 @@ describe('suggestion approval (PRD 1A-7)', () => {
   it('refuses approval by an EA (view only)', () => {
     const sql = studentRoom('kai')
     const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1 }, ACTORS.ea)).toThrow(/read_only/)
+    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1 }, ACTORS.ea)).toThrow(/adaptation.approve refused/)
   })
 
   it('bulk approves per student, reporting blocked and conflicting items', () => {
@@ -238,12 +239,12 @@ describe('viewing lens output', () => {
     expect(runStudent<{ checks: unknown[] }>(sql, 'checks.list', { studentId: STUDENT_IDS.kai, lessonId: LESSON }, ACTORS.teacher).checks).toHaveLength(0)
   })
 
-  it('profile view hides IEP text from EAs', () => {
+  it('the profile is the full read-only IEP for the EA of the student, and refused for an unassigned EA', () => {
     const sql = studentRoom('kai')
     const ea = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.ea)
-    expect(ea.view).toBe('supports')
-    expect(JSON.stringify(ea)).not.toContain(KAI.goals[0].text)
-    expect(ea).not.toHaveProperty('accommodations')
+    expect(ea.view).toBe('full')
+    expect(JSON.stringify(ea)).toContain(KAI.goals[0].text)
+    expect(() => runStudent(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, userActor('other-ea', { studentRoles: { [STUDENT_IDS.amara]: ['ea'] } }))).toThrow(/not_in_scope/)
     const cm = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.caseManager)
     expect(cm.view).toBe('full')
   })

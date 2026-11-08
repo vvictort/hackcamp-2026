@@ -1,18 +1,16 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../../../../worker'
-import type { ShareTokenKind } from '../contract/enums'
 import type { OpResult } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
 import { createDoSqlExecutor } from '../db/do-sqlite'
 import { migrateSchool } from '../db/schema/school'
 import type { SqlExecutor } from '../db/sql'
 import { listStudentIds, loadActor } from '../middleware/actor'
-import { issueToken, resolveToken, type IssueTokenInput, type TokenLookup } from '../middleware/tokens'
 import { schoolOps } from '../services/registry'
 import { runRoomOp } from './core'
 import type { SchoolRoomRpc } from './rpc'
 
-/** One per school ("school:<uuid>"): memberships, roster, lessons, share tokens. */
+/** One per school ("school:<uuid>"): memberships, roster, lessons. */
 export class AltamiraSchoolRoom extends DurableObject<Env> implements SchoolRoomRpc {
   private readonly sql: SqlExecutor
 
@@ -30,14 +28,6 @@ export class AltamiraSchoolRoom extends DurableObject<Env> implements SchoolRoom
 
   async loadActor(userId: string, schoolId: string): Promise<Actor> {
     return loadActor(this.sql, userId, schoolId)
-  }
-
-  async issueToken(input: IssueTokenInput): Promise<string> {
-    return issueToken(this.sql, input)
-  }
-
-  async resolveToken(tokenHash: string, kind: ShareTokenKind, now: number): Promise<TokenLookup> {
-    return resolveToken(this.sql, tokenHash, kind, now)
   }
 
   async listStudentIds(): Promise<string[]> {

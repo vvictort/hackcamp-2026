@@ -5,15 +5,15 @@ import { insightsOps, schoolOps, studentOps } from './registry'
 const REQUIRED = {
   school: [
     'memberships.assign', 'lessons.create', 'lessons.saveAnalysis', 'lessons.getAnalysis', 'sheetCodes.issue', 'sheetCodes.resolve',
-    'shareTokens.create', 'shareTokens.resolve', 'shareTokens.expire', 'me.overview', 'dev.seed',
+    'memberships.list', 'me.overview', 'dev.seed',
   ],
   student: [
     'lens.saveRun', 'suggestions.approve', 'suggestions.edit', 'suggestions.regenerate', 'suggestions.reject', 'suggestions.bulkApprove', 'checks.list',
-    'iep.import', 'iep.confirm', 'objectives.propose', 'objectives.confirm', 'objectives.flagUnmeasurable', 'proposals.create', 'proposals.resolve',
+    'iep.import', 'iep.confirm', 'objectives.propose', 'objectives.confirm', 'objectives.flagUnmeasurable',
     'dataPoints.addPending', 'events.record', 'dataPoints.correct', 'review.list', 'review.confirm', 'timeline.get', 'goal.status', 'dataPoint.source',
-    'sessions.start', 'sessions.next', 'sessions.respond', 'sessions.progress', 'probes.schedule', 'aimline.get', 'whatWorks.get', 'digest.weekly',
-    'dataNeeded.scan', 'proficiency.set', 'drafts.save', 'drafts.update', 'drafts.markUsed', 'consents.set', 'consents.list', 'parentInput.create',
-    'family.progress', 'familySummaries.save', 'familySummaries.approve', 'todayView.get', 'handoffs.create', 'voiceNote.process',
+    'aimline.get', 'whatWorks.get',
+    'dataNeeded.scan', 'proficiency.set', 'consents.set', 'consents.list',
+    'familySummaries.save', 'familySummaries.approve', 'familySummaries.list', 'voiceNote.process',
   ],
   insights: ['counters.push', 'insights.get'],
 }
@@ -29,5 +29,16 @@ describe('op registries', () => {
         expect(op.args, `${key} parses its args`).toBeDefined()
       }
     }
+  })
+
+  it('has no op of a removed feature', () => {
+    const removed = [
+      'shareTokens.create', 'shareTokens.resolve', 'shareTokens.expire', 'proposals.create', 'proposals.list', 'proposals.resolve',
+      'sessions.start', 'sessions.next', 'sessions.respond', 'sessions.progress', 'probes.schedule', 'digest.weekly', 'decisions.evaluate',
+      'drafts.context', 'drafts.save', 'drafts.get', 'drafts.update', 'drafts.markUsed', 'parentInput.create', 'parentInput.list',
+      'todayView.get', 'handoffs.create', 'handoffs.get', 'family.progress',
+    ]
+    const all = new Set([...Object.keys(studentOps), ...Object.keys(schoolOps), ...Object.keys(insightsOps)])
+    for (const name of removed) expect(all.has(name), name).toBe(false)
   })
 })

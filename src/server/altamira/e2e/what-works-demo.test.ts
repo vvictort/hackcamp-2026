@@ -41,6 +41,8 @@ describe('lens approval registers an adaptation row', () => {
   it('stores the approved adaptation as a suggestions row with its type', async () => {
     const h = createHarness({ seed: false, devSeed: true })
     await h.post(U, '/dev/seed')
+    // Only the teacher approves tailored plans; the demo user starts as the case manager.
+    expect((await h.post(U, '/dev/role', { role: 'teacher' })).status).toBe(200)
     const goals = (await h.get(U, `/students/${kai}`)).body.goals as { id: string; status: string }[]
     const goal = goals.find((g) => g.status === 'active')!
     const res = await h.post(U, '/lens/approvals', {

@@ -9,7 +9,6 @@ import type { Actor } from '../contract/permissions'
 import type { SqlExecutor } from '../db/sql'
 import { DISTRICT, SCHOOL, STUDENT_IDS, type FixtureStudentKey } from '../fixtures'
 import { listStudentIds, loadActor } from '../middleware/actor'
-import { issueToken, resolveToken } from '../middleware/tokens'
 import { runRoomOp } from '../rooms/core'
 import { applyCounterIncrements } from '../rooms/insights-core'
 import type { InsightsRoomRpc, SchoolRoomRpc, StudentRoomRpc } from '../rooms/rpc'
@@ -81,8 +80,6 @@ export function createHarness(options: HarnessOptions = {}) {
   const schoolRpc: SchoolRoomRpc = {
     run: runner(school, schoolOps, 'school'),
     loadActor: async (userId, schoolId) => loadActor(school, userId, schoolId),
-    issueToken: async (input) => issueToken(school, input),
-    resolveToken: async (hash, kind, now) => resolveToken(school, hash, kind, now),
     listStudentIds: async () => listStudentIds(school),
   }
   const insightsRpc: InsightsRoomRpc = {
