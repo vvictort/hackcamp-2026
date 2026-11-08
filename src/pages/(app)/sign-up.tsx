@@ -272,7 +272,11 @@ function ProfileStages({ next }: { next: string }) {
           Signed in as {user?.email || user?.name || 'you'}. Not you?{' '}
           <button
             type="button"
-            onClick={() => endSession('/sign-up')}
+            onClick={() => {
+              // Drop this account's saved answers so the next account starts clean.
+              endOnboarding()
+              void endSession('/sign-up')
+            }}
             className="cursor-pointer py-3 font-semibold text-foreground underline underline-offset-4 hover:text-signal"
           >
             Sign out

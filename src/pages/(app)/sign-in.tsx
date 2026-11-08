@@ -5,6 +5,7 @@ import { ArrowLeft, Mail } from 'lucide-react'
 import { signIn, useAuth } from 'deepspace'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { OAuthButtons } from '@/components/auth/OAuthButtons'
+import { startOnboarding } from '@/components/auth/onboarding'
 import { APP_NAME } from '@/constants'
 import { Button, FormField, Input, PasswordInput, useToast } from '@/components/ui'
 
@@ -140,7 +141,13 @@ export default function SignInPage() {
         </form>
       ) : (
         <div className="stagger-rise flex flex-col items-center gap-3">
-          <OAuthButtons className="w-full" onError={(m) => toast.error("Couldn't open sign-in.", m)} />
+          {/* A first Google/GitHub sign-in creates the account, so flag it: /home
+              sends an incomplete profile to the sign-up stages (and consent). */}
+          <OAuthButtons
+            className="w-full"
+            onStart={startOnboarding}
+            onError={(m) => toast.error("Couldn't open sign-in.", m)}
+          />
           <Button ref={toEmailRef} variant="link" onClick={() => showEmail(true)}>
             <Mail aria-hidden />
             Sign in with email

@@ -21,7 +21,7 @@ export interface Profile {
   consentAt?: string
 }
 
-export const isComplete = (d?: Profile) => Boolean(d?.school && d.position)
+export const isComplete = (d?: Profile) => Boolean(d?.school && d.position && d.consentAt)
 
 // sessionStorage can throw (blocked site data); onboarding then just doesn't resume.
 function withStorage<T>(fn: (s: Storage) => T, fallback: T): T {
