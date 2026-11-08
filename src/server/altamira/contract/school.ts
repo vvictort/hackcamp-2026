@@ -172,6 +172,8 @@ export const SCHOOL_TABLES = [
   'lesson_analyses',
   'sheet_codes',
   'capture_batches',
+  'lesson_plans',
+  'iep_change_tickets',
   'audit_log',
 ] as const
 export type SchoolTable = (typeof SCHOOL_TABLES)[number]

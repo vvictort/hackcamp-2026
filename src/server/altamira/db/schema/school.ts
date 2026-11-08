@@ -120,7 +120,44 @@ export const SCHOOL_DDL: string[] = [
 /** v2: Today View links and student-mode sessions are gone, so their tokens table goes too. */
 export const SCHOOL_V2: string[] = ['DROP TABLE IF EXISTS share_tokens']
 
-export const SCHOOL_MIGRATIONS: readonly Migration[] = [SCHOOL_DDL, SCHOOL_V2]
+/** v3: per-student lesson plans and IEP change tickets. */
+export const SCHOOL_V3: string[] = [
+  `CREATE TABLE IF NOT EXISTS lesson_plans (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL REFERENCES students (id),
+    lesson_id TEXT,
+    plan_date TEXT NOT NULL,
+    title TEXT NOT NULL,
+    original_text TEXT NOT NULL,
+    proposed_json TEXT NOT NULL DEFAULT '[]',
+    tailored_text TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'approved')),
+    created_by TEXT NOT NULL,
+    approved_by TEXT,
+    approved_at TEXT,
+    created_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  'CREATE INDEX IF NOT EXISTS lesson_plans_student_date ON lesson_plans (student_id, plan_date)',
+  `CREATE TABLE IF NOT EXISTS iep_change_tickets (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL REFERENCES students (id),
+    iep_version INTEGER NOT NULL,
+    target TEXT NOT NULL,
+    proposed_change TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'applied', 'declined')),
+    submitted_by TEXT NOT NULL,
+    reviewed_by TEXT,
+    reviewed_at TEXT,
+    decline_reason TEXT,
+    created_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  'CREATE INDEX IF NOT EXISTS iep_change_tickets_student ON iep_change_tickets (student_id, status)',
+]
+
+export const SCHOOL_MIGRATIONS: readonly Migration[] = [SCHOOL_DDL, SCHOOL_V2, SCHOOL_V3]
 
 export const migrateSchool = (sql: SqlExecutor): number => runMigrations(sql, SCHOOL_MIGRATIONS)
 
