@@ -8,7 +8,7 @@ import type { DataPoint, Decision, Objective, Probe, Suggestion, UsageEvent } fr
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
 import type { SqlExecutor } from '../db/sql'
-import { CLASS_IDS, STUDENT_IDS, USER_IDS } from './school'
+import { CLASS_IDS, SCHOOL, STUDENT_IDS, USER_IDS } from './school'
 import { seedSchool } from './seed'
 import { STUDENT_FIXTURES, type StudentFixture } from './students'
 
@@ -395,3 +395,35 @@ export const devLinkStudent = defineOp({
     return { studentId: STUDENT_IDS.kai }
   },
 })
+
+/**
+ * Dev only: fictional de-identified counters for other students at the demo school, so District Insights has groups
+ * over the 10-student minimum (Reading, Math) and groups under it (Writing, Science) that must stay suppressed.
+ * Student keys are made-up hash-like strings, never ids. Push with the `counters.push` insights op after the seed.
+ */
+export function demoPeerIncrements(period: string): {
+  schoolId: string
+  period: string
+  studentKey: string
+  goalArea: string
+  proficiencyLevel: null
+  label: null
+  reviewTimeliness: null
+  goalProgress: null
+  by: number
+}[] {
+  const cells: [string, number][] = [['Reading', 14], ['Math', 12], ['Writing', 4], ['Science', 3]]
+  return cells.flatMap(([goalArea, students], c) =>
+    Array.from({ length: students }, (_, i) => ({
+      schoolId: SCHOOL.id,
+      period,
+      studentKey: `demopeer${c}x${String(i).padStart(2, '0')}`.padEnd(64, '0'),
+      goalArea,
+      proficiencyLevel: null,
+      label: null,
+      reviewTimeliness: null,
+      goalProgress: null,
+      by: 3 + ((i + c) % 4),
+    })),
+  )
+}
