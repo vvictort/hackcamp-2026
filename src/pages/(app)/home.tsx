@@ -1,18 +1,20 @@
 /**
  * Altamyra teacher dashboard. Reads the signed-in teacher's classroom from the
  * database (src/lib/classroom.ts). A new teacher can load the fictional example
- * classroom into their own rows. Nothing here sends anything.
+ * classroom into their own rows. Lesson Lens (src/lib/lessonLens.ts) is the one
+ * thing that sends: the worker strips names before the agent sees anything.
  *
  * Look: ink-first bento. White cards and near-black cards on a grey canvas,
  * big tight headings, pill buttons, one signal accent. Status always shows an
  * icon and a word. No window/document/Date during render.
  */
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useAuthProfileReady } from 'deepspace'
-import { ArrowUpRight, Bell, ChevronRight, Search } from 'lucide-react'
-import { Button, Card, EmptyState, PageHeader, Progress, Spinner, StatusBadge, useToast } from '@/components/ui'
+import { ArrowUpRight, Bell, ChevronRight, Search, ShieldCheck, Sparkles } from 'lucide-react'
+import { Button, Card, ConfirmModal, EmptyState, FormField, Modal, PageHeader, Progress, Spinner, StatusBadge, Textarea, useToast } from '@/components/ui'
 import { useClassroom } from '@/lib/classroom'
+import { useLessonLens, type Decision, type PendingSuggestion } from '@/lib/lessonLens'
 import { OnboardingRedirect } from '@/components/auth/onboarding'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/i18n'
@@ -31,6 +33,32 @@ function ArrowButton({ children, onClick }: { children: ReactNode; onClick: () =
   )
 }
 
+/** One suggestion: who, which kind, the action and why, then Approve or Reject. */
+function SuggestionItem({ s, name, busy, onDecide, ink }: { s: PendingSuggestion; name: string; busy: boolean; onDecide: (d: Decision) => void; ink?: boolean }) {
+  const { t } = useLang()
+  const modification = s.kind === 'modification'
+  return (
+    <li className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-body font-bold">{name}</span>
+        <StatusBadge tone={modification ? 'warning' : 'success'}>{modification ? t('app.home.modification') : t('app.home.adaptation')}</StatusBadge>
+      </div>
+      <p className="text-body">{s.text}</p>
+      <p className={cn('text-small', ink ? 'text-ink-muted' : 'text-muted-foreground')}>{t('app.home.why', { why: s.why })}</p>
+      <div className="mt-1 flex gap-2">
+        <Button variant="raised" size="sm" loading={busy} onClick={() => onDecide('approved')} aria-label={t('app.home.approveFor', { name })}>
+          {t('app.home.approve')}
+        </Button>
+        <Button variant="ghost" size="sm" disabled={busy} onClick={() => onDecide('rejected')} aria-label={t('app.home.rejectFor', { name })}>
+          {t('app.home.reject')}
+        </Button>
+      </div>
+    </li>
+  )
+}
+
+const CARD_LIMIT = 2
+
 export default function HomePage() {
   const { user } = useAuthProfileReady({ requireUser: true })
   const { info } = useToast()
@@ -39,7 +67,24 @@ export default function HomePage() {
   const example = (what: string) => () => info(t('app.nav.exampleOnly'), t('app.home.notConnected', { what }))
 
   const room = useClassroom()
-  const { classes, suggestions, drafts, events, pulse, studentById } = room
+  const { classes, drafts, events, pulse, studentById } = room
+  const lens = useLessonLens()
+  const suggestions = lens.pending
+  const [ask, setAsk] = useState<{ id: string; lesson: string } | null>(null)
+  const [details, setDetails] = useState('')
+  const [confirmMod, setConfirmMod] = useState<PendingSuggestion | null>(null)
+  const [reviewAll, setReviewAll] = useState(false)
+  const decide = (s: PendingSuggestion) => (d: Decision) =>
+    d === 'approved' && s.kind === 'modification' ? setConfirmMod(s) : void lens.decide(s.id, d)
+  const sendAsk = () => {
+    if (!ask) return
+    void lens.suggest(ask.id, details.trim() || undefined)
+    setAsk(null)
+    setDetails('')
+  }
+  const item = (s: PendingSuggestion, ink?: boolean) => (
+    <SuggestionItem key={s.id} s={s} ink={ink} name={studentById(s.studentId).name} busy={lens.deciding === s.id} onDecide={decide(s)} />
+  )
   const pulsePct = pulse.goal ? Math.min(100, Math.round((pulse.done / pulse.goal) * 100)) : 0
   const pulseDue = classes.filter((c) => c.status === 'pulse').length
   const summaryKey = `app.home.summary${pulseDue === 1 ? 'One' : 'Many'}${suggestions.length === 1 ? 'One' : 'Many'}` as const
@@ -92,24 +137,41 @@ export default function HomePage() {
         <div className="stagger-rise grid gap-4 md:grid-cols-2 lg:gap-5 xl:grid-cols-12">
           <Card title={t('app.home.today')} className="md:col-span-2 xl:col-span-7 xl:row-span-2">
             <ol className="flex flex-1 flex-col justify-between gap-2">
-              {classes.map((c) => {
+              {classes.map((c, i) => {
                 const current = c.status === 'next'
+                const blockId = c.studentIds.length ? lens.classBlockId(i, c) : undefined
                 return (
                   <li
                     key={c.time}
                     className={cn('grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 rounded-md px-3 py-3', current && 'bg-secondary')}
                   >
                     <span className={cn('text-label tabular-nums', current ? 'font-bold' : 'text-muted-foreground')}>{c.time}</span>
-                    <div className="flex flex-col gap-1">
-                      <p className="text-body font-bold">
-                        {current && <span className="sr-only">{t('app.home.upNext')}</span>}
-                        {c.subject}
-                      </p>
-                      <p className="text-small text-muted-foreground">{c.lesson}</p>
-                      {c.status === 'pulse' && (
-                        <StatusBadge tone="warning" className="mt-2 self-start">
-                          {t('app.home.pulseDue')}
-                        </StatusBadge>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <p className="text-body font-bold">
+                          {current && <span className="sr-only">{t('app.home.upNext')}</span>}
+                          {c.subject}
+                        </p>
+                        <p className="text-small text-muted-foreground">{c.lesson}</p>
+                        {c.status === 'pulse' && (
+                          <StatusBadge tone="warning" className="mt-2 self-start">
+                            {t('app.home.pulseDue')}
+                          </StatusBadge>
+                        )}
+                      </div>
+                      {blockId && (
+                        <Button
+                          variant="raised"
+                          size="sm"
+                          className="self-start"
+                          loading={lens.suggesting === blockId}
+                          disabled={!!lens.suggesting}
+                          aria-label={t('app.home.getSuggestionsFor', { lesson: c.lesson })}
+                          onClick={() => setAsk({ id: blockId, lesson: c.lesson })}
+                        >
+                          {lens.suggesting !== blockId && <Sparkles strokeWidth={1.9} aria-hidden className="size-4" />}
+                          {t('app.home.getSuggestions')}
+                        </Button>
                       )}
                     </div>
                   </li>
@@ -120,18 +182,14 @@ export default function HomePage() {
 
           <Card tone="ink" title={t('app.home.lessonLens')} className="xl:col-span-5">
             <p className="-mt-2 text-body text-ink-muted">{suggestions.length === 1 ? t('app.home.suggestionsOne') : t('app.home.suggestionsMany', { n: suggestions.length })}</p>
-            <ul className="flex flex-col divide-y divide-ink-foreground/10">
-              {suggestions.map((s) => {
-                const modification = s.kind === 'modification'
-                return (
-                  <li key={s.id} className="flex items-center justify-between gap-3 py-3">
-                    <span className="min-w-0 truncate text-body font-bold">{studentById(s.studentId).name}</span>
-                    <StatusBadge tone={modification ? 'warning' : 'success'}>{modification ? t('app.home.modification') : t('app.home.adaptation')}</StatusBadge>
-                  </li>
-                )
-              })}
-            </ul>
-            <ArrowButton onClick={example(t('app.home.reviewingSuggestions'))}>{t('app.home.reviewNow')}</ArrowButton>
+            {suggestions.length ? (
+              <ul className="flex flex-col divide-y divide-ink-foreground/10">{suggestions.slice(0, CARD_LIMIT).map((s) => item(s, true))}</ul>
+            ) : (
+              <p className="text-body text-ink-muted">{t('app.home.lensEmpty')}</p>
+            )}
+            {suggestions.length > CARD_LIMIT && (
+              <ArrowButton onClick={() => setReviewAll(true)}>{t('app.home.lensMore', { n: suggestions.length - CARD_LIMIT })}</ArrowButton>
+            )}
           </Card>
 
           <Card title={t('app.home.pulseWeek')} className="xl:col-span-5">
@@ -202,6 +260,51 @@ export default function HomePage() {
           </Card>
         </div>
       )}
+
+      <Modal open={!!ask} onClose={() => setAsk(null)} size="md">
+        <Modal.Header>
+          <Modal.Title>{t('app.home.lensDetailsTitle', { lesson: ask?.lesson ?? '' })}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="flex flex-col gap-4">
+          <FormField label={t('app.home.lensDetailsLabel')} hint={t('app.home.lensDetailsHint')}>
+            <Textarea value={details} maxLength={4000} rows={5} onChange={(e) => setDetails(e.target.value)} />
+          </FormField>
+          <p className="flex gap-2 text-small text-muted-foreground">
+            <ShieldCheck aria-hidden strokeWidth={1.9} className="size-5 shrink-0" />
+            {t('app.home.lensPrivacy')}
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setAsk(null)}>{t('app.home.cancel')}</Button>
+          <Button onClick={sendAsk}>
+            <Sparkles strokeWidth={1.9} aria-hidden className="size-4" />
+            {t('app.home.getSuggestions')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal open={reviewAll && suggestions.length > 0} onClose={() => setReviewAll(false)} size="lg">
+        <Modal.Header>
+          <Modal.Title>{t('app.home.lensAllTitle')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <ul className="flex flex-col divide-y divide-border">{suggestions.map((s) => item(s))}</ul>
+        </Modal.Body>
+      </Modal>
+
+      <ConfirmModal
+        open={!!confirmMod}
+        onClose={() => setConfirmMod(null)}
+        onConfirm={() => {
+          if (confirmMod) void lens.decide(confirmMod.id, 'approved')
+          setConfirmMod(null)
+        }}
+        title={t('app.home.confirmModTitle')}
+        description={t('app.home.confirmModBody')}
+        confirmText={t('app.home.confirmModAction')}
+        cancelText={t('app.home.cancel')}
+        variant="default"
+      />
     </div>
   )
 }
