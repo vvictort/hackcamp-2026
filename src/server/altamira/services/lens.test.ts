@@ -150,15 +150,48 @@ describe('suggestion approval (PRD 1A-7)', () => {
   })
 })
 
+describe('goal tags (PRD 1A-3, 1A-4)', () => {
+  it('drops goal ids that are not current goals of this student, and adaptations left untagged', () => {
+    const sql = studentRoom('kai')
+    const foreign = SOFIA.goals[0].id
+    const result = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(foreign), adaptation(kaiGoal, { goalIds: [kaiGoal, foreign] })])
+    const adaptations = result.suggestions.filter((s) => s.kind === 'adaptation')
+    expect(adaptations).toHaveLength(1)
+    expect(adaptations[0].goalIds).toEqual([kaiGoal])
+  })
+
+  it('a gap must name a goal or an accommodation', () => {
+    const sql = studentRoom('kai')
+    const bad = { studentId: STUDENT_IDS.kai, lessonId: LESSON, analysisId: ANALYSIS, subject: 'literacy', adaptations: [], checks: [] }
+    expect(() =>
+      runStudent(sql, 'lens.saveRun', { ...bad, gaps: [{ gapType: 'access', title: 'x', why: 'y', goalIds: [], accommodation: null }] }, ACTORS.teacher),
+    ).toThrow(/goal or accommodation/)
+  })
+})
+
 describe('edit, regenerate, reject', () => {
   it('edit bumps the version and needs a fresh approval', () => {
     const sql = studentRoom('kai')
     const s = saveRun(sql, STUDENT_IDS.kai, 'literacy', [adaptation(kaiGoal)]).suggestions[1]
-    const edited = runStudent<SuggestionResponse>(sql, 'suggestions.edit', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1, content: { text: 'Shorter text.' } }, ACTORS.teacher)
+    const edited = runStudent<SuggestionResponse>(sql, 'suggestions.edit', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1, content: { text: 'Shorter text.' }, label: 'adaptation' }, ACTORS.teacher)
     expect(edited.suggestion).toMatchObject({ status: 'edited', version: 2 })
     expect(edited.suggestion.kind === 'adaptation' && edited.suggestion.content.text).toBe('Shorter text.')
     const approved = runStudent<SuggestionResponse>(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2 }, ACTORS.teacher)
     expect(approved.suggestion.status).toBe('approved')
+  })
+
+  it('an edit labelled modification is blocked unless the IEP authorizes the subject (PRD 1A-5)', () => {
+    const sql = studentRoom('kai')
+    const s = saveRun(sql, STUDENT_IDS.kai, 'math', [adaptation(kaiGoal)]).suggestions[1]
+    const edited = runStudent<SuggestionResponse>(
+      sql,
+      'suggestions.edit',
+      { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 1, content: { text: 'Instead of the grade-level expectation, add within 10.' }, label: 'modification' },
+      ACTORS.teacher,
+    )
+    expect(edited.suggestion).toMatchObject({ label: 'modification', status: 'blocked' })
+    expect(() => runStudent(sql, 'suggestions.approve', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2 }, ACTORS.teacher)).toThrow(/not_iep_authorized/)
+    expect(() => runStudent(sql, 'suggestions.edit', { studentId: STUDENT_IDS.kai, suggestionId: s.id, expectedVersion: 2, content: { text: 'x' } }, ACTORS.teacher)).toThrow()
   })
 
   it('regenerate closes the old row, creates a new one and moves its checks', () => {
@@ -210,6 +243,7 @@ describe('viewing lens output', () => {
     const ea = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.ea)
     expect(ea.view).toBe('supports')
     expect(JSON.stringify(ea)).not.toContain(KAI.goals[0].text)
+    expect(ea).not.toHaveProperty('accommodations')
     const cm = runStudent<Record<string, unknown>>(sql, 'profile.get', { studentId: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4' }, ACTORS.caseManager)
     expect(cm.view).toBe('full')
   })

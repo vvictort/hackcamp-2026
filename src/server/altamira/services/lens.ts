@@ -88,7 +88,6 @@ export const profileGet = defineOp({
         id: args.studentId,
         firstName: iep ? (iep.sections.student.preferredName ?? iep.sections.student.firstName) : null,
         supports: iep?.sections.supports ?? [],
-        accommodations: iep?.sections.accommodations ?? [],
       }
     }
     throw new AltamiraError('forbidden', 'use the Today View for this link')
@@ -152,8 +151,15 @@ export const lensSaveRun = defineOp({
     insertEntity(sql, 'lens_runs', run)
     audit(sql, actor, 'lens_runs.create', 'lens_runs', run.id, undefined, run, at)
 
+    // PRD 1A-3 / 1A-4: goal tags must be this student's current goals. Unknown ids are dropped; an
+    // adaptation left with no goal, or a gap with neither goal nor accommodation, is not stored.
+    const current = new Set(currentGoals(sql).map((g) => g.id))
+    const known = (ids: readonly string[]) => ids.filter((id) => current.has(id))
+    const gaps = args.gaps.map((g) => ({ ...g, goalIds: known(g.goalIds) })).filter((g) => g.goalIds.length > 0 || g.accommodation)
+    const tagged = args.adaptations.map((a) => ({ ...a, goalIds: known(a.goalIds) })).filter((a) => a.goalIds.length > 0)
+
     const suggestions: Suggestion[] = []
-    for (const g of args.gaps) {
+    for (const g of gaps) {
       suggestions.push({
         id: newId(),
         lensRunId: run.id,
@@ -168,7 +174,7 @@ export const lensSaveRun = defineOp({
         version: 1,
       })
     }
-    for (const a of args.adaptations) suggestions.push(newAdaptation(run.id, a, args.subject, iep.modificationSubjects, at))
+    for (const a of tagged) suggestions.push(newAdaptation(run.id, a, args.subject, iep.modificationSubjects, at))
     for (const s of suggestions) {
       lens.insertSuggestion(sql, s)
       audit(sql, actor, 'suggestions.create', 'suggestions', s.id, undefined, s, at)
@@ -298,6 +304,8 @@ export const suggestionsEdit = defineOp({
     suggestionId: Id,
     content: z.object({ title: z.string().min(1), text: z.string().min(1), why: z.string() }).partial(),
     goalIds: z.array(Id).min(1).optional(),
+    /** The route's classifyAdaptation() label for the edited text (PRD 1A-5). */
+    label: Label,
   })
     .extend(ExpectedVersion.shape)
     .extend(Now.shape),
@@ -306,17 +314,20 @@ export const suggestionsEdit = defineOp({
     const s = requireAdaptation(sql, args.suggestionId)
     assertVersion(s.version, args.expectedVersion, `suggestion ${s.id}`)
     if (s.status === 'rejected') throw new AltamiraError('bad_request', 'a rejected suggestion cannot be edited')
+    const iep = requireCurrentIep(sql)
     const at = nowIso(args.now)
     const content = { ...s.content, ...args.content }
     const goalIds = args.goalIds ?? s.goalIds
-    // An edit needs a fresh approval; a blocked modification stays blocked.
-    const status = s.status === 'blocked' ? 'blocked' : 'edited'
+    // PRD 1A-5: the edited text is labelled again; an unauthorized modification is blocked. Any edit needs a fresh approval.
+    const { label, blocked } = guardrail(content.changesOutcome, args.label, content.subject, iep.modificationSubjects)
+    const status = blocked ? 'blocked' : 'edited'
     updateVersioned(sql, 'suggestions', s.id, s.version, {
       content_json: JSON.stringify(content),
       goal_ids_json: JSON.stringify(goalIds),
+      label,
       status,
     })
-    const edited: Suggestion = { ...s, content, goalIds, status, version: s.version + 1 }
+    const edited: Suggestion = { ...s, content, goalIds, label, status, version: s.version + 1 }
     audit(sql, actor, 'suggestions.edit', 'suggestions', s.id, s, edited, at)
     return { suggestion: edited, usageEventId: null }
   },
