@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import { Counter } from '../contract/insights'
+import * as plans from '../contract/plans'
 import * as school from '../contract/school'
 import * as student from '../contract/student'
 import { appendAudit } from './audit'
@@ -98,6 +99,8 @@ describe('DDL matches the contract schemas', () => {
     lesson_analyses: school.LessonAnalysis,
     sheet_codes: school.SheetCode,
     capture_batches: school.CaptureBatch,
+    lesson_plans: plans.LessonPlan,
+    iep_change_tickets: plans.Ticket,
   }
 
   const check = (db: ReturnType<typeof freshDb>, map: Record<string, z.ZodObject>) => {
