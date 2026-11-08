@@ -17,7 +17,28 @@ import { studentDevSeedDemo, devResetSchool } from '../fixtures/demo'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
 import { ComingUpResponse, comingUpList } from '../services/coming-up'
 import { meOverview, membershipsAssign, membershipsList, schoolDevSeed } from '../services/school'
-import type { Kit } from './context'
+import type { Kit, Req } from './context'
+
+/**
+ * Loads the fictional school and its students when the school room is empty (or wipes and reloads it with `reset`).
+ * Calling it on a seeded school changes nothing, so a second press or a second person never fails.
+ */
+export async function seedDemoSchool(r: Req, reset = false): Promise<DevSeedResponse> {
+  if (reset) await r.school(devResetSchool)
+  const fixtureIds = { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
+  let fresh = reset
+  let seeded = fixtureIds
+  if (!reset) {
+    try {
+      seeded = await r.school(schoolDevSeed, {})
+      fresh = true
+    } catch (e) {
+      if (!(e instanceof Error && /already seeded/.test(e.message))) throw e
+    }
+  }
+  if (fresh) for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo, reset ? { reset: true } : {})
+  return seeded
+}
 
 /** Me, Admin, dev seed and District Insights routes. */
 export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
@@ -80,21 +101,7 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     // {reset:true} wipes the demo rows and reloads them dated from now. Same dev flag gate as the route.
     const reset = (await c.req.json().catch(() => ({})))?.reset === true
-    if (reset) await r.school(devResetSchool)
-    const fixtureIds = { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
-    // Pressing "Load demo data" again (or a second person signing in) must not fail:
-    // when the school is already seeded, skip loading and just attach the caller below.
-    let fresh = reset
-    let seeded = fixtureIds
-    if (!reset) {
-      try {
-        seeded = await r.school(schoolDevSeed, {})
-        fresh = true
-      } catch (e) {
-        if (!(e instanceof Error && /already seeded/.test(e.message))) throw e
-      }
-    }
-    if (fresh) for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo, reset ? { reset: true } : {})
+    const seeded = await seedDemoSchool(r, reset)
     // The caller acts as the case manager by default.
     await r.school(devRoleSwitch, { role: 'case_manager' })
     return r.json(DevSeedResponse, seeded)
