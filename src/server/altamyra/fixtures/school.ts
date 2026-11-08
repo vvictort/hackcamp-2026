@@ -44,7 +44,7 @@ export const USERS: User[] = [
   user(USER_IDS.caseManager, 'Leila Ahmadi'),
   user(USER_IDS.teacher, 'Marcus Tran'),
   user(USER_IDS.ea, 'Priya Sandhu'),
-  user(USER_IDS.parentKai, 'Hana Nakamura'),
+  user(USER_IDS.parentKai, 'Gurpreet Dhillon'),
   user(USER_IDS.parentAmara, 'Chidi Okonkwo'),
   user(USER_IDS.parentSofia, 'Rania Haddad'),
   user(USER_IDS.schoolAdmin, 'Gordon Lee'),
@@ -52,10 +52,13 @@ export const USERS: User[] = [
 ]
 
 export const SCHOOL_STUDENTS: SchoolStudent[] = [
-  { id: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '4', createdAt: SEEDED_AT, version: 1 },
-  { id: STUDENT_IDS.amara, displayToken: 'S-A2M9', grade: '4', createdAt: SEEDED_AT, version: 1 },
-  { id: STUDENT_IDS.sofia, displayToken: 'S-F5H3', grade: '4', createdAt: SEEDED_AT, version: 1 },
+  // The demo has one student: Simi (Simran Grewal), the fictional SD23 IEP in docs/demo/sample-iep-sd23.txt.
+  // Her id keeps the original 'kai' key so the seed and routes stay unchanged.
+  { id: STUDENT_IDS.kai, displayToken: 'S-K7Q4', grade: '3', createdAt: SEEDED_AT, version: 1 },
 ]
+
+/** The language each family reads summaries in (BCP 47). Simi's family speaks Chinese at home. */
+export const FAMILY_LANGUAGE: Record<string, string> = { [STUDENT_IDS.kai]: 'zh-Hans' }
 
 export const CLASSES: SchoolClass[] = [
   { id: CLASS_IDS.morningCircle, name: 'Morning circle', subject: 'morning_circle', grade: '4', version: 1 },
@@ -65,15 +68,14 @@ export const CLASSES: SchoolClass[] = [
   { id: CLASS_IDS.pe, name: 'Physical education', subject: 'pe', grade: '4', version: 1 },
 ]
 
-const { kai, amara, sofia } = STUDENT_IDS
+const { kai } = STUDENT_IDS
 const rosterOf = (classId: string, studentIds: string[]): RosterEntry[] => studentIds.map((studentId) => ({ classId, studentId }))
 
 /** Same membership as exampleData CLASSES, without Dev. */
 export const ROSTER: RosterEntry[] = [
-  ...rosterOf(CLASS_IDS.morningCircle, [kai, amara, sofia]),
-  ...rosterOf(CLASS_IDS.literacy, [kai, amara, sofia]),
-  ...rosterOf(CLASS_IDS.numeracy, [sofia, kai]),
-  ...rosterOf(CLASS_IDS.science, [amara]),
+  ...rosterOf(CLASS_IDS.morningCircle, [kai]),
+  ...rosterOf(CLASS_IDS.literacy, [kai]),
+  ...rosterOf(CLASS_IDS.numeracy, [kai]),
   ...rosterOf(CLASS_IDS.pe, [kai]),
 ]
 
@@ -110,18 +112,16 @@ const membership = (userId: string, role: Membership['role'], scope: Partial<Pic
 })
 
 export const MEMBERSHIPS: Membership[] = [
-  // Case manager: caseload of all three students.
-  ...[kai, amara, sofia].map((studentId) => membership(USER_IDS.caseManager, 'case_manager', { studentId })),
+  // Case manager: Simi's case manager.
+  membership(USER_IDS.caseManager, 'case_manager', { studentId: kai }),
   // Teacher: every class; their students come from the roster.
   ...Object.values(CLASS_IDS).map((classId) => membership(USER_IDS.teacher, 'teacher', { classId })),
-  // EA: assigned to Kai and Sofía only, so Amara is out of the EA's scope.
-  ...[kai, sofia].map((studentId) => membership(USER_IDS.ea, 'ea', { studentId })),
+  // EA: Simi's full-time EA.
+  membership(USER_IDS.ea, 'ea', { studentId: kai }),
   membership(USER_IDS.schoolAdmin, 'school_admin', {}),
   membership(USER_IDS.districtLead, 'district_lead', { districtId: DISTRICT.id }),
 ]
 
 export const PARENT_LINKS: ParentLink[] = [
   { id: 'p1000000-0000-4000-8000-000000000001', parentUserId: USER_IDS.parentKai, studentId: kai, createdAt: SEEDED_AT },
-  { id: 'p1000000-0000-4000-8000-000000000002', parentUserId: USER_IDS.parentAmara, studentId: amara, createdAt: SEEDED_AT },
-  { id: 'p1000000-0000-4000-8000-000000000003', parentUserId: USER_IDS.parentSofia, studentId: sofia, createdAt: SEEDED_AT },
 ]

@@ -5,7 +5,7 @@ import type { AdaptationType } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import type { Lesson } from '../contract/school'
 import type { LessonPlan, Ticket } from '../contract/plans'
-import type { DataPoint, Decision, Objective, Probe, Suggestion, UsageEvent } from '../contract/student'
+import type { DataPoint, Decision, Objective, Probe, Suggestion, Summary, UsageEvent } from '../contract/student'
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
 import { CLASS_IDS, SCHOOL, STUDENT_IDS, USER_IDS } from './school'
@@ -297,9 +297,32 @@ export function buildDemoStudent(fixture: StudentFixture, now: string) {
     .filter((d) => d.status === 'pending_review')
     .map((d, i) => ({ id: hexId('ee000000', letter, i + 1), dataPointId: d.id, kind: 'low_confidence' as const, status: 'open' as const, createdAt: d.recordedAt, resolvedBy: null, resolvedAt: null, version: 1 }))
   const probes: Probe[] = key === 'kai' ? [kaiProbe(objectives[0].id, letter)] : []
+  // Simi's family already has last month's approved update, in Chinese, so the parent view is never empty.
+  const lastMonth = new Date(Date.parse(now) - 30 * DAY_MS).toISOString().slice(0, 7)
+  const summaries: Summary[] =
+    key === 'kai'
+      ? [
+          {
+            id: hexId('5e000000', letter, 1),
+            kind: 'monthly',
+            period: lastMonth,
+            text: 'Simi had a good month. She asked an adult for help more often, using her picture cards and short phrases. In reading, she answered more questions about short stories with pictures. She used her break card and came back to her work faster. Thank you for working with us. Please reach out any time.',
+            translatedText: '西米这个月表现很好。她更常向大人寻求帮助，会使用图片卡和简短的话语。在阅读方面，她能回答更多关于带图片的短故事的问题。她会使用休息卡，并且更快地回到学习任务中。感谢您与我们合作，如有任何问题，欢迎随时联系我们。',
+            language: 'zh-Hans',
+            audioScript: null,
+            status: 'approved',
+            editedBy: USER_IDS.teacher,
+            approvedBy: USER_IDS.teacher,
+            approvedAt: daysAgo(now, 25),
+            createdAt: daysAgo(now, 26),
+            version: 2,
+          },
+        ]
+      : []
   return {
     iep,
     probes,
+    summaries,
     goals: fixture.goals,
     objectives,
     dataPoints,
@@ -331,6 +354,7 @@ export function seedDemoStudent(sql: SqlExecutor, fixture: StudentFixture, now: 
     d.decisions.forEach((x) => insertRow(sql, 'decisions', toRow(x)))
     d.consents.forEach((c) => insertRow(sql, 'consents', toRow(c)))
     d.proficiency.forEach((p) => insertRow(sql, 'proficiency_ratings', toRow(p)))
+    d.summaries.forEach((x) => insertRow(sql, 'summaries', toRow(x)))
     appendAudit(sql, { actorId: SEED_ACTOR, action: 'fixtures.seed', tableName: 'iep_versions', rowId: d.iep.id, at: now })
   })
 }
@@ -383,21 +407,9 @@ export function seedSchoolDemo(sql: SqlExecutor, now: string): void {
     { id: DEMO_LESSON_IDS.salmon, classId: CLASS_IDS.literacy, title: 'Salmon life cycle (fictional lesson)', sourceKind: 'text', text: 'Read the short text about the salmon life cycle. Retell the main idea. Then write two sentences about one stage.', scheduledFor: SCHOOL_DATE.format(new Date(now)), createdBy: USER_IDS.teacher, createdAt: daysAgo(now, 1), version: 1 },
     { id: DEMO_LESSON_IDS.counting, classId: CLASS_IDS.numeracy, title: 'Counting and adding to 20 (fictional lesson)', sourceKind: 'text', text: 'Use cubes to make groups. Count each group. Add two groups together and say how many in all.', scheduledFor: SCHOOL_DATE.format(new Date(daysAhead(now, 1))), createdBy: USER_IDS.teacher, createdAt: daysAgo(now, 1), version: 1 },
   ]
-  const today = SCHOOL_DATE.format(new Date(now))
-  const original = 'Read the short text about the salmon life cycle. Retell the main idea. Then write two sentences about one stage.'
-  const change = (n: number, text: string) => ({ id: hexId('0a5e0000', 'a', n), text, label: 'adaptation' as const, accepted: true })
-  const kaiChanges = [
-    change(1, 'Simplified passage with the same key ideas: short sentences, same vocabulary, plus a three-box beginning, middle, end retell strip.'),
-    change(2, 'Sentence frames: "The main idea is ___." "One detail is ___."'),
-  ]
-  const amaraChanges = [change(3, 'Visual vocabulary cards for the five life cycle stages, with a picture and one word each.')]
-  const tailored = (changes: { text: string }[]) => `${original}\n\nChanges for this student:\n${changes.map((c) => `- ${c.text}`).join('\n')}`
-  // Kai: approved. Amara: AI draft, waiting for the teacher. Sofia: no plan today.
-  const plans: LessonPlan[] = [
-    { id: DEMO_PLAN_IDS.kai, studentId: STUDENT_IDS.kai, lessonId: null, planDate: today, title: 'Salmon life cycle (fictional lesson)', originalText: original, proposed: kaiChanges, tailoredText: tailored(kaiChanges), status: 'approved', createdBy: USER_IDS.teacher, approvedBy: USER_IDS.teacher, approvedAt: daysAgo(now, 0), createdAt: daysAgo(now, 0), version: 2 },
-    { id: DEMO_PLAN_IDS.amara, studentId: STUDENT_IDS.amara, lessonId: null, planDate: today, title: 'Salmon life cycle (fictional lesson)', originalText: original, proposed: amaraChanges, tailoredText: tailored(amaraChanges), status: 'draft', createdBy: USER_IDS.teacher, approvedBy: null, approvedAt: null, createdAt: daysAgo(now, 0), version: 1 },
-  ]
-  const ticket: Ticket = { id: DEMO_TICKET_ID, studentId: STUDENT_IDS.kai, iepVersion: 1, target: 'accommodations', proposedChange: 'Extra time (up to 50 percent) on written tasks.', reason: 'Kai tires quickly during longer writing blocks; the team agreed at the October review.', status: 'pending', submittedBy: USER_IDS.caseManager, reviewedBy: null, reviewedAt: null, declineReason: null, createdAt: daysAgo(now, 1), version: 1 }
+  // Simi has no plan today: the teacher adds it live, so she shows under "Missing a plan today".
+  const plans: LessonPlan[] = []
+  const ticket: Ticket = { id: DEMO_TICKET_ID, studentId: STUDENT_IDS.kai, iepVersion: 1, target: 'accommodations', proposedChange: 'Extra time (up to 50 percent) on written tasks.', reason: 'Simi tires quickly during longer writing blocks; the team agreed at the October review.', status: 'pending', submittedBy: USER_IDS.caseManager, reviewedBy: null, reviewedAt: null, declineReason: null, createdAt: daysAgo(now, 1), version: 1 }
   sql.transaction(() => {
     lessons.forEach((l) => insertRow(sql, 'lessons', toRow(l)))
     plans.forEach((p) => insertRow(sql, 'lesson_plans', toRow(p)))

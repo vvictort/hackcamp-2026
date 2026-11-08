@@ -7,14 +7,13 @@ import { audit, insertEntity, newId, nowIso } from '../repos/base'
 import { membershipsOf, parentLinksOf } from '../repos/school'
 
 /**
- * Fixture users whose access each demo role copies. The parent role also copies the fictional parent of the
- * "Run full demo day" student, who exists only after that button ran.
+ * Fixture users whose access each demo role copies. The parent role is Simi's parent.
  */
 const DEV_ROLE_USERS: Record<ActorRole, string[]> = {
   case_manager: [USER_IDS.caseManager],
   teacher: [USER_IDS.teacher],
   ea: [USER_IDS.ea],
-  parent: [USER_IDS.parentKai, DEMO_PARENT.id],
+  parent: [USER_IDS.parentKai],
   district_lead: [USER_IDS.districtLead],
   school_admin: [USER_IDS.schoolAdmin],
 }

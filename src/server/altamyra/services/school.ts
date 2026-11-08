@@ -13,7 +13,7 @@ import {
   type ParentLink,
   type SheetCode,
 } from '../contract/school'
-import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS, seedSchool, seedSchoolDemo } from '../fixtures'
+import { DISTRICT, SCHOOL, SCHOOL_STUDENTS, STUDENT_IDS, USER_IDS, seedSchool, seedSchoolDemo } from '../fixtures'
 import { audit, insertEntity, mustFind, newId, nowIso } from '../repos/base'
 import * as repo from '../repos/school'
 import { authorize, authorizeStaff } from './authz'
@@ -301,7 +301,7 @@ export const schoolDevSeed = defineOp({
     return {
       schoolId: SCHOOL.id,
       districtId: DISTRICT.id,
-      studentIds: Object.values(STUDENT_IDS),
+      studentIds: SCHOOL_STUDENTS.map((s) => s.id),
       userIds: { ...USER_IDS } as Record<string, string>,
     }
   },

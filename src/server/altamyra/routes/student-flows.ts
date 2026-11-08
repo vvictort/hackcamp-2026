@@ -3,7 +3,7 @@ import type { DevSeedResponse, SummaryGenerateBody } from '../contract/api'
 import { AltamyraError } from '../contract/errors'
 import type { Summary } from '../contract/student'
 import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
-import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
+import { DISTRICT, FAMILY_LANGUAGE, SCHOOL, SCHOOL_STUDENTS, USER_IDS } from '../fixtures/school'
 import { deidStudentNames } from '../services/deid'
 import { schoolDevSeed, studentsGet } from '../services/school'
 import { familySummariesSave, summariesInputs, type SummaryInputs } from '../services/summaries'
@@ -64,7 +64,7 @@ export async function draftSummary(r: Req, studentId: string, body: SummaryGener
   const inputs = await r.student(studentId, summariesInputs, { kind: body.kind, period: body.period })
   if (inputs.existing?.status === 'approved') throw new AltamyraError('bad_request', 'This summary is already approved. Edit it to change it.')
   const { token } = await studentToken(r, studentId)
-  const language = body.language ?? 'en'
+  const language = body.language ?? FAMILY_LANGUAGE[studentId] ?? 'en'
   let drafted: Drafted | null = null
   let failure: unknown
   for (const attempt of [{ fixture: false, trim: false }, { fixture: true, trim: false }, { fixture: true, trim: true }]) {
@@ -86,7 +86,7 @@ export async function draftSummary(r: Req, studentId: string, body: SummaryGener
  */
 export async function seedDemoSchool(r: Req, reset = false): Promise<DevSeedResponse> {
   if (reset) await r.school(devResetSchool)
-  const fixtureIds = { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
+  const fixtureIds = { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: SCHOOL_STUDENTS.map((s) => s.id), userIds: { ...USER_IDS } as Record<string, string> }
   let fresh = reset
   let seeded = fixtureIds
   if (!reset) {
