@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { closeAll } from '../services/testing'
+import { SESSION_HEADER } from '../middleware/auth'
+import { WHAT_WORKS_MIN_N } from '../services/thresholds'
 import { coverageOf } from '../../../lib/altamira/coverage'
 import { amara, kai, sofia } from './flows'
 import { createHarness } from './harness'
@@ -60,5 +62,53 @@ describe('relative-dated demo seed', () => {
     expect((await h.post(U, '/dev/role', { role: 'student' })).status).toBe(200)
     expect((await h.post(U, `/students/${kai}/sessions`, {})).status).toBe(201)
     expect((await h.post(U, `/students/${amara}/sessions`, {})).status).toBe(403)
+  })
+
+  it('gives every student non-empty what-works rows with enough evidence, and a worked-before strategy', async () => {
+    const h = await seeded()
+    for (const id of [kai, amara, sofia]) {
+      const ww = await h.get(U, `/students/${id}/what-works`)
+      const shown = ww.body.rows.filter((r: { hidden: boolean }) => !r.hidden)
+      expect(shown.length).toBeGreaterThanOrEqual(1)
+      for (const r of shown) expect(r.n).toBeGreaterThanOrEqual(WHAT_WORKS_MIN_N)
+      // Lesson Lens flags a strategy as "worked before" at mean outcome >= 0.5.
+      expect(shown.some((r: { meanOutcome: number }) => r.meanOutcome >= 0.5)).toBe(true)
+      const usage = await h.get(U, `/students/${id}/lens-usage`)
+      expect(usage.body.events.length).toBeGreaterThanOrEqual(3)
+      expect(usage.body.used.every((u: { n: number }) => u.n >= 3)).toBe(true)
+    }
+  })
+
+  it('has fresh goals right after the seed and a probe with an answer key for the student role', async () => {
+    const h = await seeded()
+    let fresh = 0
+    for (const id of [kai, amara, sofia]) {
+      const profile = await h.get(U, `/students/${id}`)
+      for (const g of profile.body.goals) fresh += coverageOf((await h.get(U, `/students/${id}/goals/${g.id}/status`)).body) === 'fresh' ? 1 : 0
+    }
+    expect(fresh).toBeGreaterThan(0)
+    expect((await h.post(U, '/dev/role', { role: 'student' })).status).toBe(200)
+    const started = await h.post(U, `/students/${kai}/sessions`, {})
+    expect(started.status).toBe(201)
+    const { sessionId, token } = started.body
+    const next = await h.get(null, `/sessions/${sessionId}/next`, { [SESSION_HEADER]: token })
+    expect(next.status).toBe(200)
+    expect(next.body.item).toBeTruthy()
+  })
+
+  it('reset wipes the demo rows and re-seeds them; second seed without reset is still refused', async () => {
+    const h = await seeded()
+    expect((await h.post(U, '/dev/seed')).status).toBe(400)
+    const before = (await h.get(U, `/students/${kai}/lens-usage`)).body.events.length
+    expect((await h.post(U, '/dev/seed', { reset: true })).status).toBe(200)
+    const after = await h.get(U, `/students/${kai}/lens-usage`)
+    expect(after.body.events.length).toBe(before)
+    expect((await h.get(U, `/students/${kai}/what-works`)).body.rows.length).toBeGreaterThan(0)
+    expect((await h.post(U, '/dev/seed', { reset: true })).status).toBe(200)
+  })
+
+  it('404s reset without the flag', async () => {
+    const h = createHarness({ seed: false })
+    expect((await h.post(U, '/dev/seed', { reset: true })).status).toBe(404)
   })
 })

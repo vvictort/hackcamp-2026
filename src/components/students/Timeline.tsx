@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { FileText } from 'lucide-react'
+import { ClipboardCheck, FileText } from 'lucide-react'
 import { Button, Card, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, EmptyState } from '@/components/ui'
+import { useLang } from '@/i18n'
 import { getDataPointSource } from '@/lib/altamira/students-api'
 import type { DataPoint, Decision, Goal, Objective } from '@/server/altamira/contract/student'
 import { DecisionBadge, PointStatusBadge } from './badges'
 import { fmtDate, s } from './text'
 import { useLoad } from './useLoad'
+import { getLensUsage } from './WhatWorks'
 
 interface Props {
   studentId: string
@@ -18,6 +20,9 @@ interface Props {
 /** Timeline of data points (newest first) with decision-rule events and a View source link per point. */
 export function Timeline({ studentId, dataPoints, decisions, goals, objectives }: Props) {
   const [sourceFor, setSourceFor] = useState<DataPoint | null>(null)
+  const { t } = useLang()
+  const usage = useLoad(() => getLensUsage(studentId), studentId)
+  const lensEvents = usage.status === 'ready' ? usage.data.events : []
   const goalOf = (objectiveId: string) => {
     const gid = objectives.find((o) => o.id === objectiveId)?.goalId
     return goals.find((g) => g.id === gid)?.area ?? ''
@@ -49,6 +54,17 @@ export function Timeline({ studentId, dataPoints, decisions, goals, objectives }
             </li>
           ))}
         </ol>
+      )}
+      {lensEvents.length > 0 && (
+        <ul className="flex flex-col gap-2" aria-label={t('app.lensUsage.usedTitle')}>
+          {lensEvents.map((e, i) => (
+            <li key={`${e.suggestionId}-${e.at}-${i}`} className="flex flex-wrap items-center gap-2 text-small">
+              <ClipboardCheck className="size-4 shrink-0" aria-hidden />
+              <span className="font-semibold">{t('app.lensUsage.timelineItem', { title: e.title })}</span>
+              <span className="text-muted-foreground">{fmtDate(e.at)}</span>
+            </li>
+          ))}
+        </ul>
       )}
       {decisions.length > 0 && (
         <div className="flex flex-col gap-2">

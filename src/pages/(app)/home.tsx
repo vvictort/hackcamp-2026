@@ -12,6 +12,12 @@ import { ArrowUpRight, CalendarDays, ClipboardCheck, FlaskConical, Hourglass, ty
 import {
   Button,
   Card,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
   PageHeader,
   Progress,
@@ -29,7 +35,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useLang } from '@/i18n'
 import { T } from '@/i18n/rich'
 import type { MessageKey } from '@/i18n/en'
-import { apiGet, type ComingUpItem, type DigestItem } from '@/lib/altamira/api'
+import { apiGet, apiPost, type ComingUpItem, type DigestItem } from '@/lib/altamira/api'
 import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
 import { coverageOf, tallyCoverage, type Coverage, type CoverageCounts, type GoalStatusLite } from '@/lib/altamira/coverage'
 
@@ -63,6 +69,7 @@ export default function HomePage() {
   const { role, devEnabled, me, loading, seed, switchRole } = useAltamiraMe()
   const firstName = user?.name?.split(' ')[0] ?? ''
   const [busy, setBusy] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
   const [pulse, setPulse] = useState<Pulse | null>(null)
   const [digest, setDigest] = useState<DigestItem[]>([])
   const [upcoming, setUpcoming] = useState<ComingUpItem[]>([])
@@ -147,6 +154,9 @@ export default function HomePage() {
             <Button disabled={busy} onClick={() => void run(seed, t('app.home.seeded'))}>
               {t('app.home.loadDemo')}
             </Button>
+            <Button variant="outline" disabled={busy || !seeded} onClick={() => setConfirmReset(true)}>
+              {t('app.home.resetDemo')}
+            </Button>
             <div className="flex flex-col gap-1">
               <span id="dev-role-label" className="text-label font-semibold">
                 {t('app.home.actAs')}
@@ -167,6 +177,33 @@ export default function HomePage() {
           </div>
         </Card>
       )}
+
+      <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('app.home.resetTitle')}</DialogTitle>
+            <DialogDescription>{t('app.home.resetBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmReset(false)}>
+              {t('app.home.resetCancel')}
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setConfirmReset(false)
+                void run(async () => {
+                  await apiPost('/dev/seed', { reset: true })
+                  await switchRole(role ?? 'case_manager')
+                  await loadPulse()
+                }, t('app.home.resetDone'))
+              }}
+            >
+              {t('app.home.resetConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {loading ? (
         <p role="status" className="flex items-center gap-3 text-body text-muted-foreground">

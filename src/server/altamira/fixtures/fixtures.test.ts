@@ -18,6 +18,8 @@ import {
   STUDENT_FIXTURES,
   USERS,
   USER_IDS,
+  buildDemoStudent,
+  seedDemoStudent,
   seedSchool,
   seedStudent,
 } from './index'
@@ -111,5 +113,34 @@ describe('seeding', () => {
       expect(points).toEqual([...f.dataPoints].sort((a, b) => a.id.localeCompare(b.id)))
       expect(db.get('SELECT COUNT(*) AS n FROM audit_log')).toEqual({ n: 1 })
     }
+  })
+})
+
+describe('demo layer', () => {
+  const now = '2026-11-08T12:00:00.000Z'
+  it('seeds a probe with an answer key for a confirmed objective of Kai only', () => {
+    const [kai, amara, sofia] = ['kai', 'amara', 'sofia'].map((k) => buildDemoStudent(STUDENT_FIXTURES.find((f) => f.key === k)!, now))
+    expect(amara.probes).toEqual([])
+    expect(sofia.probes).toEqual([])
+    expect(kai.probes).toHaveLength(1)
+    const probe = student.Probe.parse(kai.probes[0])
+    expect(kai.objectives.find((o) => o.id === probe.objectiveId)?.status).toBe('confirmed')
+    expect(probe.form.answerKey.map((k) => k.itemId).sort()).toEqual(probe.form.items.map((i) => i.id).sort())
+  })
+
+  it('gives each student enough non-teacher confirmed points with adaptations for what-works', () => {
+    for (const f of STUDENT_FIXTURES) {
+      const d = buildDemoStudent(f, now)
+      const used = d.dataPoints.filter((p) => p.status === 'confirmed' && p.source !== 'teacher' && p.activeAdaptations.length > 0)
+      expect(used.length).toBeGreaterThanOrEqual(5)
+      expect(d.usage.length).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('inserts the probe into the room', () => {
+    const db = fresh()
+    migrateStudent(db)
+    seedDemoStudent(db, STUDENT_FIXTURES.find((f) => f.key === 'kai')!, now)
+    expect(db.get<{ n: number }>('SELECT COUNT(*) AS n FROM probes')?.n).toBe(1)
   })
 })
