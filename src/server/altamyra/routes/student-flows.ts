@@ -1,9 +1,11 @@
 import type { SummaryAi } from '../ai/summaries'
-import type { SummaryGenerateBody } from '../contract/api'
+import type { DevSeedResponse, SummaryGenerateBody } from '../contract/api'
 import { AltamyraError } from '../contract/errors'
 import type { Summary } from '../contract/student'
+import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
+import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
 import { HttpError } from '../middleware/errors'
-import { studentsGet } from '../services/school'
+import { schoolDevSeed, studentsGet } from '../services/school'
 import { familySummariesSave, summariesInputs, type SummaryInputs } from '../services/summaries'
 import type { Req } from './context'
 
@@ -58,4 +60,25 @@ export async function draftSummary(r: Req, studentId: string, body: SummaryGener
   }
   if (!drafted) throw failure
   return (await r.student(studentId, familySummariesSave, { kind: body.kind, period: inputs.period, ...drafted })).summary
+}
+
+/**
+ * Loads the fictional school and its students when the school room is empty (or wipes and reloads it with `reset`).
+ * Calling it on a seeded school changes nothing, so a second press or a second person never fails.
+ */
+export async function seedDemoSchool(r: Req, reset = false): Promise<DevSeedResponse> {
+  if (reset) await r.school(devResetSchool)
+  const fixtureIds = { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
+  let fresh = reset
+  let seeded = fixtureIds
+  if (!reset) {
+    try {
+      seeded = await r.school(schoolDevSeed, {})
+      fresh = true
+    } catch (e) {
+      if (!(e instanceof Error && /already seeded/.test(e.message))) throw e
+    }
+  }
+  if (fresh) for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo, reset ? { reset: true } : {})
+  return seeded
 }

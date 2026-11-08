@@ -10,7 +10,7 @@ import { HttpError } from '../middleware/errors'
 import { devRoleSwitch } from '../services/dev'
 import type { Kit } from './context'
 import type { AltamyraRouteDeps } from './deps'
-import { seedDemoSchool } from './me'
+import { seedDemoSchool } from './student-flows'
 
 /**
  * Dev only: POST /dev/demo-day runs one whole school day for one new fictional student through the real /api/v1
