@@ -126,7 +126,7 @@ function ArrowPill({ to, href, outline = false, children }: { to?: string; href?
   return to ? <Link to={to} className={cls}>{body}</Link> : <a href={href} className={cls}>{body}</a>
 }
 
-function SectionHeader({ id, title, intro }: { id: string; title: string; intro: string }) {
+function SectionHeader({ id, title, intro }: { id: string; title: ReactNode; intro: string }) {
   return (
     <div className="reveal flex max-w-2xl flex-col gap-4">
       <h2 id={id} className="text-display-sm sm:text-display">
@@ -275,10 +275,10 @@ export default function Landing() {
             />
             <div className="flex max-w-5xl flex-col items-center gap-6">
               <h1 id="hero-title" className="animate-rise text-hero-sm font-medium sm:text-hero lg:text-mega">
-                Make the IEP part of every lesson.
+                Make the IEP part of <span className="text-highlight">every lesson</span>.
               </h1>
               <p className="animate-rise max-w-[52ch] text-body-lg text-foreground/80" style={delay(1)}>
-                Built for BC classrooms and the Competency-Based IEP. {APP_NAME} links each lesson to your students&apos;
+                Built for BC classrooms and the <strong className="font-semibold text-foreground">Competency-Based IEP</strong>. {APP_NAME} links each lesson to your students&apos;
                 IEP goals, collects progress evidence as you teach, and drafts the reports.
               </p>
               <div className="animate-rise flex flex-wrap justify-center gap-3" style={delay(2)}>
@@ -302,7 +302,7 @@ export default function Landing() {
           <Section id="modules" labelledBy="modules-title">
             <SectionHeader
               id="modules-title"
-              title="A living IEP, lesson by lesson"
+              title={<>A living IEP, <span className="text-highlight">lesson by lesson</span></>}
               intro="Nine modules that connect the plan, the teaching, the evidence and the report."
             />
             <ul className="grid grid-flow-dense gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -365,7 +365,7 @@ export default function Landing() {
             <div className="reveal relative grid items-center gap-12 overflow-hidden rounded-panel bg-ink p-8 text-ink-foreground shadow-ink sm:p-12 lg:grid-cols-[1.2fr_1fr] lg:p-16">
               <div className="relative flex flex-col gap-8">
                 <h2 id="control-title" className="max-w-[14ch] text-display-sm sm:text-hero">
-                  The AI suggests. You decide.
+                  The AI suggests. <span className="text-ink-muted">You decide.</span>
                 </h2>
                 <ul className="flex flex-col gap-3">
                   {CONTROL.map((point) => (
@@ -399,7 +399,7 @@ export default function Landing() {
           <Section id="team" labelledBy="team-title">
             <SectionHeader
               id="team-title"
-              title="One plan, the whole team"
+              title={<>One plan, <span className="text-highlight">the whole team</span></>}
               intro="Everyone who supports a student sees the same goals, in the way that suits their role."
             />
             <ul className="grid gap-x-8 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
@@ -442,7 +442,7 @@ export default function Landing() {
         <footer className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
           <div className="reveal relative flex flex-col items-center gap-8 overflow-hidden rounded-panel bg-ink px-6 py-16 text-center text-ink-foreground shadow-ink">
             <h2 className="relative max-w-[16ch] text-display-sm sm:text-hero">
-              Less paperwork. More teaching.
+              Less paperwork. <span className="text-ink-muted">More teaching.</span>
             </h2>
             <div className="relative flex flex-wrap justify-center gap-3">
               <Link to="/sign-up" className={buttonVariants({ variant: 'raised', size: 'lg' })}>
