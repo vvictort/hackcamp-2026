@@ -11,9 +11,10 @@ const css = StyleSheet.create({
   box: { width: 12, height: 12, borderWidth: 1, borderColor: '#000', marginRight: 8, marginTop: 1 },
   code: { width: 44, fontFamily: 'Helvetica-Bold' },
   text: { flex: 1 },
+  sheetCode: { fontFamily: 'Helvetica-Bold', fontSize: 14, marginTop: 8, marginBottom: 6, letterSpacing: 1 },
 })
 
-function SheetDoc({ student, subject }: { student: StudentAnalysis; subject: string }) {
+function SheetDoc({ student, subject, codes }: { student: StudentAnalysis; subject: string; codes: Record<string, string> }) {
   return (
     <Document title={lensText('lens.sheetTitle', { name: student.name })}>
       <Page size="LETTER" style={css.page}>
@@ -29,11 +30,18 @@ function SheetDoc({ student, subject }: { student: StudentAnalysis; subject: str
             </View>
           ))}
         <Text style={css.h2}>{lensText('lens.sheetChecks')}</Text>
-        {student.checks.map((c) => (
-          <View key={c.code} style={css.row}>
-            <View style={css.box} />
-            <Text style={css.code}>{c.code}</Text>
-            <Text style={css.text}>{c.text}</Text>
+        {[...new Set(student.checks.map((c) => c.goalId))].map((goalId) => (
+          <View key={goalId}>
+            {codes[goalId] && <Text style={css.sheetCode}>{lensText('lens.sheetCode', { code: codes[goalId] })}</Text>}
+            {student.checks
+              .filter((c) => c.goalId === goalId)
+              .map((c) => (
+                <View key={c.code} style={css.row}>
+                  <View style={css.box} />
+                  <Text style={css.code}>{c.code}</Text>
+                  <Text style={css.text}>{c.text}</Text>
+                </View>
+              ))}
           </View>
         ))}
       </Page>
@@ -41,8 +49,8 @@ function SheetDoc({ student, subject }: { student: StudentAnalysis; subject: str
   )
 }
 
-export async function downloadSheetPdf(student: StudentAnalysis, subject: string): Promise<void> {
-  const blob = await pdf(<SheetDoc student={student} subject={subject} />).toBlob()
+export async function downloadSheetPdf(student: StudentAnalysis, subject: string, codes: Record<string, string> = {}): Promise<void> {
+  const blob = await pdf(<SheetDoc student={student} subject={subject} codes={codes} />).toBlob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

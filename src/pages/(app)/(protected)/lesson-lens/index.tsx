@@ -1,32 +1,26 @@
 /** Lesson Lens (PRD 1A): upload a lesson, see per-student gaps, review adaptations, print sheets. */
 import { useMemo, useState } from 'react'
-import { useQuery, useUser } from 'deepspace'
 import { History } from 'lucide-react'
 import { Badge, PageHeader } from '@/components/ui'
 import { LensUpload } from '@/components/lens/LensUpload'
 import { LensStudentCard } from '@/components/lens/LensResults'
 import { LensSheet } from '@/components/lens/LensSheet'
-import { lensText, useLensAnalysis } from '@/lib/lessonLens'
-
-interface StudentRow { ownerId?: string; key: string; name: string; goals: string }
+import { lensText, useLensAnalysis, useLensRoster } from '@/lib/lessonLens'
 
 export default function LessonLensPage() {
-  const { user } = useUser()
-  const ownerId = user?.id ?? ''
-  const rows = useQuery<StudentRow>('students', { where: { ownerId } })
-  const lens = useLensAnalysis()
+  const roster = useLensRoster()
+  const lens = useLensAnalysis(roster.students)
   const [sheetId, setSheetId] = useState<string | null>(null)
 
-  const options = useMemo(
-    () => rows.records.filter((r) => r.data.ownerId === ownerId && r.data.goals && r.data.goals !== '[]').map((r) => ({ key: r.data.key, name: r.data.name })),
-    [rows.records, ownerId],
-  )
+  const options = useMemo(() => roster.students.map((s) => ({ key: s.id, name: s.name })), [roster.students])
   const { analysis } = lens
   const sheet = analysis?.students.find((s) => s.studentId === sheetId)
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       <PageHeader title={lensText('lens.title')} description={lensText('lens.description')} />
+      {roster.loading && <p role="status" className="text-body text-muted-foreground">{lensText('lens.rosterLoading')}</p>}
+      {roster.failed && <p role="alert" className="text-body text-destructive">{lensText('lens.rosterFailed')}</p>}
       <LensUpload students={options} running={lens.running} onSubmit={(i) => { setSheetId(null); void lens.analyze(i) }} />
       {analysis && (
         <div className="flex flex-wrap items-center gap-2" role="status">
@@ -41,7 +35,7 @@ export default function LessonLensPage() {
           <Badge variant="outline">{lensText(analysis.source === 'gemini' ? 'lens.sourceGemini' : 'lens.sourceRules')}</Badge>
         </div>
       )}
-      {sheet && analysis && <LensSheet student={sheet} subject={analysis.subject} onClose={() => setSheetId(null)} />}
+      {sheet && analysis && <LensSheet student={sheet} subject={analysis.subject} codes={lens.codes[sheet.studentId] ?? {}} onClose={() => setSheetId(null)} />}
       {analysis?.students.map((st) => (
         <LensStudentCard
           key={st.studentId}

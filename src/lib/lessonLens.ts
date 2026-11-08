@@ -6,12 +6,14 @@
  * suggestions, so approved and rejected ones drop off the list.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getAuthToken, useQuery, useUser } from 'deepspace'
 import { useToast } from '@/components/ui'
 import { useLang } from '@/i18n'
 import { lens, type LensKey } from '@/i18n/en/lens'
-import { removeCheck as removeCheckPure, type LessonAnalysis, type LensSuggestionView, type StudentAnalysis } from '@/actions/lesson-lens-core'
+import { removeCheck as removeCheckPure, type LensWhatWorks, type LessonAnalysis, type LensSuggestionView, type StudentAnalysis } from '@/actions/lesson-lens-core'
+import { apiGet, apiPost, type MeResponse } from '@/lib/altamira/api'
+import type { StudentProfileResponse } from '@/server/altamira/contract/api'
 
 export { removeCheckPure as removeCheck }
 export type { LessonAnalysis, LensSuggestionView, StudentAnalysis }
@@ -57,6 +59,7 @@ async function callAction<T>(name: string, params: Record<string, unknown>): Pro
 const ERRORS: Record<string, LensKey> = {
   agent_not_configured: 'lens.err.agent_unreachable',
   agent_unreachable: 'lens.err.agent_unreachable',
+  image_unreadable: 'lens.err.image_unreadable',
   agent_bad_reply: 'lens.err.agent_bad_reply',
   not_found: 'lens.err.not_found',
   unauthorized: 'lens.err.unauthorized',
@@ -127,20 +130,105 @@ export function useLessonLens() {
   return { pending, classBlockId, suggest, decide, suggesting, deciding }
 }
 
+/** A lesson photo, shrunk in the browser, as base64. */
+export interface LensImage {
+  mime: string
+  data: string
+}
+
+/** What the page sends the action for each student; read from the /api/v1 caseload. */
+export interface LensStudentPayload {
+  id: string
+  name: string
+  firstName: string
+  goals: { id: string; area: string; text: string; level: string }[]
+  accommodations: string[]
+  strengths: string[]
+  modificationSubjects: string[]
+  whatWorks: LensWhatWorks[]
+}
+
 export interface AnalyzeInput {
   lessonText: string
+  image?: LensImage
   subject?: string
   studentIds?: string[]
 }
 
+/**
+ * The students Lens can use: everyone on the teacher's or case manager's /api/v1 caseload with an
+ * IEP, with goals, accommodations, strengths and What works (PRD 1A-3, 1A-9).
+ */
+export function useLensRoster() {
+  const { user } = useUser()
+  const [state, setState] = useState<{ students: LensStudentPayload[]; loading: boolean; failed: boolean }>({ students: [], loading: true, failed: false })
+  useEffect(() => {
+    if (!user?.id) return
+    let live = true
+    void (async () => {
+      try {
+        const me = await apiGet<MeResponse>('/me')
+        const seen = new Map<string, { id: string; firstName: string | null; token: string }>()
+        for (const s of [...me.caseload, ...me.students]) if (!seen.has(s.id)) seen.set(s.id, { id: s.id, firstName: s.firstName, token: s.displayToken })
+        const rows = await Promise.all(
+          [...seen.values()].map(async (s): Promise<LensStudentPayload | null> => {
+            const [profile, ww] = await Promise.allSettled([
+              apiGet<StudentProfileResponse>(`/students/${encodeURIComponent(s.id)}`),
+              apiGet<{ rows: LensWhatWorks[] }>(`/students/${encodeURIComponent(s.id)}/what-works`),
+            ])
+            if (profile.status !== 'fulfilled' || profile.value.view !== 'full') return null
+            const p = profile.value
+            const goals = p.goals.filter((g) => g.status === 'active').map((g) => ({ id: g.id, area: g.area, text: g.text, level: '' }))
+            if (!goals.length) return null
+            const name = s.firstName || s.token
+            return {
+              id: s.id,
+              name,
+              firstName: name,
+              goals,
+              accommodations: p.sections?.accommodations ?? [],
+              strengths: p.sections?.profile.strengths ?? [],
+              modificationSubjects: p.modificationSubjects,
+              whatWorks: ww.status === 'fulfilled' ? ww.value.rows : [],
+            }
+          }),
+        )
+        if (live) setState({ students: rows.filter((r): r is LensStudentPayload => !!r), loading: false, failed: false })
+      } catch {
+        if (live) setState({ students: [], loading: false, failed: true })
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [user?.id])
+  return state
+}
+
+/** Sheet codes issued so far, per student and goal. */
+export type SheetCodes = Record<string, Record<string, string>>
+
+const titleOf = (text: string) => (text.split(/(?<=[.!?])\s/)[0] ?? text).slice(0, 110)
+
+interface ApprovalResult {
+  lessonId: string | null
+  suggestions: { id: string; goalId: string }[]
+  sheets: { goalId: string; checkId: string; sheetCode: string | null }[]
+  blocked: string[]
+}
+
 /** 1A: analyze a lesson, then review each suggestion. The analysis lives in page state; the worker caches and saves rows. */
-export function useLensAnalysis() {
+export function useLensAnalysis(roster: LensStudentPayload[] = []) {
   const { lang } = useLang()
   const toast = useToast()
   const [analysis, setAnalysis] = useState<LessonAnalysis | null>(null)
   const [running, setRunning] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [last, setLast] = useState<AnalyzeInput | null>(null)
+  const [codes, setCodes] = useState<SheetCodes>({})
+  const lessonIds = useRef<Record<string, string>>({})
+  const current = useRef<LessonAnalysis | null>(null)
+  current.current = analysis
 
   const fail = useCallback((code?: string) => toast.error(lensText(ERRORS[code ?? ''] ?? 'lens.err.generic')), [toast])
 
@@ -154,31 +242,74 @@ export function useLensAnalysis() {
     async (input: AnalyzeInput) => {
       setRunning(true)
       try {
-        const r = await callAction<LessonAnalysis>('lessonLensAnalyze', { ...input, language: lang })
+        const wanted = new Set(input.studentIds ?? roster.map((x) => x.id))
+        const r = await callAction<LessonAnalysis>('lessonLensAnalyze', { ...input, students: roster.filter((x) => wanted.has(x.id)), language: lang })
         if (!r.success) return fail(r.code)
         setAnalysis(r.data)
-        setLast(input)
+        setCodes({})
+        lessonIds.current = {}
+        setLast({ ...input, lessonText: r.data.lessonText ?? input.lessonText })
       } finally {
         setRunning(false)
       }
     },
-    [fail, lang],
+    [fail, lang, roster],
+  )
+
+  /** Approval also logs the adaptations as used (1B) and gets a coded sheet per goal (PRD 1A-7). */
+  const logUsage = useCallback(
+    async (studentId: string, ids: string[]) => {
+      const a = current.current
+      const st = a?.students.find((x) => x.studentId === studentId)
+      if (!a || !st) return
+      const chosen = st.suggestions.filter((s) => ids.includes(s.id))
+      if (!chosen.length) return
+      const known = codes[studentId] ?? {}
+      const goals = [...new Set(chosen.map((s) => s.goalId))].filter((g) => !known[g])
+      try {
+        const res = await apiPost<ApprovalResult>('/lens/approvals', {
+          studentId,
+          ...(lessonIds.current[studentId] ? { lessonId: lessonIds.current[studentId] } : {}),
+          lessonText: last?.lessonText ?? '',
+          subject: a.subject,
+          items: chosen.map((s) => ({ goalId: s.goalId, label: s.label, adaptationType: s.adaptationType, title: titleOf(s.text), text: s.text, why: s.why })),
+          checks: goals
+            .map((goalId) => ({
+              goalId,
+              items: st.checks.filter((c) => c.goalId === goalId).slice(0, 3).map((c) => ({ id: c.code, prompt: c.text, format: 'work_sample', options: null })),
+            }))
+            .filter((c) => c.items.length),
+        })
+        if (res.lessonId) lessonIds.current[studentId] = res.lessonId
+        const add = Object.fromEntries(res.sheets.filter((x) => x.sheetCode).map((x) => [x.goalId, x.sheetCode as string]))
+        if (Object.keys(add).length) setCodes((c) => ({ ...c, [studentId]: { ...c[studentId], ...add } }))
+        if (res.blocked.length) toast.error(lensText('lens.err.blocked'))
+        else toast.success(lensText('lens.logged'))
+      } catch {
+        toast.error(lensText('lens.err.usage'))
+      }
+    },
+    [codes, last?.lessonText, toast],
   )
 
   const decide = useCallback(
     async (id: string, decision: Decision, quiet = false) => {
       setBusy(id)
       try {
-        const r = await callAction<{ state: Decision }>('lessonLensFeedback', { suggestionId: id, decision })
+        const r = await callAction<{ state: Decision }>('lessonLensFeedback', { suggestionId: id, decision, students: roster })
         if (!r.success) return fail(r.code), false
         patch(id, { state: decision })
         if (!quiet) toast.success(lensText(decision === 'approved' ? 'lens.toast.approved' : 'lens.toast.rejected'))
+        if (decision === 'approved' && !quiet) {
+          const st = current.current?.students.find((x) => x.suggestions.some((s) => s.id === id))
+          if (st) await logUsage(st.studentId, [id])
+        }
         return true
       } finally {
         setBusy(null)
       }
     },
-    [fail, patch, toast],
+    [fail, logUsage, patch, roster, toast],
   )
 
   const approveAll = useCallback(
@@ -186,9 +317,12 @@ export function useLensAnalysis() {
       const todo = student.suggestions.filter((s) => s.id && s.state === 'pending')
       const done = await Promise.all(todo.map((s) => decide(s.id, 'approved', true)))
       const n = done.filter(Boolean).length
-      if (n) toast.success(lensText('lens.toast.approvedMany', { n }))
+      if (n) {
+        toast.success(lensText('lens.toast.approvedMany', { n }))
+        await logUsage(student.studentId, todo.filter((_, i) => done[i]).map((s) => s.id))
+      }
     },
-    [decide, toast],
+    [decide, logUsage, toast],
   )
 
   const edit = useCallback(
@@ -212,7 +346,7 @@ export function useLensAnalysis() {
       if (!last) return
       setBusy(id)
       try {
-        const r = await callAction<LensSuggestionView>('lessonLensRegenerate', { suggestionId: id, lessonText: last.lessonText, subject: analysis?.subject, language: lang })
+        const r = await callAction<LensSuggestionView>('lessonLensRegenerate', { suggestionId: id, lessonText: last.lessonText, subject: analysis?.subject, students: roster, language: lang })
         if (!r.success) return fail(r.code)
         patch(id, r.data)
         toast.success(lensText('lens.toast.regenerated'))
@@ -220,10 +354,10 @@ export function useLensAnalysis() {
         setBusy(null)
       }
     },
-    [analysis?.subject, fail, lang, last, patch, toast],
+    [analysis?.subject, fail, lang, last, patch, roster, toast],
   )
 
   const dropCheck = useCallback((studentId: string, code: string) => setAnalysis((a) => a && removeCheckPure(a, studentId, code)), [])
 
-  return { analysis, running, busy, analyze, decide, approveAll, edit, regenerate, dropCheck }
+  return { analysis, codes, running, busy, analyze, decide, approveAll, edit, regenerate, dropCheck }
 }
