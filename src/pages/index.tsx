@@ -441,7 +441,7 @@ export default function Landing() {
             </div>
             <div className="reveal divide-y divide-border border-y border-border">
               {FAQ.map((item) => (
-                <details key={item.q} className="group">
+                <details key={item.q} name="faq" className="group">
                   <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-5 text-body-lg font-semibold [&::-webkit-details-marker]:hidden">
                     {item.q}
                     <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-card shadow-raised">
