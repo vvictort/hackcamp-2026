@@ -11,7 +11,7 @@ import { jsonSchema, tool } from 'ai'
 import type { ToolSet } from 'ai'
 import { z } from 'zod/v4'
 import { BUILT_IN_TOOLS, applyAiToolDefaults } from 'deepspace/worker'
-import type { ToolSchema, CollectionSchema } from 'deepspace/worker'
+import type { ToolSchema } from 'deepspace/worker'
 
 type ToolExecutor = (toolName: string, params: Record<string, unknown>) => Promise<unknown>
 
@@ -25,53 +25,6 @@ const ALLOWED_TOOL_NAMES = [
   'records.delete',
   'user.current',
 ]
-
-// ============================================================================
-// System prompt
-// ============================================================================
-
-type Interpretation = CollectionSchema['columns'][number]['interpretation']
-
-/**
- * Interpretation is `string | Record<string, unknown>`. When it's an object
- * the convention across the SDK's schemas is `{ kind: string, ... }`.
- * Narrow safely to a human-readable name.
- */
-function interpretationLabel(interpretation: Interpretation): string {
-  if (typeof interpretation === 'string') return interpretation
-  const kind = interpretation.kind
-  return typeof kind === 'string' ? kind : 'object'
-}
-
-export function buildSystemPrompt(appName: string, schemas: CollectionSchema[]): string {
-  const schemaSummary = schemas
-    .map((s) => {
-      const cols = (s.columns ?? [])
-        .map((c) => `${c.name}:${interpretationLabel(c.interpretation)}${c.required ? '!' : ''}`)
-        .join(', ')
-      return `- ${s.name}${cols ? ` (${cols})` : ''}`
-    })
-    .join('\n')
-
-  return [
-    `You are the assistant for the "${appName}" app on DeepSpace.`,
-    "You can read and modify the user's data via the available tools. The",
-    "user's own role and permissions still apply at the data layer — your",
-    'tool calls run as the calling user, so you can only do what they could.',
-    '',
-    'Be careful with mutations:',
-    '- Confirm intent before destructive actions (delete, bulk update).',
-    '- Operate only on collections the user explicitly mentioned.',
-    '- After a successful write, briefly confirm what changed.',
-    '- If a write is denied (RBAC), tell the user plainly — do not retry blindly.',
-    '',
-    'Use tools to look up facts before answering. Do not invent data.',
-    'If data is missing, say so plainly. Keep answers concise.',
-    '',
-    'Available collections:',
-    schemaSummary || '(none)',
-  ].join('\n')
-}
 
 // ============================================================================
 // Tool definitions

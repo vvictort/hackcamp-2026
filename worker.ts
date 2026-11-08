@@ -25,7 +25,6 @@ import {
   YjsRoom,
 } from 'deepspace/worker'
 import type { DOBindings, DOManifest, Job, JobContext } from 'deepspace/worker'
-import { AI_CHATS_SCHEMA } from 'deepspace/schema'
 import { registerAgent } from './src/server/ai/agent.js'
 import { buildTools } from './src/server/ai/tools.js'
 import { tasks as cronTasks, runTask as runCronTask } from './src/cron.js'
@@ -164,12 +163,7 @@ app.use('*', async (c, next) => {
 registerAuthAndIntegrationRoutes(app)
 registerRealtimeRoutes(app)
 registerI18nRoutes(app)
-// Every scaffold exposes selected tools through HTTP, MCP and browser tools.
-// Only copilot owns the collections needed for the in-app chat UI.
-registerAgent(app, {
-  tools: buildTools,
-  inApp: schemas.some((schema) => schema.name === AI_CHATS_SCHEMA.name),
-})
+registerAgent(app, buildTools)
 registerPlatformProxyRoutes(app)
 // Altamyra /api/v1 routes, before the SPA fallback in registerStaticRoutes.
 registerAltamyraRoutes(app)
