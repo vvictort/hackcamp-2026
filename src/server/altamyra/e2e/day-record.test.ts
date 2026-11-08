@@ -172,7 +172,7 @@ describe('end-of-day review', () => {
     // The EA is assigned to Kai and Sofia, not Amara.
     expect(before.body.students.map((s: { studentId: string }) => s.studentId).sort()).toEqual([kai, sofia].sort())
     expect(before.body.students[0]).toMatchObject({ studentId: sofia, entriesToday: 1, reviewed: false })
-    expect(before.body.students[0].label).toMatch(/^S-/)
+    expect(before.body.students[0].label).toBe('Sofía')
 
     await h.post(U.ea, `/students/${sofia}/days/${TODAY}/complete`, {})
     const after = await h.get(U.ea, '/me/day-review')

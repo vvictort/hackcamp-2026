@@ -160,7 +160,7 @@ describe('pending list and weekly list', () => {
       const pending = (await h.get(user, '/me/summaries/pending')).body.summaries as { id: string; studentId: string; label: string; kind: string; period: string }[]
       expect(pending.map((p) => p.id).sort()).toEqual([weekly.id, monthly.id].sort())
       expect(pending[0]).toMatchObject({ studentId: kai })
-      expect(pending[0].label).toMatch(/^S-/)
+      expect(pending[0].label).toBe('Kai')
     }
     for (const user of [U.caseManager, U.parentKai, U.districtLead]) {
       const res = await h.get(user, '/me/summaries/pending')
