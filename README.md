@@ -99,6 +99,23 @@ src/
 
 Backend: `worker.ts`, `src/server/**`, `src/actions/`. Shared: `src/schemas*`. Everything else under `src/` is frontend.
 
+How the pieces connect; student names never leave the app boundary.
+
+```mermaid
+flowchart LR
+  B["Browser app (React)"] --> W["Cloudflare Worker (worker.ts, Hono)"]
+  subgraph APP["Inside the app: student names stay here"]
+    W --> V1["/api/v1 domain backend (SQLite Durable Objects)"]
+    W --> REC["DeepSpace record collections"]
+    W --> ACT["Server actions (Lesson Lens)"]
+    W --> I18N["/api/i18n/:lang"]
+  end
+  ACT -->|"anonymized, Student A and B"| M["Maritime Lesson Lens agent"]
+  M --> G["Gemini"]
+  I18N -->|"static English strings only"| P["DeepSpace integration proxy"]
+  P --> C["Claude (translation only)"]
+```
+
 ## Run locally
 
 ```sh
