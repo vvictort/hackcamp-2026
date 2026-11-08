@@ -81,9 +81,10 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const objectiveProposals = []
     try {
       const ai = await r.ai([studentId])
-      for (const g of goals) {
-        objectiveProposals.push(await ai.proposeObjectives({ studentToken: student.displayToken, goalId: g.id, area: g.area, goalText: g.text }))
-      }
+      // In parallel: every call has its own chain budget (35 s), so the whole import stays under one budget, not one per goal.
+      objectiveProposals.push(
+        ...(await Promise.all(goals.map((g) => ai.proposeObjectives({ studentToken: student.displayToken, goalId: g.id, area: g.area, goalText: g.text })))),
+      )
     } catch (err) {
       const res = aiFailureResponse(err)
       if (res) return res
@@ -91,6 +92,13 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     }
     await r.student(studentId, objectivesPropose, { proposals: objectiveProposals })
     return r.json(IepImportResponse, { iep, goals, objectiveProposals })
+  })
+
+  /** Source text of a CB-IEP PDF (its text layer), so the case manager can read it beside the parsed result. */
+  app.post('/students/:id/iep/source-text', signedIn, mw.requireCapability('iep.write'), async (c) => {
+    const r = req(c)
+    const body = await r.body(IepImportBody)
+    return c.json({ text: await importText(body) })
   })
 
   app.post('/students/:id/iep/:version/confirm', signedIn, mw.requireCapability('iep.write'), async (c) => {

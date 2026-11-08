@@ -5,7 +5,7 @@ import { createAi } from '../functions'
 import { AiOutputError } from '../errors'
 import { getProvider } from '../provider'
 import { createFixtureProvider } from './fixture'
-import { createGeminiProvider, DEFAULT_GEMINI_MODELS } from './gemini'
+import { createGeminiProvider, DEFAULT_GEMINI_MODELS, GEMINI_TIMEOUT_MS, GEMINI_TOTAL_TIMEOUT_MS } from './gemini'
 
 const OBJECTIVE = {
   measurable: true,
@@ -100,6 +100,25 @@ describe('gemini provider', () => {
     await p.proposeObjectives(INPUT)
     expect(Date.now() - t0).toBeLessThan(500)
     expect(f.mock.calls.length).toBeLessThan(4)
+  })
+
+  it('two timeouts exhaust the budget, then the fixture answers at once', async () => {
+    const f = vi.fn((_u: unknown, init: RequestInit) => new Promise<Response>((_r, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const p = createGeminiProvider({ apiKey: 'k', models: 'm1,m2,m3,m4', timeoutMs: 40, totalTimeoutMs: 60, fetch: f as unknown as typeof fetch, fallback: createFixtureProvider() })
+    const t0 = Date.now()
+    const out = await p.proposeObjectives(INPUT)
+    expect(Date.now() - t0).toBeLessThan(400)
+    expect(out).toBeTruthy()
+    expect(f).toHaveBeenCalledTimes(2)
+    expect((p as unknown as { lastSource: string }).lastSource).toBe('fixture')
+    expect(warn.mock.calls.flat().join(' ')).toContain('tried m1, m2')
+    warn.mockRestore()
+  })
+
+  it('default budget is 35 s and attempt cap 25 s', () => {
+    expect(GEMINI_TOTAL_TIMEOUT_MS).toBe(35_000)
+    expect(GEMINI_TIMEOUT_MS).toBe(25_000)
   })
 
   it('no key: getProvider returns the fixture', () => {
