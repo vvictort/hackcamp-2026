@@ -33,6 +33,12 @@ export function roleFromMe(me: MeResponse): AltamiraRole | null {
   return me.parentOf.length ? 'parent' : null
 }
 
+/** The school the signed-in user belongs to, as /me reports it. */
+export function schoolIdOf(me: MeResponse | null): string | null {
+  const id = (me as (MeResponse & { schoolId?: string | null }) | null)?.schoolId
+  return typeof id === 'string' && id ? id : null
+}
+
 export async function refreshAltamiraMe(): Promise<void> {
   set({ status: 'loading' })
   let me: MeResponse | null = null
@@ -79,5 +85,5 @@ export function useAltamiraMe() {
     await refreshAltamiraMe()
   }, [])
 
-  return { role: snap.role, devEnabled: snap.devEnabled, me: snap.me, loading: snap.status !== 'ready', seed, switchRole, refresh: refreshAltamiraMe }
+  return { role: snap.role, devEnabled: snap.devEnabled, me: snap.me, schoolId: schoolIdOf(snap.me), loading: snap.status !== 'ready', seed, switchRole, refresh: refreshAltamiraMe }
 }

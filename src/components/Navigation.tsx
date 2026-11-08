@@ -14,14 +14,15 @@ import { useAuthProfileReady } from 'deepspace'
 import {
   Camera,
   ChartColumn,
-  ClipboardCheck,
-  HandHelping,
+  FileText,
   KeyRound,
+  MoonStar,
+  TicketCheck,
+  TrendingUp,
   House,
   LayoutGrid,
   LogIn,
   LogOut,
-  ScanSearch,
   Settings,
   UsersRound,
   Users,
@@ -57,10 +58,11 @@ type Item = { label: MessageKey; Icon: LucideIcon; to: string }
 const ICONS: Record<string, LucideIcon> = {
   '/home': House,
   '/students': UsersRound,
-  '/lesson-lens': ScanSearch,
   '/capture': Camera,
-  '/review': ClipboardCheck,
-  '/ea': HandHelping,
+  '/progress': TrendingUp,
+  '/summaries': FileText,
+  '/end-of-day': MoonStar,
+  '/admin/tickets': TicketCheck,
   '/admin/roles': KeyRound,
   '/family': Users,
   '/insights': ChartColumn,
@@ -157,7 +159,7 @@ export default function Navigation() {
         {/* Phones: brand + account on one row, icons in a scrollable row below.
             lg: the same elements stack into a vertical rail, account last. */}
         <div className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 lg:flex lg:h-full lg:flex-col lg:gap-10 lg:p-0">
-          <Link to="/home" className="justify-self-start rounded-md">
+          <Link to="/home" aria-hidden tabIndex={-1} className="justify-self-start rounded-md">
             <Logo className="gap-3 text-h2" markClassName="size-11" labelClassName="lg:sr-only" />
           </Link>
           <div className="lg:order-last lg:mt-auto">{account}</div>

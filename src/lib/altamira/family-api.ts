@@ -3,12 +3,19 @@
  * parent's own child, over the Altamira /api/v1 backend.
  */
 import { getAuthToken } from 'deepspace'
-import type { z } from 'zod'
 import type { MeResponse } from '@/server/altamira/contract/api'
-import type { FamilyProgressResponse } from '@/server/altamira/contract/api'
 
 export type { MeResponse }
-export type FamilyProgress = z.infer<typeof FamilyProgressResponse>
+
+/** An approved monthly summary: English text plus the family-language version. */
+export type FamilySummary = {
+  id: string
+  period: string
+  text: string
+  translatedText?: string | null
+  language?: string | null
+  approvedAt?: string | null
+}
 
 /** Consent kinds a parent controls. Typed locally; the server owns the list. */
 export const FAMILY_CONSENT_KINDS = ['voice_note', 'video'] as const
@@ -45,6 +52,18 @@ async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
 const enc = encodeURIComponent
 
 export const getMe = () => api<MeResponse>('/me')
-export const getFamilyProgress = (studentId: string) => api<FamilyProgress>(`/family/${enc(studentId)}/progress`)
+export async function getFamilySummaries(studentId: string): Promise<FamilySummary[]> {
+  try {
+    const r = await api<{ summaries?: FamilySummary[] } | FamilySummary[]>(`/family/${enc(studentId)}/summaries`)
+    const rows = Array.isArray(r) ? r : r?.summaries
+    return [...(rows ?? [])].sort((a, b) => b.period.localeCompare(a.period))
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return []
+    throw e
+  }
+}
+
+/** What the parent reads: the family-language text when there is one, else English. */
+export const familyText = (s: FamilySummary) => (s.translatedText?.trim() ? { text: s.translatedText, lang: s.language || 'en' } : { text: s.text, lang: 'en' })
 export const setConsent = (studentId: string, body: { kind: FamilyConsentKind; granted: boolean }) =>
   api<{ consents: Consent[] }>(`/family/${enc(studentId)}/consents`, 'PUT', body)

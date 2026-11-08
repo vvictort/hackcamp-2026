@@ -46,3 +46,13 @@ describe('role store dev flag', () => {
     expect(calls.some((c) => c.includes('/dev/roles'))).toBe(true)
   })
 })
+
+describe('schoolIdOf', () => {
+  it('reads schoolId from /me', async () => {
+    vi.resetModules()
+    const { schoolIdOf } = await import('./role')
+    expect(schoolIdOf({ ...me, schoolId: 'sch1' } as never)).toBe('sch1')
+    expect(schoolIdOf(me as never)).toBeNull()
+    expect(schoolIdOf(null)).toBeNull()
+  })
+})
