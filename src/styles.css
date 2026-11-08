@@ -66,9 +66,18 @@
   --text-hero: 3.5rem;
   --text-hero--line-height: 1.02;
   --text-hero--letter-spacing: -0.04em;
+  --text-mega: 5.5rem;
+  --text-mega--line-height: 1.02;
+  --text-mega--letter-spacing: -0.045em;
+  --text-hero-sm: 2.75rem;
+  --text-hero-sm--line-height: 1.02;
+  --text-hero-sm--letter-spacing: -0.045em;
   --text-display: 2.5rem;
   --text-display--line-height: 1.05;
   --text-display--letter-spacing: -0.035em;
+  --text-display-sm: 2rem;
+  --text-display-sm--line-height: 1.05;
+  --text-display-sm--letter-spacing: -0.035em;
   --text-h1: 1.75rem;
   --text-h1--line-height: 2.125rem;
   --text-h1--letter-spacing: -0.025em;
@@ -89,12 +98,14 @@
   --text-xs: 0.875rem;
   --text-xs--line-height: 1.25rem;
 
-  /* Shape rule: buttons and chips are pills, icon tiles 12px, cards 20px. */
+  /* Shape rule: buttons and chips are pills, icon tiles md (12px), cards lg
+     (20px), the landing's big hero panels panel (32px). */
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1.25rem;
   --radius-xl: 1.5rem;
   --radius-2xl: 1.75rem;
+  --radius-panel: 2rem;
 }
 
 /*
@@ -157,6 +168,20 @@
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
 }
+/* App pages: a card grid or stack rises in child by child, one --stagger
+   step apart (child n waits n steps, so the PageHeader above goes first).
+   Children past the 8th share the 8th step. */
+@utility stagger-rise {
+  & > * { animation: rise-in var(--duration-enter) var(--ease-out) both; }
+  & > :nth-child(1) { animation-delay: var(--stagger); }
+  & > :nth-child(2) { animation-delay: calc(var(--stagger) * 2); }
+  & > :nth-child(3) { animation-delay: calc(var(--stagger) * 3); }
+  & > :nth-child(4) { animation-delay: calc(var(--stagger) * 4); }
+  & > :nth-child(5) { animation-delay: calc(var(--stagger) * 5); }
+  & > :nth-child(6) { animation-delay: calc(var(--stagger) * 6); }
+  & > :nth-child(7) { animation-delay: calc(var(--stagger) * 7); }
+  & > :nth-child(n + 8) { animation-delay: calc(var(--stagger) * 8); }
+}
 /* A bar filling from the left, once on load. */
 @utility animate-grow {
   animation: grow-x var(--duration-enter) var(--ease-out) both;
@@ -164,6 +189,18 @@
 }
 @keyframes grow-x {
   from { transform: scaleX(0); }
+}
+/* Landing backdrops: a faint ink grid fading out from the centre, and the
+   soft violet orb derived from --color-signal. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-foreground) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-foreground) 6%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+}
+@utility bg-signal-orb {
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-signal) 32%, var(--color-card)) 0%, color-mix(in srgb, var(--color-signal) 18%, var(--color-card)) 45%, transparent 70%);
 }
 /* Scroll reveal: fades content up a little as it enters the screen. CSS only
    (scroll-driven animation), so the prerendered page works without JS;

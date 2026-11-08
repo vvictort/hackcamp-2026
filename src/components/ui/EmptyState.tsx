@@ -30,11 +30,11 @@ export function EmptyState({
       {...props}
     >
       {icon && (
-        <div className="mb-4 flex size-12 items-center justify-center rounded-lg bg-secondary text-muted-foreground [&_svg]:size-6">
+        <div className="mb-4 flex size-11 items-center justify-center rounded-md bg-secondary text-muted-foreground [&_svg]:size-6">
           {icon}
         </div>
       )}
-      <h3 className="text-h3 text-foreground">{title}</h3>
+      <h2 className="text-h2 font-extrabold">{title}</h2>
       {description && (
         <p className="mt-2 max-w-sm text-body text-muted-foreground">{description}</p>
       )}

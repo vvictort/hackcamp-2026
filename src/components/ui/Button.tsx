@@ -13,6 +13,8 @@ const buttonVariants = cva(
           'bg-destructive text-destructive-foreground shadow-raised hover:shadow-lift',
         outline:
           'border border-border bg-card text-foreground shadow-raised hover:shadow-lift',
+        /* White pill or round icon button on the grey canvas. */
+        raised: 'bg-card text-foreground shadow-raised hover:bg-secondary hover:shadow-lift',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-border',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-foreground underline underline-offset-4 hover:decoration-2',
@@ -48,16 +50,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       aria-busy={loading || undefined}
       {...props}
     >
-      {loading && (
-        <span
-          aria-hidden="true"
-          className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-        />
-      )}
+      {loading && <Spinner />}
       {children}
     </button>
   ),
 )
 Button.displayName = 'Button'
 
-export { Button, buttonVariants }
+/** The loading ring Button shows; also usable on its own beside a status word. */
+function Spinner({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn('size-4 animate-spin rounded-full border-2 border-current border-t-transparent', className)}
+    />
+  )
+}
+
+export { Button, buttonVariants, Spinner }
