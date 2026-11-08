@@ -15,12 +15,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import {
   armCronRoom,
-  CanvasRoom,
   CronRoom,
-  PresenceRoom,
   RecordRoom,
   workerErrorHandler,
-  YjsRoom,
 } from 'deepspace/worker'
 import type { DOBindings, DOManifest } from 'deepspace/worker'
 import { registerAgent } from './src/server/ai/agent.js'
@@ -47,9 +44,6 @@ export { AltamyraInsightsRoom, AltamyraSchoolRoom, AltamyraStudentRoom }
 // Dynamic deploy reads this manifest to create the app's DO bindings.
 export const __DO_MANIFEST__ = [
   { binding: 'RECORD_ROOMS', className: 'AppRecordRoom', sqlite: true },
-  { binding: 'YJS_ROOMS', className: 'AppYjsRoom', sqlite: true },
-  { binding: 'CANVAS_ROOMS', className: 'AppCanvasRoom', sqlite: true },
-  { binding: 'PRESENCE_ROOMS', className: 'AppPresenceRoom', sqlite: true },
   { binding: 'CRON_ROOMS', className: 'AppCronRoom', sqlite: true },
   { binding: 'STUDENT_ROOMS', className: 'AltamyraStudentRoom', sqlite: true },
   { binding: 'SCHOOL_ROOMS', className: 'AltamyraSchoolRoom', sqlite: true },
@@ -61,10 +55,6 @@ export class AppRecordRoom extends RecordRoom<Env> {
     super(state, env, schemas, { ownerUserId: env.OWNER_USER_ID })
   }
 }
-
-export class AppYjsRoom extends YjsRoom<Env> {}
-export class AppCanvasRoom extends CanvasRoom<Env> {}
-export class AppPresenceRoom extends PresenceRoom<Env> {}
 
 /** Runs the scheduled tasks defined in src/cron.ts. */
 export class AppCronRoom extends CronRoom<Env> {

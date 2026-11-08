@@ -1,8 +1,7 @@
 /**
  * Cron task definitions — registered into the AppCronRoom DO at construction
  * time (worker.ts). The DO alarm fires `runTask(name, env)` on the schedule
- * declared here; the DO itself records executions, tracks history, and
- * pushes status to admin clients via the `/ws/cron/:roomId` WebSocket.
+ * declared here; the DO itself records executions and tracks history.
  *
  * Each task declares EITHER `intervalMinutes` (run every N minutes) OR
  * `schedule` + `timezone` (5-field cron expression). CronRoom validates
