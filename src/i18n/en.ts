@@ -2,21 +2,16 @@
  * The English source strings: the ONLY text the translator ever sees. The
  * server translates this object, nothing else, so no user or record data can
  * reach the model. Keys are `area.name`. Use {name} placeholders for values
- * (filled in by t(), never sent for translation).
+ * (filled in by t(), never changed by the translator) and <hl>, <b>, <muted>
+ * tags for inline emphasis (rendered by <T>, kept by the translator).
  *
- * Add a string here, then use t('key') where it is shown.
+ * Add a string to the file for its area, then show it with t('key') or <T k="key" />.
  */
-export const en = {
-  'common.signIn': 'Sign in',
-  'common.signOut': 'Sign out',
-  'common.getStarted': 'Get started',
-  'common.save': 'Save changes',
-  'common.language': 'Language',
-  'settings.title': 'Settings',
-  'settings.language.hint': 'Choose the language you want to read the app in.',
-  'dashboard.greeting': 'Good morning, {name}.',
-  'nav.home': 'Home',
-  'nav.settings': 'Settings',
-} as const
+import { app } from './en/app'
+import { auth } from './en/auth'
+import { common } from './en/common'
+import { landing } from './en/landing'
+
+export const en = { ...common, ...landing, ...app, ...auth } as const
 
 export type MessageKey = keyof typeof en

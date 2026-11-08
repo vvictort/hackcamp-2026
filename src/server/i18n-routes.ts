@@ -72,7 +72,7 @@ async function translateChunk(env: Env, language: string, chunk: Catalogue): Pro
       temperature: 0,
       system:
         `You translate user-interface text for a school app used by teachers and families. Translate the JSON values from English into ${language}. ` +
-        `Keep the keys exactly. Keep {placeholders} and these names unchanged: ${KEEP}. Use a clear, friendly, plain tone. Reply with the JSON object only.`,
+        `Keep the keys exactly. Keep {placeholders} and inline tags such as <hl>, <muted>, <b> exactly as written (translate the text between them), and keep these names unchanged: ${KEEP}. Use a clear, friendly, plain tone. Reply with the JSON object only.`,
       messages: [{ role: 'user', content: JSON.stringify(chunk) }],
     }),
   })
@@ -84,7 +84,7 @@ async function translateChunk(env: Env, language: string, chunk: Catalogue): Pro
   const out: Catalogue = {}
   for (const [k, src] of Object.entries(chunk)) {
     const v = json[k]
-    const keeps = (src.match(/\{\w+\}/g) ?? []).every((p) => typeof v === 'string' && v.includes(p))
+    const keeps = (src.match(/\{\w+\}|<\/?\w+>/g) ?? []).every((p) => typeof v === 'string' && v.includes(p))
     if (typeof v === 'string' && v.trim() && keeps) out[k] = v
   }
   return out
