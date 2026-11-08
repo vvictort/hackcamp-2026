@@ -1,6 +1,6 @@
 import { useAsyncResource, integration } from 'deepspace'
 import { CircleX, TriangleAlert } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, Card, EmptyState, PageHeader, Spinner } from '@/components/ui'
 
 interface IntegrationCatalog {
   integrations?: Record<string, unknown> | unknown[]
@@ -22,73 +22,69 @@ export default function ApiStatusPage() {
     : Object.keys(catalog.data?.integrations ?? {}).length
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-display font-extrabold">API status</h1>
-        <p className="max-w-[60ch] text-body-lg text-muted-foreground">
-          Check whether the app can reach its connected services.
-        </p>
-      </header>
+    <div className="flex w-full max-w-3xl flex-col gap-6 lg:gap-8">
+      <PageHeader title="API status" description="Check whether the app can reach its connected services." />
 
-      {catalog.error && catalog.data && (
-        <div role="status" className="flex gap-3 rounded-lg border-2 border-warning bg-card p-6">
-          <TriangleAlert className="size-6 shrink-0" aria-hidden />
-          <div className="flex flex-col gap-2">
-            <p className="text-label font-semibold">Showing the last loaded catalog</p>
-            <p className="text-small text-muted-foreground">{catalog.error}</p>
+      <div className="stagger-rise flex flex-col gap-6 lg:gap-8">
+        {catalog.error && catalog.data && (
+          <div role="status" className="flex gap-3 rounded-lg border-2 border-warning bg-card p-6">
+            <TriangleAlert className="size-6 shrink-0" aria-hidden />
+            <div className="flex flex-col gap-2">
+              <p className="text-label font-semibold">Showing the last loaded catalog</p>
+              <p className="text-small text-muted-foreground">{catalog.error}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {catalog.status === 'loading' ? (
-        <div
-          role="status"
-          className="flex items-center justify-center gap-3 rounded-lg bg-card p-6 text-small text-muted-foreground shadow-raised"
-        >
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
-          Loading integration catalog...
-        </div>
-      ) : catalog.status === 'error' ? (
-        <div role="alert" className="flex gap-3 rounded-lg border-2 border-destructive bg-card p-6">
-          <CircleX className="size-6 shrink-0" aria-hidden />
-          <div className="flex flex-col gap-2">
-            <p className="text-label font-semibold">Could not load API data</p>
-            <p className="text-small text-muted-foreground">{catalog.error}</p>
-            {catalog.retryCount > 0 && (
+        {/* One persistent slot, so swapping loading for the result does not
+            replay the entrance. */}
+        <div className="flex flex-col">
+          {catalog.status === 'loading' ? (
+            <Card role="status" className="flex-row items-center justify-center gap-3 text-small text-muted-foreground">
+              <Spinner />
+              Loading integration catalog...
+            </Card>
+          ) : catalog.status === 'error' ? (
+            <div role="alert" className="flex gap-3 rounded-lg border-2 border-destructive bg-card p-6">
+              <CircleX className="size-6 shrink-0" aria-hidden />
+              <div className="flex flex-col gap-2">
+                <p className="text-label font-semibold">Could not load API data</p>
+                <p className="text-small text-muted-foreground">{catalog.error}</p>
+                {catalog.retryCount > 0 && (
+                  <p className="text-small text-muted-foreground">
+                    Retried {catalog.retryCount} time{catalog.retryCount === 1 ? '' : 's'} automatically.
+                  </p>
+                )}
+                <Button variant="outline" className="mt-3 self-start" onClick={catalog.reload}>
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : integrationCount === 0 ? (
+            <Card>
+              <EmptyState
+                className="py-10"
+                title="No integrations available"
+                description="The catalog loaded, but it did not return any integration definitions."
+              />
+            </Card>
+          ) : (
+            <Card title="Integration catalog ready">
               <p className="text-small text-muted-foreground">
-                Retried {catalog.retryCount} time{catalog.retryCount === 1 ? '' : 's'} automatically.
+                {integrationCount} integration{integrationCount === 1 ? '' : 's'} available.
               </p>
-            )}
-            <Button variant="outline" className="mt-3 self-start" onClick={catalog.reload}>
-              Retry
-            </Button>
-          </div>
+              {catalog.isRefreshing && (
+                <p role="status" className="text-small text-muted-foreground">
+                  Refreshing...
+                </p>
+              )}
+              <Button variant="outline" className="self-start" onClick={catalog.reload}>
+                Refresh
+              </Button>
+            </Card>
+          )}
         </div>
-      ) : integrationCount === 0 ? (
-        <section className="flex flex-col items-center gap-2 rounded-lg bg-card p-6 py-16 text-center shadow-raised">
-          <h2 className="text-h2 font-bold">No integrations available</h2>
-          <p className="max-w-sm text-small text-muted-foreground">
-            The catalog loaded, but it did not return any integration definitions.
-          </p>
-        </section>
-      ) : (
-        <section className="flex flex-col gap-5 rounded-lg bg-card p-6 shadow-raised">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-h2 font-bold">Integration catalog ready</h2>
-            <p className="text-small text-muted-foreground">
-              {integrationCount} integration{integrationCount === 1 ? '' : 's'} available.
-            </p>
-            {catalog.isRefreshing && (
-              <p role="status" className="text-small text-muted-foreground">
-                Refreshing...
-              </p>
-            )}
-          </div>
-          <Button variant="outline" className="self-start" onClick={catalog.reload}>
-            Refresh
-          </Button>
-        </section>
-      )}
+      </div>
     </div>
   )
 }

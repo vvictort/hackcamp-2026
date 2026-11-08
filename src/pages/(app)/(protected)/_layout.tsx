@@ -16,7 +16,7 @@
 import { useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { AuthGate, AuthOverlay } from 'deepspace'
-import { Button, buttonVariants } from '@/components/ui'
+import { Button, buttonVariants, Card } from '@/components/ui'
 
 export default function ProtectedLayout() {
   return (
@@ -30,8 +30,8 @@ function SignedOutPanel() {
   const [showAuthModal, setShowAuthModal] = useState(false)
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">
-      <section className="flex max-w-md flex-col gap-5 rounded-lg bg-card p-6 shadow-raised">
+    <div className="flex w-full max-w-3xl flex-col gap-8">
+      <Card className="animate-rise max-w-md gap-5">
         <div className="flex flex-col gap-2">
           <h1 className="text-h1 font-extrabold text-foreground">Sign in to continue</h1>
           <p className="text-body text-muted-foreground">This page is only available to signed-in users.</p>
@@ -42,7 +42,7 @@ function SignedOutPanel() {
             Back to home
           </Link>
         </div>
-      </section>
+      </Card>
 
       {showAuthModal && <AuthOverlay onClose={() => setShowAuthModal(false)} />}
     </div>
