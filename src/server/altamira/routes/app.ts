@@ -5,9 +5,11 @@ import { createKit } from './context'
 import type { AltamiraRouteDeps } from './deps'
 import { familyRoutes } from './family'
 import { lensUsageRoutes } from './lens-usage'
+import { lessonPlanRoutes } from './lesson-plans'
 import { meRoutes } from './me'
 import { progressRoutes } from './progress'
 import { studentRoutes } from './students'
+import { ticketRoutes } from './tickets'
 
 /** Answers anything that is not an Altamira error with a generic 500 and no details. */
 const genericError = () => new Response(JSON.stringify({ error: { code: 'internal', message: 'Internal error' } }), {
@@ -25,6 +27,8 @@ export function createAltamiraApi(deps: AltamiraRouteDeps): Hono<AltamiraEnv> {
   meRoutes(api, kit)
   studentRoutes(api, kit)
   lensUsageRoutes(api, kit)
+  lessonPlanRoutes(api, kit)
+  ticketRoutes(api, kit)
   captureRoutes(api, kit)
   progressRoutes(api, kit)
   familyRoutes(api, kit)

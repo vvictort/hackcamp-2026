@@ -27,7 +27,7 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     const me = MeResponse.parse(await r.school(meOverview, { date: r.today() }))
     // devSeed tells the UI whether to show demo controls; true only when ALTAMIRA_DEV_SEED === 'true'.
-    return c.json({ ...me, devSeed: deps.devSeedEnabled(c.env) })
+    return c.json({ ...me, schoolId: deps.schoolId(c.env), devSeed: deps.devSeedEnabled(c.env) })
   })
 
   /** Scheduled work for the caseload over the next 14 days: IEP meetings, review queue, data due. */

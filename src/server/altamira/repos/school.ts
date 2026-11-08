@@ -1,3 +1,4 @@
+import { LessonPlan, Ticket } from '../contract/plans'
 import {
   CaptureBatch,
   Lesson,
@@ -112,4 +113,26 @@ export function listMemberships(sql: SqlExecutor): Membership[] {
 
 export function listParentLinks(sql: SqlExecutor): ParentLink[] {
   return parseRows(ParentLink, sql.all<Row>('SELECT * FROM parent_links ORDER BY rowid'))
+}
+
+// ---------- lesson plans and IEP change tickets ----------
+
+export const lessonPlanById = (sql: SqlExecutor, id: string) => findById(sql, 'lesson_plans', LessonPlan, id)
+export const ticketById = (sql: SqlExecutor, id: string) => findById(sql, 'iep_change_tickets', Ticket, id)
+
+/** Plans of one student on a day, newest first. */
+export function plansForStudentOn(sql: SqlExecutor, studentId: string, date: string): LessonPlan[] {
+  return parseRows(
+    LessonPlan,
+    sql.all<Row>('SELECT * FROM lesson_plans WHERE student_id = ? AND plan_date = ? ORDER BY created_at DESC, rowid DESC', studentId, date),
+  )
+}
+
+export function ticketsForStudent(sql: SqlExecutor, studentId: string): Ticket[] {
+  return parseRows(Ticket, sql.all<Row>('SELECT * FROM iep_change_tickets WHERE student_id = ? ORDER BY created_at DESC, rowid DESC', studentId))
+}
+
+export function ticketsByStatus(sql: SqlExecutor, status: 'pending' | 'all'): Ticket[] {
+  const where = status === 'pending' ? "WHERE status = 'pending' " : ''
+  return parseRows(Ticket, sql.all<Row>(`SELECT * FROM iep_change_tickets ${where}ORDER BY created_at DESC, rowid DESC`))
 }
