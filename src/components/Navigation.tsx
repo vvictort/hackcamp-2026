@@ -16,6 +16,7 @@ import {
   ChartColumn,
   ClipboardCheck,
   FileText,
+  Sparkles,
   HandHelping,
   House,
   LayoutGrid,
@@ -29,7 +30,7 @@ import {
 } from 'lucide-react'
 import { nav } from '../nav'
 import { endSession } from '@/lib/session'
-import { useAltamiraMe } from '@/lib/altamira/role'
+import { useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
 import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
 import { Logo } from './LogoMark'
@@ -64,8 +65,14 @@ const ICONS: Record<string, LucideIcon> = {
   '/drafts': FileText,
   '/family': Users,
   '/insights': ChartColumn,
+  '/student-mode': Sparkles,
   '/settings': Settings,
 }
+
+/** Role entries that live here rather than in src/nav.ts. Each must link to a built page. */
+const EXTRA_NAV: { path: string; label: MessageKey; roles: AltamiraRole[] }[] = [
+  { path: '/student-mode', label: 'app.nav.practice', roles: ['student'] },
+]
 
 export default function Navigation() {
   const { isLoaded, isSignedIn, user, userLoading } = useAuthProfileReady({ requireUser: true })
@@ -73,8 +80,12 @@ export default function Navigation() {
   const { t } = useLang()
   const { role } = useAltamiraMe()
   const profileReady = !isSignedIn || (!userLoading && !!user)
-  const items = nav
-    .filter((n) => (!n.devOnly || import.meta.env.DEV) && (!n.roles || (role !== null && n.roles.includes(role))))
+  const settings = nav.findIndex((n) => n.path === '/settings')
+  const entries = [...nav]
+  entries.splice(settings < 0 ? entries.length : settings, 0, ...EXTRA_NAV)
+  const items = entries
+    .filter((n) => !('devOnly' in n && n.devOnly) || import.meta.env.DEV)
+    .filter((n) => !n.roles || (role !== null && n.roles.includes(role)))
     .map<Item>((n) => ({ label: n.label, to: n.path, Icon: ICONS[n.path] ?? LayoutGrid }))
 
   const navItem = (item: Item) => {

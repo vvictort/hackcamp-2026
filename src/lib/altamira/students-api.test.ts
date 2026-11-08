@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
+
 import { ApiError, buildUrl, confirmObjective, getDataPointSource, getProfile, importIep, listMyProposals } from './students-api'
 
 function mockFetch(status: number, body: unknown) {
@@ -20,6 +22,7 @@ describe('students-api', () => {
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/v1/students/s%2F1')
     expect(init.credentials).toBe('include')
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok')
     expect(init.method).toBe('GET')
   })
 

@@ -15,7 +15,8 @@ import { HttpError } from '../middleware/errors'
 import type { AltamiraEnv } from '../middleware/auth'
 import { digestWeekly } from '../services/insight'
 import { insightsGet } from '../services/insights'
-import { studentDevSeed } from '../services/lens'
+import { studentDevSeedDemo, devLinkStudent } from '../fixtures/demo'
+import { ComingUpResponse, comingUpList } from '../services/coming-up'
 import { proposalsList } from '../services/measurement'
 import { meOverview, membershipsAssign, schoolDevSeed } from '../services/school'
 import type { Kit } from './context'
@@ -52,6 +53,21 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     return r.json(DigestResponse, { items })
   })
 
+  /** Scheduled work for the caseload over the next 14 days: IEP meetings, review queue, data due. */
+  app.get('/me/coming-up', signedIn, async (c) => {
+    const r = req(c)
+    const items = []
+    for (const studentId of r.staffStudentIds()) {
+      try {
+        items.push(...(await r.student(studentId, comingUpList)).items)
+      } catch {
+        /* no access to this student: skip */
+      }
+    }
+    items.sort((a, b) => a.date.localeCompare(b.date))
+    return r.json(ComingUpResponse, { items })
+  })
+
   /** PRD: "Role assignment is done by a school administrator outside these roles." */
   app.post(
     '/admin/schools/:id/memberships',
@@ -73,7 +89,7 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   }, signedIn, async (c) => {
     const r = req(c)
     const seeded = await r.school(schoolDevSeed, {})
-    for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeed)
+    for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo)
     // The caller acts as the case manager by default.
     await r.school(devRoleSwitch, { role: 'case_manager' })
     return r.json(DevSeedResponse, seeded)
@@ -95,7 +111,10 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   }, signedIn, async (c) => {
     const r = req(c)
     const { role } = await r.body(z.object({ role: z.enum(DEV_ROLES) }))
-    return c.json(await r.school(devRoleSwitch, { role }))
+    const result = await r.school(devRoleSwitch, { role })
+    // The student demo role needs Kai in scope so a session can start (staff-run, consent-gated).
+    if (role === 'student') await r.school(devLinkStudent, {})
+    return c.json(result)
   })
 
   /** District leads see anonymized aggregates only; groups under 10 students are suppressed in the room. */

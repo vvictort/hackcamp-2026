@@ -18,7 +18,7 @@ import {
   type ShareToken,
 } from '../contract/school'
 import type { SqlExecutor } from '../db/sql'
-import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS, seedSchool } from '../fixtures'
+import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS, seedSchool, seedSchoolDemo } from '../fixtures'
 import { audit, insertEntity, mustFind, newId, nowIso, updateVersioned } from '../repos/base'
 import * as repo from '../repos/school'
 import { authorize, authorizeStaff } from './authz'
@@ -496,6 +496,7 @@ export const schoolDevSeed = defineOp({
     const seeded = sql.get<{ n: number }>('SELECT COUNT(*) AS n FROM users')
     if (seeded && seeded.n > 0) throw new AltamiraError('bad_request', 'school room is already seeded')
     seedSchool(sql)
+    seedSchoolDemo(sql, new Date().toISOString())
     return {
       schoolId: SCHOOL.id,
       districtId: DISTRICT.id,

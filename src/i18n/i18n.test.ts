@@ -1,4 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { app } from './en/app'
+import { auth } from './en/auth'
+import { capture } from './en/capture'
+import { common } from './en/common'
+import { drafts } from './en/drafts'
+import { insights } from './en/insights'
+import { landing } from './en/landing'
+import { lens } from './en/lens'
+import { students } from './en/students'
 import { en } from './en'
 import { DEFAULT_LANG, LANGUAGES } from './languages'
 import { translate } from './index'
@@ -21,5 +30,19 @@ describe('i18n', () => {
   it('splits inline tags into nodes and leaves plain text alone', () => {
     expect(rich('Make the <hl>IEP</hl> part of every lesson.')).toHaveLength(3)
     expect(rich('No tags here.')).toEqual(['No tags here.'])
+  })
+
+  it('registers every module and defines no key in two modules', () => {
+    const mods = { app, auth, capture, common, drafts, insights, landing, lens, students }
+    const seen = new Map<string, string>()
+    const dupes: string[] = []
+    for (const [name, m] of Object.entries(mods)) {
+      for (const k of Object.keys(m)) {
+        if (seen.has(k)) dupes.push(`${k} (${seen.get(k)}, ${name})`)
+        seen.set(k, name)
+      }
+    }
+    expect(dupes).toEqual([])
+    expect(Object.keys(en).length).toBe(seen.size)
   })
 })

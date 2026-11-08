@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useAsyncResource, getAuthToken } from 'deepspace'
 import { CircleX, EyeOff } from 'lucide-react'
 import { useLang } from '@/i18n'
-import type { MessageKey } from '@/i18n/en'
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/components/ui'
 
 type Group = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
@@ -26,9 +25,7 @@ async function fetchInsights(signal: AbortSignal): Promise<InsightsData> {
 }
 
 export default function InsightsPage() {
-  const { t: tt } = useLang()
-  // Strings are registered in en.ts next round; until then the key type is widened here.
-  const t = (key: string, vars?: Record<string, string | number>) => tt(key as MessageKey, vars)
+  const { t } = useLang()
   const data = useAsyncResource<InsightsData>(fetchInsights, [], { retry: 0 })
 
   const bySchool = useMemo(() => {
@@ -45,6 +42,10 @@ export default function InsightsPage() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6 lg:gap-8">
       <PageHeader title={t('insights.title')} description={t('insights.description')} />
+      <p className="flex items-center gap-2 text-small text-muted-foreground">
+        <EyeOff className="size-4 shrink-0" aria-hidden />
+        {t('insights.minNote', { n: data.data?.minGroupSize ?? 10 })}
+      </p>
       {data.status === 'loading' ? (
         <Card role="status" className="flex-row items-center justify-center gap-3 text-small text-muted-foreground">
           <Spinner />

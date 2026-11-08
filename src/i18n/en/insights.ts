@@ -1,4 +1,4 @@
-/** District Insights page. Keys are `insights.<name>`; registered in en.ts next round. */
+/** District Insights page. Keys are `insights.<name>`. */
 export const insights = {
   'insights.title': 'District insights',
   'insights.description': 'De-identified trends across schools. Groups with too few students are hidden.',
@@ -14,5 +14,6 @@ export const insights = {
   'insights.students': '{n} students',
   'insights.events': '{n} data points',
   'insights.suppressed': 'Too few students',
+  'insights.minNote': 'Groups under {n} students are hidden to protect privacy.',
   'insights.suppressedHelp': 'Hidden when fewer than {n} students, to protect privacy.',
 } as const

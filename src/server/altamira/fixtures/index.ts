@@ -5,6 +5,7 @@ export * from './school'
 export * from './students'
 export * from './cbiep-sample'
 export * from './seed'
+export * from './demo'
 
 /**
  * Every fictional person name in the fixtures. The de-identification scan

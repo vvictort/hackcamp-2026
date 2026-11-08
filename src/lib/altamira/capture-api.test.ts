@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
+
 import {
   ApiError,
   confirmReview,
@@ -48,6 +50,7 @@ describe('photo capture', () => {
     expect(c.url).toBe('/api/v1/captures/photos')
     expect(c.init.method).toBe('POST')
     expect(c.init.credentials).toBe('include')
+    expect((c.init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
     expect(c.body).toEqual({ pages: [{ fileKey: 'k', contentType: 'image/jpeg' }] })
 
     reply({ batch: { id: 'b1', status: 'processing', pages: [] } })

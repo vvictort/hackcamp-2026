@@ -111,7 +111,15 @@ npx deepspace dev start --host 127.0.0.1 --port 5173 --secrets-config avi-local
 
 Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fictional school, three students, IEPs and progress data). Use **Act as** to switch between case manager, teacher, EA, parent, student and district lead; the navigation and the data follow the role.
 
+Demo data is dated relative to the moment you press the button, so Home shows a mix of Fresh, Stale and Data needed goals, a weekly digest, ranked "What works" strategies and Coming up items on any day. **Load demo data** works once per local database; to start over, stop the server and delete `.wrangler/state`, then start again. **Act as: Student** links you to the consented demo student so a practice session can start.
+
 The demo controls and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`. They answer 404 otherwise, and the flag must never be set in a deploy.
+
+Accessibility check (axe-core on Home, Students, a student profile, Lesson Lens, Capture, Review, EA, Drafts, Family and Insights; fails on serious or critical issues). It needs one test account (`npx deepspace test accounts list`; create one with `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`) and the `avi-local` secrets config so the demo seed is available:
+
+```sh
+npx deepspace test run tests/a11y/axe.spec.ts --port 5197 --secrets-config avi-local
+```
 
 Other commands:
 
