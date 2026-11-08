@@ -22,7 +22,7 @@ import {
   objectivesPropose,
 } from '../services/measurement'
 import { studentsGet } from '../services/school'
-import { parseCbIepText } from './cbiep'
+import { parseCbIepText } from '../services/cbiep'
 import { extractPdfText } from '../../../lib/pdfText'
 import type { Kit } from './context'
 

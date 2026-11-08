@@ -3,7 +3,7 @@ import { createHarness } from '../e2e/harness'
 import { kai } from '../e2e/flows'
 import { CBIEP_SAMPLE_TEXT, USER_IDS } from '../fixtures'
 import { closeAll } from '../services/testing'
-import { parseCbIepText } from './cbiep'
+import { parseCbIepText } from '../services/cbiep'
 
 afterEach(closeAll)
 const { caseManager, teacher, ea, parentKai, districtLead, schoolAdmin } = USER_IDS

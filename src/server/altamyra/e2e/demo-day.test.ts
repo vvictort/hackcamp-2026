@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { DEMO_IEP_SD23_TEXT, DEMO_PARENT, DISTRICT, USER_IDS } from '../fixtures'
-import { parseCbIepText } from '../routes/cbiep'
+import { parseCbIepText } from '../services/cbiep'
 import { closeAll } from '../services/testing'
 import { createHarness } from './harness'
 
