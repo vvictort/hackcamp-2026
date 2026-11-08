@@ -9,6 +9,8 @@ export const usersSchema: CollectionSchema = {
     { name: 'position', storage: 'text', interpretation: 'plain', maxLength: 60 },
     { name: 'language', storage: 'text', interpretation: 'plain', maxLength: 8 },
     { name: 'pulseReminder', storage: 'text', interpretation: 'plain', maxLength: 5 },
+    // ISO datetime of the privacy consent given at sign-up; empty until given.
+    { name: 'consentAt', storage: 'text', interpretation: 'plain', maxLength: 32 },
   ],
   permissions: {
     viewer: { read: 'own', create: false, update: 'own', delete: false },

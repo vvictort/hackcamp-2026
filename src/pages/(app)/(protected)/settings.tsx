@@ -26,6 +26,7 @@ import {
 } from '@/components/ui'
 import { SessionsPanel } from '@/components/SessionsPanel'
 import { endSession } from '@/lib/session'
+import { POSITIONS } from '@/lib/positions'
 import { initialOf } from '@/lib/utils'
 
 interface Profile {
@@ -34,15 +35,6 @@ interface Profile {
   language?: string
   pulseReminder?: string
 }
-
-const POSITIONS = [
-  'Classroom teacher',
-  'Resource / case-manager teacher',
-  'Education assistant',
-  'Substitute teacher',
-  'Administrator',
-  'District inclusive-education lead',
-]
 
 const SECTIONS = [
   { id: 'profile', label: 'Profile' },

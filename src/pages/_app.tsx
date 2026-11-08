@@ -27,6 +27,7 @@ import 'lenis/dist/lenis.css'
 import { Outlet, useRouteError } from 'react-router-dom'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { ToastProvider, TooltipProvider } from '@/components/ui'
+import { LangProvider } from '@/i18n'
 
 /* One glide for the wheel and anchor links: Lenis's own expo-out curve, the
    same as --ease-out in styles.css (cubic-bezier(0.16, 1, 0.3, 1)). CSS
@@ -60,21 +61,23 @@ function useLenis() {
 export default function App() {
   useLenis()
   return (
-    <ToastProvider>
-      {/* The single TooltipProvider: owns the hover delay for every Tooltip
-          and groups them so adjacent triggers switch instantly. Tune delay
-          here — per-Tooltip providers would shadow it (see ui/Tooltip.tsx). */}
-      <TooltipProvider>
-        {/* data-testid="app-root" is the canonical "app shell mounted" hook,
-            present on every page (static and dynamic). Don't rename without
-            updating templates/tests. */}
-        <div data-testid="app-root" className="min-h-screen bg-background text-foreground">
-          <Suspense fallback={<div role="status" className="flex items-center justify-center min-h-screen text-muted-foreground">Loading...</div>}>
-            <Outlet />
-          </Suspense>
-        </div>
-      </TooltipProvider>
-    </ToastProvider>
+    <LangProvider>
+      <ToastProvider>
+        {/* The single TooltipProvider: owns the hover delay for every Tooltip
+            and groups them so adjacent triggers switch instantly. Tune delay
+            here — per-Tooltip providers would shadow it (see ui/Tooltip.tsx). */}
+        <TooltipProvider>
+          {/* data-testid="app-root" is the canonical "app shell mounted" hook,
+              present on every page (static and dynamic). Don't rename without
+              updating templates/tests. */}
+          <div data-testid="app-root" className="min-h-screen bg-background text-foreground">
+            <Suspense fallback={<div role="status" className="flex items-center justify-center min-h-screen text-muted-foreground">Loading...</div>}>
+              <Outlet />
+            </Suspense>
+          </div>
+        </TooltipProvider>
+      </ToastProvider>
+    </LangProvider>
   )
 }
 
