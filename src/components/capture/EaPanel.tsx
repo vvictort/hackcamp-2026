@@ -8,7 +8,7 @@ import {
   Plus,
   Square,
 } from "lucide-react";
-import { Button, Card, StatusBadge, Textarea, useToast } from "@/components/ui";
+import { Button, Card, StatusBadge, useToast } from "@/components/ui";
 import {
   PROMPT_LEVELS,
   type PromptLevel,
@@ -311,7 +311,6 @@ function VoiceNote({ studentId }: { studentId: string }) {
   const toast = useToast();
   const [recording, setRecording] = useState(false);
   const [status, setStatus] = useState<Saved>(null);
-  const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const rec = useRef<MediaRecorder | null>(null);
 
@@ -322,7 +321,6 @@ function VoiceNote({ studentId }: { studentId: string }) {
       const msg = ct("capture.ea.voiceSent", { n: r.dataPoints.length });
       setStatus({ ok: true, text: msg });
       toast.success(msg);
-      setText("");
     } catch (err) {
       const noConsent = err instanceof ApiError && err.code === "consent_required";
       setStatus({
@@ -382,28 +380,6 @@ function VoiceNote({ studentId }: { studentId: string }) {
         {recording && (
           <StatusBadge tone="info">{ct("capture.ea.recording")}</StatusBadge>
         )}
-      </div>
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">{ct("capture.ea.textNote")}</span>
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={3}
-          aria-describedby="ea-text-hint"
-        />
-        <span id="ea-text-hint" className="text-small text-muted-foreground">
-          {ct("capture.ea.textNoteHint")}
-        </span>
-      </label>
-      <div>
-        <Button
-          className={BIG}
-          variant="secondary"
-          disabled={!text.trim() || busy}
-          onClick={() => send(new Blob([text.trim()], { type: "text/plain" }))}
-        >
-          {ct("capture.ea.sendText")}
-        </Button>
       </div>
       <SavedStatus saved={status} />
     </Card>
