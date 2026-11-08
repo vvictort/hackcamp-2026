@@ -10,7 +10,7 @@ import {
   ObjectivesResponse,
   StudentProfileResponse,
 } from '../contract/api'
-import { HttpError } from '../middleware/errors'
+import { HttpError, aiFailureResponse } from '../middleware/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { profileGet } from '../services/lens'
 import {
@@ -22,7 +22,7 @@ import {
   objectivesPropose,
 } from '../services/measurement'
 import { studentsGet } from '../services/school'
-import { aiFailureResponse, parseCbIepText } from './cbiep'
+import { parseCbIepText } from './cbiep'
 import { extractPdfText } from './pdf-text'
 import type { Kit } from './context'
 

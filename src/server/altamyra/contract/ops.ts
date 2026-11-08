@@ -1,5 +1,4 @@
 import type { z } from 'zod'
-import type { SqlExecutor } from '../db/sql'
 import type { ErrorBody, ErrorCode } from './errors'
 import type { Actor, Capability } from './permissions'
 
@@ -9,6 +8,25 @@ import type { Actor, Capability } from './permissions'
  * append to audit_log in that same transaction for every write. Throwing
  * (ideally an AltamyraError) rolls everything back.
  */
+
+/** Values that bind the same way in Durable Object SQLite and node:sqlite. */
+export type SqlParam = string | number | null
+
+export type SqlRow = Record<string, SqlParam>
+
+/**
+ * The one SQL interface Altamyra code is written against. The Durable Object
+ * adapter (do-sqlite.ts) wraps ctx.storage.sql; the test adapter
+ * (node-sqlite.ts) wraps node:sqlite. Room ops and repositories never import
+ * either adapter directly.
+ */
+export interface SqlExecutor {
+  all<T = SqlRow>(sql: string, ...params: SqlParam[]): T[]
+  get<T = SqlRow>(sql: string, ...params: SqlParam[]): T | undefined
+  run(sql: string, ...params: SqlParam[]): { changes: number }
+  /** Runs fn atomically. Nested calls join the outer transaction (savepoints). A throw rolls back. */
+  transaction<T>(fn: () => T): T
+}
 
 export type RoomName = 'student' | 'school' | 'insights'
 

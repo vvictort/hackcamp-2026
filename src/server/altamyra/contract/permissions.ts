@@ -31,6 +31,7 @@ export const STUDENT_CAPABILITIES = [
   'summary.view',
   'summary.edit',
   'summary.approve',
+  'summary.caseload',
   'progress.view',
   'consent.manage',
 ] as const
@@ -43,7 +44,7 @@ export type Capability = (typeof CAPABILITIES)[number]
 export type StudentCapability = (typeof STUDENT_CAPABILITIES)[number]
 
 /** Capabilities that only read; a "read" grant satisfies them without opts.access. */
-export const READ_CAPABILITIES: readonly Capability[] = ['iep.view', 'progress.view', 'insights.view', 'lesson_plan.view', 'summary.view']
+export const READ_CAPABILITIES: readonly Capability[] = ['iep.view', 'progress.view', 'insights.view', 'lesson_plan.view', 'summary.view', 'summary.caseload']
 
 /**
  * What a matrix cell grants.
@@ -110,6 +111,7 @@ export const PERMISSION_MATRIX: Record<Capability, Partial<Record<ActorRole, Cel
   },
   'summary.edit': { teacher: full('Class students'), ea: full('Assigned students') },
   'summary.approve': { teacher: full('Class students'), ea: full('Assigned students') },
+  'summary.caseload': { case_manager: read('Approved weekly summaries across the caseload', 'approved_only') },
 
   'progress.view': {
     case_manager: read('Caseload'),

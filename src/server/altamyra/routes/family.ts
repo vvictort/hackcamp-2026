@@ -7,7 +7,6 @@ import type { AltamyraEnv } from '../middleware/auth'
 import { consentsSet } from '../services/family'
 import { familySummariesList } from '../services/summaries'
 import type { Kit } from './context'
-import { summariesRoutes } from './summaries'
 
 /**
  * Parent consent, summaries and read-aloud audio. A parent reaches only
@@ -15,7 +14,6 @@ import { summariesRoutes } from './summaries'
  */
 export function familyRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   const { mw, signedIn, req } = kit
-  summariesRoutes(app, kit)
 
   /** Parents toggle consent for voice notes and videos; nobody else can. */
   app.put('/family/:id/consents', signedIn, mw.requireCapability('consent.manage'), async (c) => {

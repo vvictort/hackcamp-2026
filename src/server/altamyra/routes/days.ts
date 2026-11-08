@@ -14,8 +14,7 @@ import { HttpError } from '../middleware/errors'
 import { dayReviewToday, daysComplete, daysGet, daysList } from '../services/day-record'
 import { familySummariesList } from '../services/summaries'
 import type { Kit, Req } from './context'
-import { studentToken } from './lens-flow'
-import { draftSummary } from './summaries'
+import { draftSummary, studentToken } from './lens-flow'
 
 function dateParam(r: Req): string {
   const parsed = DateString.safeParse(r.param('date'))
@@ -23,7 +22,7 @@ function dateParam(r: Req): string {
   return parsed.data
 }
 
-/** The daily record: days list, one day in full, the end-of-day review. Mounted by captureRoutes(). */
+/** The daily record: days list, one day in full, the end-of-day review. */
 export function daysRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   const { mw, signedIn, req } = kit
 

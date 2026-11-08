@@ -48,7 +48,6 @@ import {
 import { classesList, lessonsCreate, rosterList, sheetCodesIssue, sheetCodesResolve } from '../services/school'
 import { photoRef } from '../services/sources'
 import type { Kit, Req } from './context'
-import { daysRoutes } from './days'
 import { studentToken } from './lens-flow'
 
 const CaptureObjectivesResponse = z.object({
@@ -198,7 +197,6 @@ async function scorePage(r: Req, p: ResolvedPage): Promise<CapturePageResult> {
 /** Photo capture, EA events and voice notes, review queue, corrections and timeline (feature 1B, M2). */
 export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   const { mw, signedIn, studentRef, req, deps } = kit
-  daysRoutes(app, kit)
 
   /**
    * PRD 1B "Photo in the web app": each page's sheet code names the student,
