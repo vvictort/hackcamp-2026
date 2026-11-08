@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import { z } from 'zod'
 import {
   FamilyConsentBody,
   FamilyConsentsResponse,
@@ -15,6 +16,9 @@ import {
   TodayLinkResponse,
   TodayViewResponse,
 } from '../contract/api'
+import { aiSource, guardAi } from '../ai/guard'
+import { synthesizeSpeech, type TtsEnv } from '../ai/tts'
+import { HttpError } from '../middleware/errors'
 import type { AltamiraEnv } from '../middleware/auth'
 import { createTodayLink } from '../middleware/session'
 import {
@@ -85,7 +89,8 @@ export function familyRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const { draft } = await r.student(studentId, draftsGet, { draftId })
     const { token } = await studentToken(r, studentId)
     const ai = await r.ai([studentId])
-    const out = await ai.summariseForFamily({ studentToken: token, language: body.language, draft: { sentences: draft.sentences } })
+    const out = await guardAi(() => ai.summariseForFamily({ studentToken: token, language: body.language, draft: { sentences: draft.sentences } }))
+    c.header('x-altamira-ai-source', aiSource(ai))
     return r.json(FamilySummaryResponse, await r.student(studentId, familySummariesSave, { draftId, language: out.language, text: out.text }), 201)
   })
 
@@ -93,6 +98,23 @@ export function familyRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     const body = await r.body(FamilySummaryApproveBody)
     return r.json(FamilySummaryResponse, await r.student(r.studentRef(), familySummariesApprove, { summaryId: r.param('fsid'), ...body }))
+  })
+
+  /**
+   * Read-aloud audio. Text is de-identified before it leaves (when studentId is
+   * given, with that student's roster). 204 means "no audio, use browser speech".
+   */
+  app.post('/tts', signedIn, async (c) => {
+    const r = req(c)
+    const raw = await c.req.json().catch(() => null)
+    const parsed = z.object({ text: z.string().trim().min(1).max(2000), language: z.string().max(16).default('en'), studentId: z.string().max(64).optional() }).safeParse(raw)
+    if (!parsed.success) throw new HttpError('bad_request', 'Text is required and must be 2000 characters or fewer.')
+    const { text, studentId } = parsed.data
+    if (studentId) r.allow('progress.view', studentId)
+    const ai = await r.ai(studentId ? [studentId] : [])
+    const audio = await synthesizeSpeech(ai.deidText(text), c.env as unknown as TtsEnv)
+    if (!audio) return c.body(null, 204)
+    return c.body(audio as unknown as ArrayBuffer, 200, { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store' })
   })
 
   // ---------- Today View (PRD: substitute link, no login, expires) ----------
