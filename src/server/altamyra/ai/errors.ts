@@ -25,13 +25,3 @@ export class AiDeidentificationError extends Error {
     this.kinds = kinds
   }
 }
-
-export const VERTEX_NOT_CONFIGURED =
-  'Vertex AI not configured: needs GCP service account and @ai-sdk/google-vertex (pending owner approval)'
-
-export class AiNotConfiguredError extends Error {
-  constructor(message = VERTEX_NOT_CONFIGURED) {
-    super(message)
-    this.name = 'AiNotConfiguredError'
-  }
-}

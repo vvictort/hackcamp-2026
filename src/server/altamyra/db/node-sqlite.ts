@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite'
-import type { SqlExecutor, SqlParam } from './sql'
+import type { SqlExecutor, SqlParam } from '../contract/ops'
 
 /**
  * SqlExecutor over node:sqlite, for Vitest only (never imported by Worker

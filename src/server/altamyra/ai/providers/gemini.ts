@@ -2,8 +2,7 @@ import type { z } from 'zod'
 import { AI_SCHEMAS, type AiFunctionName, type AiProvider } from '../../contract/ai'
 import type { MediaRef } from '../../contract/common'
 import { issuesOf } from '../../contract/issues'
-import { AiNotConfiguredError, AiOutputError } from '../errors'
-import { createFixtureProvider } from './fixture'
+import { AiOutputError } from '../errors'
 import { coerceToSchema, toGeminiSchema } from './gemini-schema'
 
 /**
@@ -13,26 +12,22 @@ import { coerceToSchema, toGeminiSchema } from './gemini-schema'
  * 429, 503, 404 or timeout moves to the next model, anything else throws.
  */
 
-export const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
+export const GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite']
 export const GEMINI_TIMEOUT_MS = 25_000
 /** Whole-chain budget; each attempt gets min(GEMINI_TIMEOUT_MS, time left). Callers may pass a smaller totalTimeoutMs. */
 export const GEMINI_TOTAL_TIMEOUT_MS = 35_000
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 const FALL_OVER_STATUS = new Set([429, 503, 404])
 
-export type GeminiEnv = { GEMINI_API_KEY?: string; ALTAMYRA_GEMINI_MODELS?: string }
-
 export type GeminiConfig = {
   apiKey: string
-  /** Comma list; defaults to DEFAULT_GEMINI_MODELS. */
-  models?: string
+  models?: string[]
   timeoutMs?: number
   totalTimeoutMs?: number
   fetch?: typeof fetch
 }
 
 export type GeminiOptions = GeminiConfig & {
-  /** Used when the chain fails or the key is refused; results then carry lastSource 'fixture'. */
   fallback?: AiProvider
 }
 
@@ -41,11 +36,6 @@ export class GeminiError extends Error {
     super(message)
     this.name = 'GeminiError'
   }
-}
-
-export const parseModels = (raw: string | undefined, defaults = DEFAULT_GEMINI_MODELS): string[] => {
-  const list = (raw ?? '').split(',').map((m) => m.trim()).filter(Boolean)
-  return list.length ? list : defaults.split(',')
 }
 
 export type GeminiPart = { text?: string; thought?: boolean; inlineData?: { mimeType?: string; data?: string } }
@@ -167,7 +157,7 @@ function buildParts(instruction: string, input: unknown): RequestPart[] {
 export function generateJson<S extends z.ZodType>(config: GeminiConfig, fn: string, instruction: string, input: unknown, schema: S, thinking = false): Promise<z.output<S>> {
   return generate({
     apiKey: config.apiKey,
-    models: parseModels(config.models),
+    models: config.models ?? GEMINI_MODELS,
     timeoutMs: config.timeoutMs ?? GEMINI_TIMEOUT_MS,
     totalTimeoutMs: config.totalTimeoutMs ?? GEMINI_TOTAL_TIMEOUT_MS,
     fetch: config.fetch,
@@ -205,32 +195,17 @@ const INSTRUCTIONS: Record<AiFunctionName, string> = {
 }
 
 export function createGeminiProvider(options: GeminiOptions): AiProvider {
-  if (!options.apiKey) throw new AiNotConfiguredError('GEMINI_API_KEY is not set')
   const { fallback } = options
-  let lastSource: 'gemini' | 'fixture' = 'gemini'
 
   async function call(fn: AiFunctionName, input: unknown): Promise<unknown> {
     try {
-      const out = await generateJson(options, fn, INSTRUCTIONS[fn], input, AI_SCHEMAS[fn].output, true)
-      lastSource = 'gemini'
-      return out
+      return await generateJson(options, fn, INSTRUCTIONS[fn], input, AI_SCHEMAS[fn].output, true)
     } catch (err) {
       if (!fallback) throw err
       log('chain', `${err instanceof GeminiError && err.status ? err.status : 'exhausted'}; using fixture`)
-      lastSource = 'fixture'
       return (fallback[fn] as (i: unknown) => Promise<unknown>)(input)
     }
   }
 
-  return {
-    ...Object.fromEntries((Object.keys(AI_SCHEMAS) as AiFunctionName[]).map((fn) => [fn, (i: unknown) => call(fn, i)])),
-    name: 'gemini',
-    get lastSource() {
-      return lastSource
-    },
-  } as unknown as AiProvider
-}
-
-export function geminiFromEnv(env: GeminiEnv, fetchImpl?: typeof fetch, totalTimeoutMs?: number): AiProvider {
-  return createGeminiProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMYRA_GEMINI_MODELS, totalTimeoutMs, fetch: fetchImpl, fallback: createFixtureProvider() })
+  return Object.fromEntries((Object.keys(AI_SCHEMAS) as AiFunctionName[]).map((fn) => [fn, (i: unknown) => call(fn, i)])) as unknown as AiProvider
 }

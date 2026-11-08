@@ -2,10 +2,9 @@ import { z } from 'zod'
 import { Id } from '../contract/common'
 import { Proficiency } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
 import type { Decision, Objective, Probe, ProficiencyRating } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
 import { audit, insertEntity, newId, nowIso } from '../repos/base'
 import * as ev from '../repos/evidence'
 import { confirmedObjectiveForGoal, currentConfirmedObjectives, goalById } from '../repos/iep'
@@ -28,7 +27,6 @@ function requireGoal(sql: SqlExecutor, goalId: string) {
 export const aimlineGet = defineOp({
   name: 'aimline.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ goalId: Id }).extend(Now.shape),
   run(sql, args, actor) {
     authorize(actor, 'progress.view', args.studentId)
@@ -47,7 +45,6 @@ export const aimlineGet = defineOp({
 export const whatWorksGet = defineOp({
   name: 'whatWorks.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs,
   run(sql, args, actor): { rows: WhatWorksRow[] } {
     authorize(actor, 'progress.view', args.studentId)
@@ -139,7 +136,6 @@ export const dataNeededScan = defineOp({
 export const proficiencySet = defineOp({
   name: 'proficiency.set',
   room: 'student',
-  capability: 'proficiency.set',
   args: StudentArgs.extend({ goalId: Id, level: Proficiency, period: z.string().min(1), narrative: z.string().nullable().default(null) }).extend(Now.shape),
   run(sql, args, actor): { rating: ProficiencyRating } {
     authorize(actor, 'proficiency.set', args.studentId)

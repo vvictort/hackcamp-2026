@@ -9,7 +9,6 @@ import {
   CBIEP_SAMPLE_EXPECTED,
   CBIEP_SAMPLE_TEXT,
   CLASSES,
-  FIXTURE_NAMES,
   MEMBERSHIPS,
   PARENT_LINKS,
   ROSTER,
@@ -23,6 +22,7 @@ import {
   seedSchool,
   seedStudent,
 } from './index'
+import { FIXTURE_NAMES } from '../e2e/testing'
 
 const dbs: { close(): void }[] = []
 afterEach(() => dbs.splice(0).forEach((d) => d.close()))

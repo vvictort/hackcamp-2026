@@ -1,4 +1,4 @@
-import type { SqlExecutor } from './sql'
+import type { SqlExecutor } from '../contract/ops'
 
 export type AuditInput = {
   actorId: string
@@ -9,8 +9,6 @@ export type AuditInput = {
   after?: unknown
   /** Defaults to now. */
   at?: string
-  /** Defaults to a random UUID. */
-  id?: string
 }
 
 /**
@@ -18,7 +16,7 @@ export type AuditInput = {
  * it describes, so both land or neither does (design doc "Request flow").
  */
 export function appendAudit(sql: SqlExecutor, entry: AuditInput): string {
-  const id = entry.id ?? crypto.randomUUID()
+  const id = crypto.randomUUID()
   sql.run(
     'INSERT INTO audit_log (id, at, actor_id, action, table_name, row_id, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     id,

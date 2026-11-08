@@ -2,7 +2,6 @@ import { LessonPlan, Ticket } from '../contract/plans'
 import {
   CaptureBatch,
   Lesson,
-  LessonFile,
   Membership,
   ParentLink,
   ScheduleBlock,
@@ -11,7 +10,7 @@ import {
   SheetCode,
   User,
 } from '../contract/school'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { findById, parseRow, parseRows } from './base'
 
 type Row = Record<string, unknown>
@@ -66,10 +65,6 @@ export function findParentLink(sql: SqlExecutor, parentUserId: string, studentId
 
 export function lessonsOn(sql: SqlExecutor, classId: string, date: string): Lesson[] {
   return parseRows(Lesson, sql.all<Row>('SELECT * FROM lessons WHERE class_id = ? AND scheduled_for = ? ORDER BY created_at, rowid', classId, date))
-}
-
-export function filesOfLesson(sql: SqlExecutor, lessonId: string): LessonFile[] {
-  return parseRows(LessonFile, sql.all<Row>('SELECT * FROM lesson_files WHERE lesson_id = ? ORDER BY rowid', lessonId))
 }
 
 export function sheetCodeByCode(sql: SqlExecutor, code: string): SheetCode | undefined {

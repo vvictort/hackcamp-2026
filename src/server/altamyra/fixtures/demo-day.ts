@@ -1,7 +1,6 @@
 import { z } from 'zod'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import { appendAudit } from '../db/audit'
-import type { SqlExecutor } from '../db/sql'
 import { insertEntity, newId, nowIso } from '../repos/base'
 import { DEMO_PARENT, DEMO_STUDENT } from './demo-iep-sd23'
 import { CLASS_IDS, USER_IDS } from './school'

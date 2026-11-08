@@ -1,11 +1,11 @@
 import { appFiles, workerErrorHandler } from 'deepspace/worker'
 import type { Env } from '../../../../worker'
+import { resolveAuth } from '../../http-routes'
 import { getProvider } from '../ai/provider'
 import { summaryProviderFromEnv } from '../ai/summaries-provider'
 import { DISTRICT, SCHOOL } from '../fixtures/school'
-import { defaultAuthDeps } from '../middleware'
 import { altamyraDistrictId, altamyraSchoolId, insightsRoom, openStudentLive, schoolRoom, studentRoom } from '../rooms/stubs'
-import { sheetCodeFromFileKey, type AltamyraRouteDeps } from './deps'
+import type { AltamyraRouteDeps } from './deps'
 
 /** Production wiring for the /api/v1 routes (Durable Object rooms, DeepSpace auth and files). */
 export const productionDeps: AltamyraRouteDeps = {
@@ -14,7 +14,7 @@ export const productionDeps: AltamyraRouteDeps = {
     school: (env) => schoolRoom(env),
     insights: (env) => insightsRoom(env),
   },
-  resolveUserId: defaultAuthDeps.resolveUserId,
+  resolveUserId: async (req, env) => (await resolveAuth(req, env))?.userId ?? null,
   aiProvider: (env, teacher) => getProvider(env, teacher),
   summaryProvider: (env) => summaryProviderFromEnv(env),
   // Real names come from the rooms per request (Req.ai). Assumption: this single-school deployment serves the
@@ -26,7 +26,6 @@ export const productionDeps: AltamyraRouteDeps = {
   deleteFile: async (env, fileKey, ownerUserId) => {
     await appFiles(env, { scope: 'self', userId: ownerUserId }).delete(fileKey)
   },
-  readSheetCode: sheetCodeFromFileKey,
   openLive: (env, studentId, request) => openStudentLive(env, studentId, request),
   fallbackError: workerErrorHandler('error'),
   now: () => Date.now(),

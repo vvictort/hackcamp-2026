@@ -1,8 +1,9 @@
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono'
 import type { Env } from '../../../../worker'
 import { can, type Actor, type Capability, type CanOptions, type DataFilter, type ActorRole } from '../contract/permissions'
-import type { SchoolRoomRpc, StudentRoomRpc } from '../rooms/rpc'
-import { errorResponse, HttpError, httpErrorFromDeny } from './errors'
+import type { SchoolRoomRpc } from '../rooms/rpc'
+import { AltamyraError } from './../contract/errors'
+import { errorResponse, httpErrorFromDeny } from './errors'
 
 export type Access = { studentId: string | null; role: ActorRole; filter: DataFilter }
 
@@ -20,9 +21,7 @@ export type AuthDeps = {
   /** The DeepSpace userId (resolveAuth in src/server/http-routes.ts), or null. */
   resolveUserId(req: Request, env: Env): Promise<string | null>
   schoolRoom(env: Env): Pick<SchoolRoomRpc, 'loadActor'>
-  studentRoom(env: Env, studentId: string): Pick<StudentRoomRpc, 'hasConsent'>
   schoolId(env: Env): string
-  now(): number
 }
 
 type Handler = MiddlewareHandler<AltamyraEnv>
@@ -53,7 +52,7 @@ export function createAltamyraMiddleware(deps: AuthDeps) {
   const altamyraAuth = (): Handler =>
     guarded(async (c, next) => {
       const userId = await deps.resolveUserId(c.req.raw, c.env)
-      if (!userId) throw new HttpError('unauthorized', 'Sign in required.')
+      if (!userId) throw new AltamyraError('unauthorized', 'Sign in required.')
       c.set('actor', await deps.schoolRoom(c.env).loadActor(userId, deps.schoolId(c.env)))
       await next()
     })
@@ -66,10 +65,10 @@ export function createAltamyraMiddleware(deps: AuthDeps) {
   const requireCapability = (capability: Capability, studentIdParam = 'id', options?: CapabilityOptions): Handler =>
     guarded(async (c, next) => {
       const actor = c.get('actor')
-      if (!actor) throw new HttpError('unauthorized', 'Sign in required.')
+      if (!actor) throw new AltamyraError('unauthorized', 'Sign in required.')
       const studentId = c.req.param(studentIdParam) ?? c.req.query('studentId') ?? null
       const opts = options ? await options(c) : {}
-      const result = can(actor, capability, studentId, { ...opts, now: opts.now ?? deps.now() })
+      const result = can(actor, capability, studentId, opts)
       if (!result.allowed) throw httpErrorFromDeny(result)
       c.set('access', { studentId, role: result.role, filter: result.filter })
       await next()

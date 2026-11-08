@@ -10,7 +10,8 @@ import {
   ObjectivesResponse,
   StudentProfileResponse,
 } from '../contract/api'
-import { HttpError, aiFailureResponse } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
+import { aiFailureResponse } from '../middleware/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { profileGet } from '../services/lens'
 import {
@@ -34,15 +35,15 @@ import type { Kit } from './context'
 async function importText(body: IepImportBody): Promise<string> {
   if (body.sourceKind === 'text') return body.text ?? ''
   const b64 = body.file?.bytesBase64
-  if (!b64) throw new HttpError('bad_request', 'Send the CB-IEP PDF bytes inline (file.bytesBase64).')
+  if (!b64) throw new AltamyraError('bad_request', 'Send the CB-IEP PDF bytes inline (file.bytesBase64).')
   let bytes: Uint8Array
   try {
     bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))
   } catch {
-    throw new HttpError('bad_request', 'file.bytesBase64 is not valid base64.')
+    throw new AltamyraError('bad_request', 'file.bytesBase64 is not valid base64.')
   }
   const text = await extractPdfText(bytes)
-  if (!text) throw new HttpError('bad_request', 'This PDF has no readable text layer; paste the CB-IEP text with sourceKind "text".')
+  if (!text) throw new AltamyraError('bad_request', 'This PDF has no readable text layer; paste the CB-IEP text with sourceKind "text".')
   return text
 }
 
@@ -99,7 +100,7 @@ export function studentRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   app.post('/students/:id/iep/:version/confirm', signedIn, mw.requireCapability('iep.import'), async (c) => {
     const r = req(c)
     const version = Number(r.param('version'))
-    if (!Number.isInteger(version) || version < 1) throw new HttpError('bad_request', 'version must be a positive integer')
+    if (!Number.isInteger(version) || version < 1) throw new AltamyraError('bad_request', 'version must be a positive integer')
     const body = await r.body(IepConfirmBody)
     return r.json(IepConfirmResponse, await r.student(r.param('id'), iepConfirm, { version, ...body }))
   })

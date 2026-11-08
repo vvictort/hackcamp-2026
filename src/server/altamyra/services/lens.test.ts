@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { LensStudentResult } from '../contract/api'
 import type { LensAdaptation, LensCheck } from '../contract/ai'
 import { userActor } from '../contract/permissions'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { KAI, SOFIA, STUDENT_IDS } from '../fixtures'
 import { ACTORS, closeAll, countRows, runStudent, studentRoom } from '../e2e/testing'
 

@@ -4,7 +4,7 @@ import { evaluateObjective } from '../services/measurement'
 import { objectiveById } from '../repos/iep'
 import { activeConsent, latestProficiency } from '../repos/records'
 import type { CounterIncrement } from '../contract/insights'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 
 /** Pure student-room helpers used by AltamyraStudentRoom, testable on node:sqlite. */
 
@@ -115,15 +115,6 @@ export function reviewTimelinessSince(sql: SqlExecutor, mark: number): { period:
 
 /** Design doc: student mode and audio capture require an active consents row. */
 export const hasActiveConsent = (sql: SqlExecutor, kind: ConsentKind): boolean => activeConsent(sql, kind) !== undefined
-
-/**
- * What live timeline sockets receive after confirmed data points. Ids only:
- * clients refetch through the scoped API, so each viewer still sees only what
- * its role allows.
- */
-export type LiveMessage = { type: 'timeline.updated'; dataPointIds: string[] }
-
-export const liveMessage = (dataPointIds: string[]): LiveMessage => ({ type: 'timeline.updated', dataPointIds })
 
 /**
  * Counter increments for one committed op (without school id and student key,

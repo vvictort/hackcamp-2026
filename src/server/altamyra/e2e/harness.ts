@@ -5,9 +5,8 @@ import { unitInterval } from '../ai/hash'
 import { createFixtureProvider } from '../ai/providers/fixture'
 import { createFixtureSummaryProvider } from '../ai/summaries-provider'
 import { AI_SCHEMAS, type AiFunctionName, type AiProvider } from '../contract/ai'
-import type { AltamyraRoomRpc, OpRegistry, RoomName } from '../contract/ops'
+import type { AltamyraRoomRpc, OpRegistry, RoomName, SqlExecutor } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
-import type { SqlExecutor } from '../db/sql'
 import { DISTRICT, SCHOOL, STUDENT_IDS, type FixtureStudentKey } from '../fixtures'
 import { listStudentIds, loadActor } from '../middleware/actor'
 import { runRoomOp } from '../rooms/core'
@@ -18,7 +17,7 @@ import { insightsOps, schoolOps, studentOps } from '../services/registry'
 import { insightsRoom, schoolRoom, studentRoom } from './testing'
 import { createAltamyraApi } from '../routes/app'
 import { AI_REVIEW_SAMPLE_RATE } from '../routes/capture'
-import { sheetCodeFromFileKey, type AltamyraRouteDeps } from '../routes/deps'
+import type { AltamyraRouteDeps } from '../routes/deps'
 
 /**
  * End-to-end harness: the real /api/v1 sub-app over in-memory rooms on
@@ -88,7 +87,7 @@ export function createHarness(options: HarnessOptions = {}) {
   const base = createFixtureProvider()
   const aiCalls = Object.fromEntries(AI_FUNCTIONS.map((f) => [f, 0])) as Record<AiFunctionName, number>
   const aiRequests: { fn: AiFunctionName; input: unknown }[] = []
-  const provider = { name: 'fixture' } as AiProvider
+  const provider = {} as AiProvider
   for (const fn of AI_FUNCTIONS) {
     const impl = (options.ai?.[fn] ?? base[fn]) as (input: unknown) => Promise<unknown>
     ;(provider as unknown as Record<string, unknown>)[fn] = async (input: unknown) => {
@@ -116,7 +115,6 @@ export function createHarness(options: HarnessOptions = {}) {
     deleteFile: async (_env, fileKey) => {
       deletedFiles.push(fileKey)
     },
-    readSheetCode: sheetCodeFromFileKey,
     // Unexpected errors still answer a generic 500; tests can inspect them here.
     fallbackError: (err, c) => {
       errors.push(err)

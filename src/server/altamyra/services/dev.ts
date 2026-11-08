@@ -1,7 +1,6 @@
 import { z } from 'zod'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import { ACTOR_ROLES, type ActorRole } from '../contract/permissions'
-import type { SqlExecutor } from '../db/sql'
 import { DEMO_PARENT } from '../fixtures/demo-iep-sd23'
 import { MEMBERSHIPS, PARENT_LINKS, USERS, USER_IDS } from '../fixtures/school'
 import { audit, insertEntity, newId, nowIso } from '../repos/base'

@@ -1,32 +1,25 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { FIXTURE_NAMES } from '../fixtures'
-import { closeAll } from './testing'
-import { approveAdaptation, approvedMathSheets, kai, sofia, U } from './flows'
+import { FIXTURE_NAMES, closeAll } from './testing'
+import { approvedMathSheets, sofia } from './flows'
 import { createHarness } from './harness'
 
 afterEach(closeAll)
+const DEMO_USER = 'demo-user-1'
 
 describe('M1 lesson approvals through /api/v1 (Lens analysis itself lives in src/actions)', () => {
-  it('approval stores an approved adaptation tagged to the goal and writes the usage event', async () => {
-    const h = createHarness()
-    const res = await approveAdaptation(h, sofia)
-    expect(res.status).toBe(201)
-    expect(res.body.suggestions).toHaveLength(1)
-    const usage = h.studentSql(sofia).all<{ suggestion_id: string }>('SELECT suggestion_id FROM usage_events')
-    expect(usage.map((u) => u.suggestion_id)).toEqual([res.body.suggestions[0].id])
-  })
-
-  it('blocks a modification the IEP does not authorize and allows Sofia’s authorized math modification', async () => {
-    const h = createHarness()
-    const blocked = await approveAdaptation(h, kai, { label: 'modify', adaptationType: 'modified_assessment' })
-    expect(blocked.status).toBe(201)
-    expect(blocked.body.blocked).toHaveLength(1)
-    expect(h.studentSql(kai).get<{ n: number }>('SELECT COUNT(*) AS n FROM usage_events')?.n).toBe(0)
-
-    const ok = await approveAdaptation(h, sofia, { label: 'modify', adaptationType: 'modified_assessment' })
-    expect(ok.status).toBe(201)
-    expect(ok.body.blocked).toEqual([])
-    expect(ok.body.suggestions).toHaveLength(1)
+  it('lists the seeded approved adaptations on lens-usage, one event per usage row, tagged to current goals', async () => {
+    const h = createHarness({ seed: false, devSeed: true })
+    expect((await h.post(DEMO_USER, '/dev/seed')).status).toBe(200)
+    const usage = await h.get(DEMO_USER, `/students/${sofia}/lens-usage`)
+    expect(usage.status).toBe(200)
+    const rows = h.studentSql(sofia).all<{ suggestion_id: string }>('SELECT suggestion_id FROM usage_events')
+    const events = usage.body.events as { suggestionId: string; label: string; goalIds: string[] }[]
+    expect(events.map((e) => e.suggestionId).sort()).toEqual(rows.map((r) => r.suggestion_id).sort())
+    const goals = new Set(((await h.get(DEMO_USER, `/students/${sofia}`)).body.goals as { id: string }[]).map((g) => g.id))
+    for (const e of events) {
+      expect(e.label).toBe('adaptation')
+      expect(e.goalIds.every((g) => goals.has(g))).toBe(true)
+    }
   })
 
   it('prints coded sheets with checks; codes and pages carry no names, answer key separate', async () => {
@@ -40,6 +33,5 @@ describe('M1 lesson approvals through /api/v1 (Lens analysis itself lives in src
     }
     const printed = JSON.stringify(sheets.pages)
     for (const name of FIXTURE_NAMES) expect(printed).not.toContain(name)
-    expect((await h.post(U.ea, '/lens/approvals', { studentId: kai, subject: 'math', items: [] })).status).toBeGreaterThanOrEqual(400)
   })
 })

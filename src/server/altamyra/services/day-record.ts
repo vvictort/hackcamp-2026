@@ -1,10 +1,10 @@
 import { z } from 'zod'
+import type { DayCountsSchema } from '../contract/api'
 import { DateString, Id } from '../contract/common'
 import { AltamyraError } from '../contract/errors'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import type { Allowed } from './authz'
 import type { DataPoint, DayReview, Note, Summary, Video } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
 import { audit, insertEntity, newId, nowIso } from '../repos/base'
 import { headDataPoints } from '../repos/evidence'
 import * as records from '../repos/records'
@@ -36,14 +36,7 @@ export function categoryOf(p: Pick<DataPoint, 'sourceRef'>): DayCategory {
   return (p.sourceRef.split(':')[2] ?? '').startsWith('voice-') ? 'voiceNotes' : 'events'
 }
 
-export const DayCounts = z.object({
-  dataPoints: z.number().int(),
-  events: z.number().int(),
-  notes: z.number().int(),
-  videos: z.number().int(),
-  voiceNotes: z.number().int(),
-})
-export type DayCounts = z.infer<typeof DayCounts>
+type DayCounts = z.infer<typeof DayCountsSchema>
 
 const emptyCounts = (): DayCounts => ({ dataPoints: 0, events: 0, notes: 0, videos: 0, voiceNotes: 0 })
 
@@ -55,7 +48,6 @@ const confirmedOnly = (allowed: Allowed): boolean => allowed.role !== 'ea' && al
 export const notesAdd = defineOp({
   name: 'notes.add',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ objectiveId: Id.nullable().default(null), text: z.string().trim().min(1).max(2000) }).extend(Now.shape),
   run(sql, args, actor): { note: Note } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
@@ -73,7 +65,6 @@ export const notesAdd = defineOp({
 export const videosAdd = defineOp({
   name: 'videos.add',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({
     storageKey: z.string().min(1),
     contentType: z.string().regex(/^video\//),
@@ -136,7 +127,6 @@ const addMs = (iso: string): string => new Date(Date.parse(iso) - 1).toISOString
 export const daysList = defineOp({
   name: 'days.list',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ from: DateString.optional(), to: DateString.optional() }).extend(Now.shape),
   run(sql, args, actor): { days: Day[] } {
     const allowed = authorize(actor, 'progress.view', args.studentId)
@@ -180,7 +170,6 @@ export function dayDetail(sql: SqlExecutor, date: string, allowed: Allowed): Day
 export const daysGet = defineOp({
   name: 'days.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ date: DateString }),
   run(sql, args, actor): DayDetail {
     return dayDetail(sql, args.date, authorize(actor, 'progress.view', args.studentId))
@@ -191,7 +180,6 @@ export const daysGet = defineOp({
 export const daysComplete = defineOp({
   name: 'days.complete',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ date: DateString, note: z.string().trim().max(2000).nullable().default(null) }).extend(Now.shape),
   run(sql, args, actor): { review: DayReview } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
@@ -214,7 +202,6 @@ export const daysComplete = defineOp({
 export const dayReviewToday = defineOp({
   name: 'dayReview.today',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend(Now.shape),
   run(sql, args, actor): { date: string; entriesToday: number; reviewed: boolean } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)

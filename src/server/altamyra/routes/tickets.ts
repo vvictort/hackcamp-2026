@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import { z } from 'zod'
-import { HttpError } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import {
   TicketApplyResponse,
@@ -27,7 +27,7 @@ export function ticketRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const { student } = await r.school(studentsGet, { studentId })
     const profile = await r.student(studentId, profileGet, { displayToken: student.displayToken, grade: student.grade })
     const iepVersion = 'iepVersion' in profile ? profile.iepVersion : null
-    if (iepVersion === null) throw new HttpError('bad_request', 'Import and confirm the IEP before filing a change ticket.')
+    if (iepVersion === null) throw new AltamyraError('bad_request', 'Import and confirm the IEP before filing a change ticket.')
     return r.json(TicketResponse, await r.school(ticketsSubmit, { studentId, iepVersion, ...body }), 201)
   })
 
@@ -48,7 +48,7 @@ export function ticketRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const r = req(c)
     const schoolId = deps.schoolId(r.env)
     const { ticket } = await r.school(ticketsGet, { schoolId, ticketId: r.param('tid') })
-    if (ticket.status !== 'pending') throw new HttpError('version_conflict', `This ticket is already ${ticket.status}.`)
+    if (ticket.status !== 'pending') throw new AltamyraError('version_conflict', `This ticket is already ${ticket.status}.`)
     const { iepVersion } = await r.student(ticket.studentId, iepApplyTicket, {
       schoolId,
       ticketId: ticket.id,

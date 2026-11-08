@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AltamyraError } from '../contract/errors'
 import { STUDENT_FIXTURES } from '../fixtures'
 import { fixtureRoster, tokenFor } from './fixture-data'
@@ -10,12 +10,10 @@ import {
   DraftDailyOutput,
   DraftMonthlyFamilyOutput,
   DraftWeeklyOutput,
-  summaryProviderFromEnv,
   wordCount,
-  type SummaryCall,
   type SummaryProvider,
 } from './summaries'
-import { fixtureNamesIn } from './test-helpers'
+import { fixtureNamesIn, recordingProvider } from '../e2e/testing'
 
 const roster = fixtureRoster()
 const kai = STUDENT_FIXTURES[0]
@@ -24,9 +22,9 @@ const kaiTok = tokenFor(kai.studentId)
 const amaraTok = tokenFor(amara.studentId)
 const kaiName = kai.iep.sections.student.firstName
 
-function setup(provider: SummaryProvider = createFixtureSummaryProvider()) {
-  const calls: SummaryCall[] = []
-  return { ai: createSummaryAi({ provider, roster, onCall: (c) => calls.push(c) }), calls }
+function setup(inner: SummaryProvider = createFixtureSummaryProvider()) {
+  const { provider, requests } = recordingProvider(inner)
+  return { ai: createSummaryAi({ provider, roster }), calls: requests }
 }
 
 const dailyInput = {
@@ -159,11 +157,6 @@ describe('draftMonthlyFamilySummary', () => {
     const out = await setup().ai.draftMonthlyFamilySummary({ ...monthly, language: 'fr' })
     expect(out.language).toBe('en')
   })
-
-  it('translateSummary is a draft too', async () => {
-    const out = await setup().ai.translateSummary({ text: 'Hello', language: 'fr' })
-    expect(out).toMatchObject({ status: 'draft', generatedBy: 'ai' })
-  })
 })
 
 describe('Gemini summary provider', () => {
@@ -182,13 +175,10 @@ describe('Gemini summary provider', () => {
     expect(bodies[0]).not.toContain('SECRET-UNCONFIRMED')
   })
 
-  it('falls back to the fixture when Gemini fails, and without a key', async () => {
+  it('throws when Gemini fails, so the caller can retry with the fixture', async () => {
     const down = (async () => ({ ok: false, status: 503 }) as Response) as unknown as typeof fetch
-    const g = createGeminiSummaryProvider({ apiKey: 'k', fetch: down })
-    const out = await setup(g).ai.draftDailySummary(dailyInput)
-    expect(out.status).toBe('draft')
-    expect(g.lastSource).toBe('fixture')
-    expect(summaryProviderFromEnv({}).name).toBe('fixture')
-    expect(summaryProviderFromEnv({ GEMINI_API_KEY: 'k' }).name).toBe('gemini')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await expect(setup(createGeminiSummaryProvider({ apiKey: 'k', fetch: down })).ai.draftDailySummary(dailyInput)).rejects.toThrow()
+    vi.restoreAllMocks()
   })
 })

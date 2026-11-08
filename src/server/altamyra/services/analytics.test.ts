@@ -5,7 +5,6 @@ import {
   dataNeeded,
   decisionRule,
   goalStatus,
-  independenceTrend,
   median,
   whatWorks,
   type Aimline,
@@ -124,7 +123,7 @@ describe('dataNeeded (PRD 1B)', () => {
   })
 })
 
-describe('whatWorks and independenceTrend', () => {
+describe('whatWorks', () => {
   it('hides rows below the minimum count, with sample sizes', () => {
     const outcomes = [
       ...Array.from({ length: WHAT_WORKS_MIN_N }, () => ({ adaptationType: 'visual_supports' as const, outcome: 0.5 })),
@@ -135,18 +134,5 @@ describe('whatWorks and independenceTrend', () => {
       { adaptationType: 'visual_supports', n: WHAT_WORKS_MIN_N, meanOutcome: 0.5, hidden: false },
       { adaptationType: 'chunked_steps', n: 1, meanOutcome: null, hidden: true },
     ])
-  })
-
-  it('reports the share of attempts at each prompt level per week', () => {
-    const weeks = independenceTrend([
-      { at: '2026-09-14T10:00:00.000Z', value: 5 },
-      { at: '2026-09-15T10:00:00.000Z', value: 3 },
-      { at: '2026-09-22T10:00:00.000Z', value: 5 },
-    ])
-    expect(weeks).toHaveLength(2)
-    expect(weeks[0].weekStart).toBe('2026-09-14')
-    expect(weeks[0].shares.independent).toBe(0.5)
-    expect(weeks[0].shares.gesture).toBe(0.5)
-    expect(weeks[1].shares.independent).toBe(1)
   })
 })

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Id } from '../contract/common'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import type { AdaptationType } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import type { Lesson } from '../contract/school'
@@ -8,7 +8,6 @@ import type { LessonPlan, Ticket } from '../contract/plans'
 import type { DataPoint, Decision, Objective, Probe, Suggestion, UsageEvent } from '../contract/student'
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
-import type { SqlExecutor } from '../db/sql'
 import { CLASS_IDS, SCHOOL, STUDENT_IDS, USER_IDS } from './school'
 import { nowIso } from '../repos/base'
 import { DAY_MS } from '../services/thresholds'
@@ -420,35 +419,3 @@ export const devResetSchool = defineOp({
     return { studentId: STUDENT_IDS.kai }
   },
 })
-
-/**
- * Dev only: fictional de-identified counters for other students at the demo school, so District Insights has groups
- * over the 10-student minimum (Reading, Math) and groups under it (Writing, Science) that must stay suppressed.
- * Student keys are made-up hash-like strings, never ids.
- */
-export function demoPeerIncrements(period: string): {
-  schoolId: string
-  period: string
-  studentKey: string
-  goalArea: string
-  proficiencyLevel: null
-  label: null
-  reviewTimeliness: null
-  goalProgress: null
-  by: number
-}[] {
-  const cells: [string, number][] = [['Reading', 14], ['Math', 12], ['Writing', 4], ['Science', 3]]
-  return cells.flatMap(([goalArea, students], c) =>
-    Array.from({ length: students }, (_, i) => ({
-      schoolId: SCHOOL.id,
-      period,
-      studentKey: `demopeer${c}x${String(i).padStart(2, '0')}`.padEnd(64, '0'),
-      goalArea,
-      proficiencyLevel: null,
-      label: null,
-      reviewTimeliness: null,
-      goalProgress: null,
-      by: 3 + ((i + c) % 4),
-    })),
-  )
-}

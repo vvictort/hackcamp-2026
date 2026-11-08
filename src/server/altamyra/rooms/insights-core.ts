@@ -1,5 +1,5 @@
 import { CounterIncrement } from '../contract/insights'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { applyIncrement } from '../services/insights'
 
 /**

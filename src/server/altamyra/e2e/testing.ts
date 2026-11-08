@@ -1,11 +1,10 @@
-import type { OpRegistry, RoomName } from '../contract/ops'
+import type { OpRegistry, RoomName, SqlExecutor } from '../contract/ops'
 import { userActor, type Actor } from '../contract/permissions'
 import { createNodeSqlExecutor } from '../db/node-sqlite'
 import { migrateInsights } from '../db/schema/insights'
 import { migrateSchool } from '../db/schema/school'
 import { migrateStudent } from '../db/schema/student'
-import type { SqlExecutor } from '../db/sql'
-import { CLASS_IDS, DISTRICT, STUDENT_IDS, USER_IDS, seedSchool, seedStudent, studentFixture, type FixtureStudentKey } from '../fixtures'
+import { CLASS_IDS, DISTRICT, SCHOOL, STUDENT_FIXTURES, STUDENT_IDS, USERS, USER_IDS, seedSchool, seedStudent, studentFixture, type FixtureStudentKey } from '../fixtures'
 import { unwrapOp } from '../middleware/errors'
 import { runRoomOp } from '../rooms/core'
 import { insightsOps, schoolOps, studentOps } from '../services/registry'
@@ -73,3 +72,67 @@ export const ACTORS = {
 } satisfies Record<string, Actor>
 
 export const countRows = (sql: SqlExecutor, table: string) => sql.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`)?.n ?? 0
+
+/**
+ * Every fictional person name in the fixtures. The de-identification scan
+ * (design doc "AI module") checks that none of these reach a model request or log.
+ */
+const names = [
+  ...STUDENT_FIXTURES.flatMap((s) => [s.iep.sections.student.firstName, s.iep.sections.student.lastName]),
+  ...USERS.flatMap((u) => u.displayName.split(' ')),
+]
+const withoutAccents = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '')
+
+export const FIXTURE_NAMES: string[] = [...new Set([...names, ...names.map(withoutAccents)])]
+
+/**
+ * Fictional de-identified counters for other students at the demo school, so District Insights has groups
+ * over the 10-student minimum (Reading, Math) and groups under it (Writing, Science) that must stay suppressed.
+ * Student keys are made-up hash-like strings, never ids.
+ */
+export function demoPeerIncrements(period: string): {
+  schoolId: string
+  period: string
+  studentKey: string
+  goalArea: string
+  proficiencyLevel: null
+  label: null
+  reviewTimeliness: null
+  goalProgress: null
+  by: number
+}[] {
+  const cells: [string, number][] = [['Reading', 14], ['Math', 12], ['Writing', 4], ['Science', 3]]
+  return cells.flatMap(([goalArea, students], c) =>
+    Array.from({ length: students }, (_, i) => ({
+      schoolId: SCHOOL.id,
+      period,
+      studentKey: `demopeer${c}x${String(i).padStart(2, '0')}`.padEnd(64, '0'),
+      goalArea,
+      proficiencyLevel: null,
+      label: null,
+      reviewTimeliness: null,
+      goalProgress: null,
+      by: 3 + ((i + c) % 4),
+    })),
+  )
+}
+
+/** Wraps a provider and records every request payload it receives. */
+export function recordingProvider<P extends object>(inner: P): { provider: P; requests: { fn: string; payload: unknown }[] } {
+  const requests: { fn: string; payload: unknown }[] = []
+  const provider = Object.fromEntries(
+    Object.entries(inner).map(([fn, impl]) => [
+      fn,
+      (input: unknown) => {
+        requests.push({ fn, payload: structuredClone(input) })
+        return (impl as (i: unknown) => Promise<unknown>)(input)
+      },
+    ]),
+  ) as P
+  return { provider, requests }
+}
+
+const nameRes = FIXTURE_NAMES.map((n) => ({ n, re: new RegExp(`(?<![\\p{L}\\p{N}_])${n}(?![\\p{L}\\p{N}_])`, 'iu') }))
+
+/** Fixture names that appear as whole words in the text. */
+export const fixtureNamesIn = (text: string): string[] => nameRes.filter(({ re }) => re.test(text)).map(({ n }) => n)

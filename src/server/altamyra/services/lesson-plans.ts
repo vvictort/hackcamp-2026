@@ -53,7 +53,6 @@ function planOf(sql: Parameters<typeof repo.lessonPlanById>[0], studentId: strin
 export const lessonPlansToday = defineOp({
   name: 'lessonPlans.today',
   room: 'school',
-  capability: 'lesson_plan.view',
   args: z.object({ date: DateString }).extend(Now.shape),
   run(sql, args, actor): PlansTodayResponse {
     const ids = Object.keys(actor.studentRoles)
@@ -80,7 +79,6 @@ export const lessonPlansToday = defineOp({
 export const lessonPlansForStudent = defineOp({
   name: 'lessonPlans.forStudent',
   room: 'school',
-  capability: 'lesson_plan.view',
   args: StudentArgs.extend({ date: DateString }).extend(Now.shape),
   run(sql, args, actor): { plans: LessonPlanView[] } {
     const result = authorize(actor, 'lesson_plan.view', args.studentId)
@@ -93,7 +91,6 @@ export const lessonPlansForStudent = defineOp({
 export const lessonPlansCreate = defineOp({
   name: 'lessonPlans.create',
   room: 'school',
-  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({
     id: Id.optional(),
     date: DateString,
@@ -135,7 +132,6 @@ export const lessonPlansCreate = defineOp({
 export const lessonPlansUpdate = defineOp({
   name: 'lessonPlans.update',
   room: 'school',
-  capability: 'lesson_plan.edit',
   args: PlanPatchBody.extend({ planId: Id, version: RowVersion }).extend(Now.shape),
   run(sql, args, actor): { plan: LessonPlan } {
     authorize(actor, 'lesson_plan.edit', args.studentId)
@@ -174,7 +170,6 @@ export const lessonPlansUpdate = defineOp({
 export const lessonPlansApprove = defineOp({
   name: 'lessonPlans.approve',
   room: 'school',
-  capability: 'adaptation.approve',
   args: StudentArgs.extend({ planId: Id, version: RowVersion }).extend(Now.shape),
   run(sql, args, actor): { plan: LessonPlan } {
     authorize(actor, 'adaptation.approve', args.studentId)

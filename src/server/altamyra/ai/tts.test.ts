@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { pcmToWav, synthesizeSpeech } from './tts'
+import { pcmToWav, synthesizeSpeech, TTS_MODELS } from './tts'
 
 const b64 = (bytes: number[]) => btoa(String.fromCharCode(...bytes))
 const audio = (mimeType: string, bytes = [1, 2, 3, 4]) =>
@@ -21,15 +21,15 @@ describe('synthesizeSpeech', () => {
 
   it('passes WAV through, and falls over 404 to the next model', async () => {
     const f = vi.fn().mockResolvedValueOnce(new Response('x', { status: 404 })).mockResolvedValueOnce(audio('audio/wav', [9, 9]))
-    const out = await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k', ALTAMYRA_GEMINI_TTS_MODELS: 'a,b' }, { fetch: asFetch(f) })
+    const out = await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k' }, { fetch: asFetch(f) })
     expect([...out!]).toEqual([9, 9])
     expect(f).toHaveBeenCalledTimes(2)
   })
 
   it('returns null when every model fails or the key is refused', async () => {
     const f = vi.fn(async () => new Response('x', { status: 503 }))
-    expect(await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k', ALTAMYRA_GEMINI_TTS_MODELS: 'a,b' }, { fetch: asFetch(f) })).toBeNull()
-    expect(f).toHaveBeenCalledTimes(2)
+    expect(await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k' }, { fetch: asFetch(f) })).toBeNull()
+    expect(f).toHaveBeenCalledTimes(TTS_MODELS.length)
     const f403 = vi.fn(async () => new Response('x', { status: 403 }))
     expect(await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k' }, { fetch: asFetch(f403) })).toBeNull()
     expect(f403).toHaveBeenCalledTimes(1)
@@ -60,7 +60,7 @@ describe('synthesizeSpeech output', () => {
     const second = vi.fn(async () => audio('audio/wav', [7]))
     let n = 0
     const fetcher = (u: string, init: RequestInit) => (n++ === 0 ? f(u, init) : second())
-    const out = await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k', ALTAMYRA_GEMINI_TTS_MODELS: 'a,b' }, { fetch: asFetch(fetcher), timeoutMs: 20 })
+    const out = await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k' }, { fetch: asFetch(fetcher), timeoutMs: 20 })
     expect([...out!]).toEqual([7])
   })
 })

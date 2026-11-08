@@ -3,7 +3,7 @@ import { AltamyraError } from '../contract/errors'
 import type { Actor } from '../contract/permissions'
 import { appendAudit } from '../db/audit'
 import { fromRow, insertRow, toRow } from '../db/mapping'
-import type { SqlExecutor, SqlParam } from '../db/sql'
+import type { SqlExecutor, SqlParam } from '../contract/ops'
 
 /** Generic SQL helpers shared by every repository. Table names are fixed strings in this folder, never user input. */
 

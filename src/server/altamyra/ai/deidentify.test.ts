@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FIXTURE_NAMES } from '../fixtures'
+import { FIXTURE_NAMES } from '../e2e/testing'
 import { collectStrings, deidentify, findIdentifiers, reidentify } from './deidentify'
 import { fixtureRoster } from './fixture-data'
 

@@ -1,11 +1,10 @@
 import { z } from 'zod'
 import { Id } from '../contract/common'
 import { AltamyraError } from '../contract/errors'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import { can, type Actor } from '../contract/permissions'
 import { Ticket, type TicketView } from '../contract/plans'
 import type { IepSections } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
 import { audit, insertEntity, newId, nowIso, updateVersioned } from '../repos/base'
 import { goalsForVersion, latestIep, objectiveById } from '../repos/iep'
 import * as repo from '../repos/school'
@@ -32,7 +31,6 @@ function requireTicket(sql: SqlExecutor, id: string): Ticket {
 export const ticketsSubmit = defineOp({
   name: 'tickets.submit',
   room: 'school',
-  capability: 'ticket.submit',
   args: StudentArgs.extend({
     iepVersion: z.number().int().min(1),
     target: z.string().min(1).max(200),
@@ -79,7 +77,6 @@ export const ticketsForStudent = defineOp({
 export const ticketsList = defineOp({
   name: 'tickets.list',
   room: 'school',
-  capability: 'ticket.review',
   args: SchoolArg.extend({ status: z.enum(['pending', 'all']) }),
   run(sql, args, actor): { tickets: TicketView[] } {
     authorize(actor, 'ticket.review', null, { schoolId: args.schoolId })
@@ -90,7 +87,6 @@ export const ticketsList = defineOp({
 export const ticketsGet = defineOp({
   name: 'tickets.get',
   room: 'school',
-  capability: 'ticket.review',
   args: SchoolArg.extend({ ticketId: Id }),
   run(sql, args, actor): { ticket: Ticket } {
     authorize(actor, 'ticket.review', null, { schoolId: args.schoolId })
@@ -102,7 +98,6 @@ export const ticketsGet = defineOp({
 export const ticketsResolve = defineOp({
   name: 'tickets.resolve',
   room: 'school',
-  capability: 'ticket.review',
   args: SchoolArg.extend({ ticketId: Id, outcome: z.enum(['applied', 'declined']), reason: z.string().optional() }).extend(Now.shape),
   run(sql, args, actor): { ticket: TicketView } {
     authorize(actor, 'ticket.review', null, { schoolId: args.schoolId })
@@ -147,7 +142,6 @@ function addToSection(sections: IepSections, target: string, text: string): IepS
 export const iepApplyTicket = defineOp({
   name: 'iep.applyTicket',
   room: 'student',
-  capability: 'ticket.review',
   args: StudentArgs.extend(SchoolArg.shape)
     .extend({ ticketId: Id, iepVersion: z.number().int().min(1), target: z.string().min(1), proposedChange: z.string().min(1) })
     .extend(Now.shape),

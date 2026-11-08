@@ -1,4 +1,4 @@
-import { PROMPT_LEVELS, type AdaptationType, type PromptLevel } from '../contract/enums'
+import type { AdaptationType } from '../contract/enums'
 import type { Point } from '../contract/student'
 import {
   BASELINE_POINTS,
@@ -67,10 +67,10 @@ export function canShowTrend(points: readonly Point[]): boolean {
 }
 
 /** PRD 1B: rules and trends apply only after at least 6 points across at least 3 weeks. */
-export function meetsMinimum(points: readonly Point[], minPoints = DECISION_MIN_POINTS, minDays = DECISION_MIN_DAYS): boolean {
-  if (points.length < minPoints) return false
+export function meetsMinimum(points: readonly Point[]): boolean {
+  if (points.length < DECISION_MIN_POINTS) return false
   const s = sorted(points)
-  return time(s[s.length - 1].at) - time(s[0].at) >= daysToMs(minDays)
+  return time(s[s.length - 1].at) - time(s[0].at) >= daysToMs(DECISION_MIN_DAYS)
 }
 
 // ---------- goalStatus ----------
@@ -191,27 +191,6 @@ export function dataNeeded(points: readonly Point[], now: string, failedAttempts
   return failedAttempts >= DATA_NEEDED_MAX_ATTEMPTS ? 'alert' : 'schedule_check'
 }
 
-// ---------- independenceTrend ----------
-
-export type IndependenceWeek = { weekStart: string; total: number; shares: Record<PromptLevel, number> }
-
-/** PRD 1B: share of attempts at each prompt level over time, per week (Monday start). */
-export function independenceTrend(points: readonly Point[]): IndependenceWeek[] {
-  const weeks = new Map<string, number[]>()
-  for (const p of sorted(points)) {
-    const key = dateOnly(mondayOf(time(p.at)))
-    weeks.set(key, [...(weeks.get(key) ?? []), p.value])
-  }
-  return [...weeks.entries()].map(([weekStart, values]) => {
-    const shares = Object.fromEntries(PROMPT_LEVELS.map((l) => [l, 0])) as Record<PromptLevel, number>
-    for (const v of values) {
-      const level = PROMPT_LEVELS[Math.round(v)]
-      if (level) shares[level] += 1 / values.length
-    }
-    return { weekStart, total: values.length, shares }
-  })
-}
-
 // ---------- whatWorks ----------
 
 export type Outcome = { adaptationType: AdaptationType; outcome: number }
@@ -227,12 +206,12 @@ export function progressFraction(value: number, baseline: number, target: number
 }
 
 /** PRD 1B "What works": outcomes by adaptation type within one student, with sample sizes, hidden below the minimum count. */
-export function whatWorks(outcomes: readonly Outcome[], minN = WHAT_WORKS_MIN_N): WhatWorksRow[] {
+export function whatWorks(outcomes: readonly Outcome[]): WhatWorksRow[] {
   const byType = new Map<AdaptationType, number[]>()
   for (const o of outcomes) byType.set(o.adaptationType, [...(byType.get(o.adaptationType) ?? []), o.outcome])
   return [...byType.entries()]
     .map(([adaptationType, values]) => {
-      const hidden = values.length < minN
+      const hidden = values.length < WHAT_WORKS_MIN_N
       const mean = values.reduce((a, b) => a + b, 0) / values.length
       return { adaptationType, n: values.length, meanOutcome: hidden ? null : Math.round(mean * 100) / 100, hidden }
     })

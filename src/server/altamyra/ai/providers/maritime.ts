@@ -114,7 +114,7 @@ export function withMaritime(base: AiProvider, cfg: MaritimeConfig): AiProvider 
     try {
       return toOutput(await chat(cfg, toRequest(input, cfg.teacher)), input)
     } catch (err) {
-      console.warn(`[maritime] lesson-lens fell back to ${base.name}: ${err instanceof AgentError ? err.message : (err as Error)?.name}`)
+      console.warn(`[maritime] lesson-lens fell back: ${err instanceof AgentError ? err.message : (err as Error)?.name}`)
       return base.lensForStudent(input)
     }
   }

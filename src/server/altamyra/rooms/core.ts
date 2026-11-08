@@ -1,8 +1,7 @@
-import { isAltamyraError } from '../contract/errors'
+import { AltamyraError } from '../contract/errors'
 import { issuesOf } from '../contract/issues'
-import { opErr, opOk, type OpRegistry, type OpResult, type RoomName } from '../contract/ops'
+import { opErr, opOk, type OpRegistry, type OpResult, type RoomName, type SqlExecutor } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
-import type { SqlExecutor } from '../db/sql'
 
 /**
  * Room core: the part of every Altamyra Durable Object that does not need the
@@ -10,7 +9,6 @@ import type { SqlExecutor } from '../db/sql'
  */
 
 export type RunOptions = {
-  /** Which registry the op must belong to. */
   room: RoomName
   /**
    * Refuse any op that changed rows without appending to audit_log in the same
@@ -52,7 +50,7 @@ export function runRoomOp(
   options: RunOptions,
 ): OpResult {
   const op = Object.hasOwn(registry, opName) ? registry[opName] : undefined
-  if (!op || op.room !== options.room) return opErr('not_found', `Unknown ${options.room} op: ${opName}`)
+  if (!op) return opErr('not_found', `Unknown ${options.room} op: ${opName}`)
 
   let parsedArgs: unknown = args
   if (op.args) {
@@ -73,7 +71,7 @@ export function runRoomOp(
     })
     return opOk(value)
   } catch (e) {
-    if (isAltamyraError(e)) return opErr(e.code, e.message)
+    if (e instanceof AltamyraError) return opErr(e.code, e.message)
     if (e instanceof MissingAuditError) throw e
     throw new Error(`room op ${opName} failed`)
   }

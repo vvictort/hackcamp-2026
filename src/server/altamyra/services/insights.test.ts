@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { userActor } from '../contract/permissions'
-import { DISTRICT, SCHOOL, demoPeerIncrements } from '../fixtures'
+import { DISTRICT, SCHOOL } from '../fixtures'
+import { demoPeerIncrements } from '../e2e/testing'
 import { applyCounterIncrements } from '../rooms/insights-core'
 import type { InsightGroup } from './insights'
 import { parseSourceRef } from './sources'

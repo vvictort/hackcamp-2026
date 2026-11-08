@@ -1,6 +1,6 @@
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { CLASSES, MEMBERSHIPS, PARENT_LINKS, ROSTER, SCHEDULE_BLOCKS, SCHOOL_STUDENTS, SEEDED_AT, USERS } from './school'
 import type { StudentFixture } from './students'
 

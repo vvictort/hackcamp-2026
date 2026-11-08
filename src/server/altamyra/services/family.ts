@@ -23,7 +23,6 @@ import { summariesOpList } from './summaries'
 export const consentsSet = defineOp({
   name: 'consents.set',
   room: 'student',
-  capability: 'consent.manage',
   args: StudentArgs.extend({
     kind: ConsentKind,
     granted: z.boolean(),
@@ -66,7 +65,6 @@ function toEventInput(e: z.infer<typeof VoiceEvent>): EventInput {
 export const voiceNoteProcess = defineOp({
   name: 'voiceNote.process',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({
     audioFileKey: z.string().min(1),
     classId: Id.nullable().default(null),
@@ -119,7 +117,6 @@ export const voiceNoteProcess = defineOp({
 export const voiceNoteAudioDeleted = defineOp({
   name: 'voiceNote.audioDeleted',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ audioFileKey: z.string().min(1), processed: z.boolean() }).extend(Now.shape),
   run(sql, args, actor): { audioDeleted: true } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)

@@ -68,7 +68,6 @@ export const ObjectiveStatus = z.enum(OBJECTIVE_STATUSES)
 export type ObjectiveStatus = z.infer<typeof ObjectiveStatus>
 
 export const SUGGESTION_KINDS = ['gap', 'adaptation'] as const
-export const SuggestionKind = z.enum(SUGGESTION_KINDS)
 
 export const SUGGESTION_STATUSES = ['draft', 'approved', 'edited', 'rejected', 'blocked'] as const
 export const SuggestionStatus = z.enum(SUGGESTION_STATUSES)

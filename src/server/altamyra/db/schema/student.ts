@@ -20,7 +20,7 @@ import {
 } from '../../contract/enums'
 import { sqlList as l } from '../mapping'
 import { AUDIT_LOG_DDL, runMigrations, type Migration } from '../migrate'
-import type { SqlExecutor } from '../sql'
+import type { SqlExecutor } from '../../contract/ops'
 
 /**
  * AltamyraStudentRoom schema (design doc "Data model", student room).

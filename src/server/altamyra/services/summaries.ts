@@ -2,9 +2,8 @@ import { z } from 'zod'
 import { ExpectedVersion, Id } from '../contract/common'
 import { SummaryKind, promptLevelFromValue } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import type { Summary } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
 import { assertVersion, audit, insertEntity, newId, nowIso, updateVersioned } from '../repos/base'
 import { headDataPoints } from '../repos/evidence'
 import { goalById, objectiveById } from '../repos/iep'
@@ -142,7 +141,6 @@ export function summaryInputs(sql: SqlExecutor, kind: SummaryKind, period: strin
 export const summariesInputs = defineOp({
   name: 'summaries.inputs',
   room: 'student',
-  capability: 'summary.edit',
   args: StudentArgs.extend({ kind: SummaryKind, period: z.string().optional() }).extend(Now.shape),
   run(sql, args, actor): SummaryInputs {
     authorize(actor, 'summary.edit', args.studentId)
@@ -164,7 +162,6 @@ const forAudience = (s: Summary): Summary => ({ ...s, editedBy: null, approvedBy
 export const familySummariesSave = defineOp({
   name: 'familySummaries.save',
   room: 'student',
-  capability: 'summary.edit',
   args: StudentArgs.extend({
     kind: SummaryKind.default('monthly'),
     period: z.string().optional(),
@@ -218,7 +215,6 @@ export const familySummariesSave = defineOp({
 export const summariesEdit = defineOp({
   name: 'summaries.edit',
   room: 'student',
-  capability: 'summary.edit',
   args: StudentArgs.extend({
     summaryId: Id,
     text: z.string().trim().min(1),
@@ -256,7 +252,6 @@ export const summariesEdit = defineOp({
 export const familySummariesApprove = defineOp({
   name: 'familySummaries.approve',
   room: 'student',
-  capability: 'summary.approve',
   args: StudentArgs.extend({ summaryId: Id, version: ExpectedVersion.shape.expectedVersion }).extend(Now.shape),
   run(sql, args, actor): { summary: Summary } {
     authorize(actor, 'summary.approve', args.studentId)
@@ -280,7 +275,6 @@ export const familySummariesApprove = defineOp({
 export const familySummariesList = defineOp({
   name: 'familySummaries.list',
   room: 'student',
-  capability: 'summary.view',
   args: StudentArgs.extend({ kind: SummaryKind.optional() }),
   run(sql, args, actor): { summaries: Summary[] } {
     const allowed = authorize(actor, 'summary.view', args.studentId)
@@ -295,7 +289,6 @@ export const familySummariesList = defineOp({
 export const summariesPending = defineOp({
   name: 'summaries.pending',
   room: 'student',
-  capability: 'summary.edit',
   args: StudentArgs,
   run(sql, args, actor): { summaries: { id: string; kind: SummaryKind; period: string }[] } {
     authorize(actor, 'summary.edit', args.studentId)

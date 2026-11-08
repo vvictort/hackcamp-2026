@@ -1,11 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AI_SCHEMAS, type AnalyseLessonOutput, type LensForStudentInput } from '../contract/ai'
 import { STUDENT_FIXTURES } from '../fixtures'
-import { VERTEX_NOT_CONFIGURED } from './errors'
 import { FIXTURE_LESSONS, fixtureProfile, tokenFor } from './fixture-data'
 import { getProvider } from './provider'
 import { createFixtureProvider } from './providers/fixture'
-import { createVertexProvider } from './providers/vertex'
 
 const fixture = createFixtureProvider()
 const LESSONS = Object.values(FIXTURE_LESSONS)
@@ -29,33 +27,19 @@ async function lensInputs(): Promise<LensForStudentInput[]> {
 }
 
 describe('getProvider', () => {
-  it('defaults to fixture', () => {
-    expect(getProvider().name).toBe('fixture')
-    expect(getProvider({}).name).toBe('fixture')
-    expect(getProvider({ ALTAMYRA_AI_PROVIDER: '' }).name).toBe('fixture')
-    expect(getProvider({ ALTAMYRA_AI_PROVIDER: 'fixture' }).name).toBe('fixture')
-  })
-  it('selects vertex', () => {
-    expect(getProvider({ ALTAMYRA_AI_PROVIDER: 'vertex' }).name).toBe('vertex')
-    expect(getProvider({ ALTAMYRA_AI_PROVIDER: ' Vertex ' }).name).toBe('vertex')
-  })
-  it('selects gemini when GEMINI_API_KEY is set, fixture when not', () => {
-    expect(getProvider({ GEMINI_API_KEY: 'k' }).name).toBe('gemini')
-    expect(getProvider({ GEMINI_API_KEY: '  ' }).name).toBe('fixture')
-    expect(getProvider({ ALTAMYRA_AI_PROVIDER: 'fixture', GEMINI_API_KEY: 'k' }).name).toBe('fixture')
-    expect(getProvider({ ALTAMYRA_AI_PROVIDER: 'vertex', GEMINI_API_KEY: 'k' }).name).toBe('vertex')
-  })
-  it('refuses an unknown provider', () => {
-    expect(() => getProvider({ ALTAMYRA_AI_PROVIDER: 'openai' })).toThrow(/Unknown ALTAMYRA_AI_PROVIDER/)
-  })
-})
-
-describe('vertex stub', () => {
-  it('throws the not-configured error from every function', async () => {
-    const v = createVertexProvider()
-    for (const fn of Object.keys(AI_SCHEMAS) as (keyof typeof AI_SCHEMAS)[]) {
-      await expect((v[fn] as (i: unknown) => Promise<unknown>)({})).rejects.toThrow(VERTEX_NOT_CONFIGURED)
-    }
+  const callsGemini = async (env: Parameters<typeof getProvider>[0]) => {
+    const f = vi.fn(async () => new Response('x', { status: 404 }))
+    vi.stubGlobal('fetch', f)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await getProvider(env).proposeObjectives({ studentToken: 'S-X', goalId: 'g1', area: 'Reading', goalText: 'Retell a story' })
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    return f.mock.calls.length > 0
+  }
+  it('selects gemini when GEMINI_API_KEY is set, the fixture when not', async () => {
+    expect(await callsGemini(undefined)).toBe(false)
+    expect(await callsGemini({ GEMINI_API_KEY: '  ' })).toBe(false)
+    expect(await callsGemini({ GEMINI_API_KEY: 'k' })).toBe(true)
   })
 })
 

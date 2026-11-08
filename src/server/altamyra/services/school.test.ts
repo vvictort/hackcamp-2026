@@ -3,7 +3,8 @@ import type { MeResponse } from '../contract/api'
 import { AltamyraError } from '../contract/errors'
 import { userActor } from '../contract/permissions'
 import type { Lesson, SheetCode } from '../contract/school'
-import { CLASS_IDS, FIXTURE_NAMES, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures'
+import { CLASS_IDS, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures'
+import { FIXTURE_NAMES } from '../e2e/testing'
 import { ACTORS, closeAll, runSchool, schoolRoom } from '../e2e/testing'
 
 afterEach(closeAll)
@@ -53,7 +54,6 @@ describe('lessons (PRD 1A-1)', () => {
     const { sql, lesson: l } = lesson()
     expect(l.createdBy).toBe(USER_IDS.teacher)
     expect(() => runSchool(sql, 'lessons.create', { classId: CLASS_IDS.literacy, title: 'x', sourceKind: 'text', text: 'y' }, ACTORS.ea)).toThrow(/lesson_plan.edit/)
-    expect(runSchool<{ subject: string }>(sql, 'lessons.get', { lessonId: l.id }, ACTORS.ea).subject).toBe('literacy')
   })
 })
 

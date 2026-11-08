@@ -6,8 +6,7 @@ import { Id } from '../contract/common'
 import { AdaptationType, Label } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
-import { can } from '../contract/permissions'
-import { CheckItem, type AdaptationSuggestion, type Check, type LensRun, type Suggestion, type UsageEvent } from '../contract/student'
+import type { AdaptationSuggestion, Check, LensRun, Suggestion } from '../contract/student'
 import { audit, insertEntity, newId, nowIso } from '../repos/base'
 import { confirmedObjectiveForGoal, currentGoals, currentIep, objectiveById } from '../repos/iep'
 import * as lens from '../repos/lens'
@@ -49,7 +48,6 @@ function newAdaptation(
 export const profileGet = defineOp({
   name: 'profile.get',
   room: 'student',
-  capability: 'iep.view',
   args: StudentArgs.extend({ displayToken: z.string(), grade: z.string() }),
   run(sql, args, actor): StudentProfileResponse {
     authorize(actor, 'iep.view', args.studentId)
@@ -71,7 +69,6 @@ export const profileGet = defineOp({
 export const lensContext = defineOp({
   name: 'lens.context',
   room: 'student',
-  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({ studentToken: z.string().min(1), grade: z.string().min(1) }),
   run(sql, args, actor) {
     authorize(actor, 'lesson_plan.edit', args.studentId)
@@ -96,7 +93,6 @@ export const lensContext = defineOp({
 export const lensSaveRun = defineOp({
   name: 'lens.saveRun',
   room: 'student',
-  capability: 'lesson_plan.edit',
   args: StudentArgs.extend({
     lessonId: Id,
     analysisId: Id,
@@ -167,107 +163,10 @@ export const lensSaveRun = defineOp({
   },
 })
 
-// ---------- Lesson Lens (dashboard flow): approval logs usage into 1B ----------
-
-/**
- * The teacher approved adaptations in the Lens page. Each is stored as an approved adaptation with its
- * usage event, so it shows on the student's record and counts in What works once evidence is captured in
- * that lesson. A modification the IEP does not authorize is refused (PRD 1A-5), whatever the page sent.
- * One check per goal is stored so a coded sheet can be issued for it (PRD 1A-6, 1A-7).
- */
-export const lensLogApproval = defineOp({
-  name: 'lens.logApproval',
-  room: 'student',
-  capability: 'adaptation.approve',
-  args: StudentArgs.extend({
-    lessonId: Id,
-    subject: z.string().min(1).max(80),
-    items: z
-      .array(
-        z.object({
-          goalId: Id,
-          label: z.enum(['adapt', 'modify']),
-          adaptationType: AdaptationType,
-          title: z.string().min(1).max(120),
-          text: z.string().min(1).max(600),
-          why: z.string().max(600).default(''),
-        }),
-      )
-      .min(1)
-      .max(20),
-    checks: z.array(z.object({ goalId: Id, items: z.array(CheckItem).min(1).max(3) })).max(10).default([]),
-  }).extend(Now.shape),
-  run(sql, args, actor) {
-    authorize(actor, 'adaptation.approve', args.studentId)
-    const iep = requireCurrentIep(sql)
-    const at = nowIso(args.now)
-    const current = new Set(currentGoals(sql).map((g) => g.id))
-    const run: LensRun = { id: newId(), lessonId: args.lessonId, analysisId: newId(), createdBy: actor.userId, createdAt: at }
-    const blocked: string[] = []
-    const saved: AdaptationSuggestion[] = []
-    for (const it of args.items) {
-      if (!current.has(it.goalId)) continue
-      const changesOutcome = it.label === 'modify'
-      const { label, blocked: stop } = guardrail(changesOutcome, 'adaptation', args.subject, iep.modificationSubjects)
-      if (stop || (label === 'modification' && !can(actor, 'modification.apply', args.studentId, { subject: args.subject, modificationSubjects: iep.modificationSubjects }).allowed)) {
-        blocked.push(it.goalId)
-        continue
-      }
-      saved.push({
-        id: newId(),
-        lensRunId: run.id,
-        kind: 'adaptation',
-        gapType: null,
-        adaptationType: it.adaptationType,
-        label,
-        goalIds: [it.goalId],
-        content: { title: it.title, text: it.text, why: it.why, subject: args.subject, changesOutcome },
-        status: 'approved',
-        createdAt: at,
-        version: 1,
-      })
-    }
-    if (!saved.length) return { lensRunId: null, suggestions: [], checks: [], blocked }
-    insertEntity(sql, 'lens_runs', run)
-    audit(sql, actor, 'lens_runs.create', 'lens_runs', run.id, undefined, run, at)
-    for (const s of saved) {
-      lens.insertSuggestion(sql, s)
-      audit(sql, actor, 'suggestions.create', 'suggestions', s.id, undefined, s, at)
-      const usage: UsageEvent = { id: newId(), suggestionId: s.id, approvedBy: actor.userId, at }
-      insertEntity(sql, 'usage_events', usage)
-      audit(sql, actor, 'usage_events.create', 'usage_events', usage.id, undefined, usage, at)
-    }
-    const checks: { id: string; goalId: string }[] = []
-    for (const c of args.checks) {
-      const host = saved.find((s) => s.goalIds.includes(c.goalId))
-      const objective = host ? confirmedObjectiveForGoal(sql, c.goalId) : undefined
-      if (!host || !objective) continue
-      const check: Check = {
-        id: newId(),
-        suggestionId: host.id,
-        objectiveId: objective.id,
-        items: c.items,
-        answerKey: null,
-        rubric: {
-          criteria: [{ id: 'shown', description: 'The student shows the skill in the goal.' }],
-          levels: [{ score: 0, description: 'Not yet shown' }, { score: 1, description: 'Shown' }],
-        },
-        status: 'active',
-        version: 1,
-      }
-      lens.insertCheck(sql, check)
-      audit(sql, actor, 'checks.create', 'checks', check.id, undefined, check, at)
-      checks.push({ id: check.id, goalId: c.goalId })
-    }
-    return { lensRunId: run.id, suggestions: saved.map((s) => ({ id: s.id, goalId: s.goalIds[0]! })), checks, blocked }
-  },
-})
-
 /** Approved adaptations of this student with their usage events, newest first (the timeline and What works "used" view). */
 export const lensUsageList = defineOp({
   name: 'lens.usageList',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs,
   run(sql, args, actor) {
     authorize(actor, 'progress.view', args.studentId)
@@ -290,6 +189,5 @@ export const lensOpList = [
   profileGet,
   lensContext,
   lensSaveRun,
-  lensLogApproval,
   lensUsageList,
 ]

@@ -3,12 +3,11 @@ import type { AiProvider, AnalyseLessonOutput } from '../contract/ai'
 import { AltamyraError } from '../contract/errors'
 import { CBIEP_SAMPLE_TEXT, STUDENT_FIXTURES, type StudentFixture } from '../fixtures'
 import { collectStrings, findIdentifiers } from './deidentify'
-import { AiDeidentificationError, AiOutputError, VERTEX_NOT_CONFIGURED } from './errors'
+import { AiDeidentificationError, AiOutputError } from './errors'
 import { FIXTURE_EXTRA_IDENTIFIERS, FIXTURE_LESSONS, fixtureRoster, fixtureProfile, tokenFor } from './fixture-data'
-import { createAi, type AiCall } from './functions'
+import { createAi } from './functions'
 import { createFixtureProvider } from './providers/fixture'
-import { createVertexProvider } from './providers/vertex'
-import { fixtureNamesIn, recordingProvider } from './test-helpers'
+import { fixtureNamesIn, recordingProvider } from '../e2e/testing'
 
 const roster = fixtureRoster()
 const LESSONS = Object.values(FIXTURE_LESSONS)
@@ -70,15 +69,13 @@ describe('de-identification scan over every AI function', () => {
 
   it('no fixture name or identifier reaches a provider request or the console', async () => {
     const { provider, requests } = recordingProvider(createFixtureProvider())
-    const hooked: AiCall[] = []
-    const ai = createAi({ provider, roster, onCall: (c) => hooked.push(c) })
+    const ai = createAi({ provider, roster })
     await runEverything(ai)
 
     const fns = new Set(requests.map((r) => r.fn))
     expect([...fns].sort()).toEqual(
       ['analyseLesson', 'lensForStudent', 'parseVoiceNote', 'proposeObjectives', 'scorePhotoPage'],
     )
-    expect(hooked.length).toBe(requests.length)
     for (const { fn, payload } of requests) {
       for (const s of collectStrings(payload)) {
         expect(fixtureNamesIn(s), `${fn}: ${s}`).toEqual([])
@@ -100,7 +97,6 @@ describe('de-identification scan over every AI function', () => {
       ai.scorePhotoPage({ image: { fileKey: 'photos/kai-nakamura.jpg', contentType: 'image/jpeg' }, check }),
     ).rejects.toBeInstanceOf(AiDeidentificationError)
     expect(requests).toEqual([])
-    expect(ai.calls.scorePhotoPage).toBe(0)
   })
 
   it('fails closed when the input names a student who is not on the roster', async () => {
@@ -152,11 +148,6 @@ describe('createAi', () => {
     const ai = createAi({ provider: createFixtureProvider(), roster })
     const err = await ai.proposeObjectives({ studentToken: '', goalId: 'g1', area: 'Reading', goalText: 'Retell' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(AltamyraError)
-    expect((err as AltamyraError).status).toBe(400)
-  })
-
-  it('surfaces the vertex "not configured" error', async () => {
-    const ai = createAi({ provider: createVertexProvider(), roster })
-    await expect(ai.analyseLesson(FIXTURE_LESSONS.literacy)).rejects.toThrow(VERTEX_NOT_CONFIGURED)
+    expect((err as AltamyraError).code).toBe('bad_request')
   })
 })

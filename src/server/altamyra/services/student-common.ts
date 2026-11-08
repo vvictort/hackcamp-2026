@@ -1,7 +1,7 @@
 import type { AdaptationType, DataPointSource, Label } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
 import type { DataPoint, IepVersion, Objective } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { headDataPoints, toPoints } from '../repos/evidence'
 import { currentIep, objectiveById } from '../repos/iep'
 import { approvedAdaptations } from '../repos/lens'

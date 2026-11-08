@@ -11,7 +11,7 @@ All Altamyra server code lives in this folder. The specification is the backend 
 | `fixtures/` | Contract | One fictional school, its schedule, staff for every role, and three fictional CB-IEP students (Kai, Amara, Sofía, matching `src/components/altamyra/exampleData.ts`). Also a CB-IEP text sample and `seedSchool()` / `seedStudent()` |
 | `services/registry.ts` | Contract (skeleton), Domain (contents) | `studentOps`, `schoolOps`, `insightsOps` |
 | `services/`, `repos/` | Domain | Lesson Lens (1A), measurement (1B), analytics, summaries and consent, district insights logic, plus SQL access helpers |
-| `ai/` | Intelligence | De-identification, fixture provider (default), Vertex stub, guardrail, citation checker |
+| `ai/` | Intelligence | De-identification, fixture provider (no key) and Gemini, guardrail, citation checker |
 | `rooms/`, `middleware/` | Platform | `AltamyraStudentRoom`, `AltamyraSchoolRoom`, `AltamyraInsightsRoom`; `altamyraAuth`, which builds an `Actor` |
 | `routes/` | Integrator | Hono routes under `/api/v1` |
 

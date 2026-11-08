@@ -394,7 +394,6 @@ function parseVoiceNote(input: ParseVoiceNoteInput): ParseVoiceNoteOutput {
 
 export function createFixtureProvider(): AiProvider {
   return {
-    name: 'fixture',
     proposeObjectives: async (i) => proposeObjectives(i),
     analyseLesson: async (i) => analyseLesson(i),
     lensForStudent: async (i) => lensForStudent(i),

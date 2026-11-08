@@ -1,27 +1,22 @@
 import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Env } from '../../../../worker'
-import type { ConsentKind } from '../contract/enums'
 import { createNodeSqlExecutor } from '../db/node-sqlite'
 import { migrateSchool } from '../db/schema/school'
 import { SCHOOL, seedSchool, STUDENT_IDS, USER_IDS } from '../fixtures'
 import { loadActor } from './actor'
 import { createAltamyraMiddleware, type AltamyraEnv, type AuthDeps } from './auth'
 
-const NOW = Date.parse('2026-11-07T18:00:00.000Z')
 const env = {} as Env
 const sql = createNodeSqlExecutor()
 
 const school = { loadActor: async (userId: string, schoolId: string) => loadActor(sql, userId, schoolId) }
-const studentRoom = () => ({ hasConsent: async (_kind: ConsentKind) => false })
 
 const deps: AuthDeps = {
   // The fake "JWT" is the user id itself.
   resolveUserId: async (req) => req.headers.get('Authorization')?.replace('Bearer ', '') || null,
   schoolRoom: () => school,
-  studentRoom,
   schoolId: () => SCHOOL.id,
-  now: () => NOW,
 }
 
 const { altamyraAuth, requireCapability } = createAltamyraMiddleware(deps)

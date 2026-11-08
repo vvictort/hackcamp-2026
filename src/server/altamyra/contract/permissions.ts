@@ -163,8 +163,6 @@ export type CanOptions = {
   districtId?: string
   /** membership.manage, ticket.review */
   schoolId?: string
-  /** Epoch ms; defaults to Date.now(). */
-  now?: number
 }
 
 export type DenyReason = 'student_required' | 'not_in_scope' | 'not_permitted' | 'read_only' | 'not_iep_authorized' | 'not_own_entry'

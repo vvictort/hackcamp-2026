@@ -4,7 +4,6 @@ import { AltamyraError } from '../contract/errors'
 import type { Summary } from '../contract/student'
 import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
-import { HttpError } from '../middleware/errors'
 import { schoolDevSeed, studentsGet } from '../services/school'
 import { familySummariesSave, summariesInputs, type SummaryInputs } from '../services/summaries'
 import type { Req } from './context'
@@ -44,7 +43,7 @@ async function compose(ai: SummaryAi, token: string, inputs: SummaryInputs, lang
  */
 export async function draftSummary(r: Req, studentId: string, body: SummaryGenerateBody): Promise<Summary> {
   const inputs = await r.student(studentId, summariesInputs, { kind: body.kind, period: body.period })
-  if (inputs.existing?.status === 'approved') throw new HttpError('bad_request', 'This summary is already approved. Edit it to change it.')
+  if (inputs.existing?.status === 'approved') throw new AltamyraError('bad_request', 'This summary is already approved. Edit it to change it.')
   const { token } = await studentToken(r, studentId)
   const language = body.language ?? 'en'
   let drafted: Drafted | null = null

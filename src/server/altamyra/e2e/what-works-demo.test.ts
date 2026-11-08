@@ -37,28 +37,16 @@ describe('what works on the demo seed', () => {
   })
 })
 
-describe('lens approval registers an adaptation row', () => {
-  it('stores the approved adaptation as a suggestions row with its type', async () => {
+describe('lens usage on the demo seed', () => {
+  it('counts each seeded adaptation type once per usage event', async () => {
     const h = createHarness({ seed: false, devSeed: true })
     await h.post(U, '/dev/seed')
-    // Only the teacher approves tailored plans; the demo user starts as the case manager.
-    expect((await h.post(U, '/dev/role', { role: 'teacher' })).status).toBe(200)
-    const goals = (await h.get(U, `/students/${kai}`)).body.goals as { id: string; status: string }[]
-    const goal = goals.find((g) => g.status === 'active')!
-    const res = await h.post(U, '/lens/approvals', {
-      studentId: kai,
-      subject: 'math',
-      lessonText: 'Add within 10',
-      items: [{ goalId: goal.id, label: 'adapt', adaptationType: 'alternative_demonstration', title: 'Show it', text: 'Let the student show it orally.', why: 'Goal' }],
-    })
-    expect(res.status).toBe(201)
-    const row = h.studentSql(kai).get<{ adaptation_type: string; kind: string }>('SELECT kind, adaptation_type FROM suggestions WHERE id = ?', res.body.suggestions[0].id)
-    expect(row).toMatchObject({ kind: 'adaptation', adaptation_type: 'alternative_demonstration' })
-    // A modification the IEP does not authorize is still blocked.
-    const bad = await h.post(U, '/lens/approvals', {
-      studentId: kai, subject: 'underwater basket weaving', lessonText: 'x',
-      items: [{ goalId: goal.id, label: 'modify', adaptationType: 'modified_assessment', title: 'Mod', text: 'Shorter test.', why: '' }],
-    })
-    expect(bad.body.blocked ?? []).toContain(goal.id)
+    const used = (await h.get(U, `/students/${kai}/lens-usage`)).body.used as { adaptationType: string; n: number }[]
+    const rows = h.studentSql(kai).all<{ adaptationType: string; n: number }>(
+      `SELECT s.adaptation_type AS adaptationType, COUNT(*) AS n FROM usage_events u JOIN suggestions s ON s.id = u.suggestion_id
+       WHERE s.kind = 'adaptation' GROUP BY s.adaptation_type`,
+    )
+    expect(used.length).toBeGreaterThan(0)
+    expect([...used].sort((a, b) => a.adaptationType.localeCompare(b.adaptationType))).toEqual(rows.sort((a, b) => a.adaptationType.localeCompare(b.adaptationType)))
   })
 })

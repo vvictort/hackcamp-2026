@@ -369,39 +369,4 @@ export const FamilySummary = z.object({
 })
 export type FamilySummary = z.infer<typeof FamilySummary>
 
-export const AuditEntry = z.object({
-  id: Id,
-  at: Timestamp,
-  actorId: z.string().min(1),
-  action: z.string().min(1),
-  tableName: z.string().min(1),
-  rowId: z.string().min(1),
-  before: z.unknown().nullable(),
-  after: z.unknown().nullable(),
-})
-export type AuditEntry = z.infer<typeof AuditEntry>
-
-/** Table names in the student room, for audit_log.table_name. */
-export const STUDENT_TABLES = [
-  'iep_versions',
-  'goals',
-  'objectives',
-  'lens_runs',
-  'suggestions',
-  'checks',
-  'probes',
-  'data_points',
-  'review_queue',
-  'decisions',
-  'usage_events',
-  'consents',
-  'proficiency_ratings',
-  'notes',
-  'videos',
-  'day_reviews',
-  'summaries',
-  'audit_log',
-] as const
-export type StudentTable = (typeof STUDENT_TABLES)[number]
-
 export type Point = { at: string; value: number; source?: DataPointSource }
