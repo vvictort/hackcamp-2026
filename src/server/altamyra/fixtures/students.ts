@@ -1,4 +1,6 @@
 import { promptLevelValue } from '../contract/enums'
+import { parseCbIepText } from '../services/cbiep'
+import { DEMO_IEP_SD23_TEXT } from './demo-iep-sd23'
 import type { Consent, DataPoint, Goal, IepVersion, Objective, ProficiencyRating } from '../contract/student'
 import { CLASS_IDS, SEEDED_AT, STUDENT_IDS, USER_IDS, type FixtureStudentKey } from './school'
 
@@ -84,7 +86,10 @@ const rating = (id: string, goalId: string, level: ProficiencyRating['level']): 
   setAt: SEEDED_AT,
 })
 
-// ---------------- Kai ----------------
+// ---------------- Simi (key 'kai') ----------------
+
+/** Simi's IEP sections, parsed from the fictional SD23 form. Goals: communication, reading, self-regulation, independence. */
+const SIMI_SECTIONS = parseCbIepText(DEMO_IEP_SD23_TEXT)
 
 const KAI_GOALS = {
   reading: '6a000000-0000-4000-8000-0000000000a1',
@@ -123,33 +128,13 @@ export const KAI: StudentFixture = {
   key: 'kai',
   exampleId: 'kai',
   studentId: STUDENT_IDS.kai,
-  iep: iep('1e000000-0000-4000-8000-0000000000a1', {
-    student: { firstName: 'Kai', lastName: 'Nakamura', preferredName: null, grade: '4' },
-    profile: {
-      designation: 'Autistic',
-      strengths: ['Strong visual memory', 'Careful, accurate with routines he knows'],
-      interests: ['Salmon and rivers', 'Trains', 'Drawing maps'],
-      stretches: ['Retelling what he read in his own words', 'Asking for a break before he is overwhelmed'],
-    },
-    coreCompetencies: {
-      communication: 'Shares facts about topics he enjoys; is building retell skills.',
-      thinking: 'Notices patterns and details quickly.',
-      personalSocial: 'Is learning to recognise early signs of overload and use his break card.',
-    },
-    goals: [
-      { area: 'Reading', text: 'Retell the main idea of a short text in his own words' },
-      { area: 'Self-regulation', text: 'Ask for a break using his break card before he feels overwhelmed' },
-    ],
-    accommodations: ['Visual schedule for the day', 'Instructions given one step at a time', 'Noise-reducing headphones during independent work'],
-    supports: ['Break card', 'First-then board', 'Read-aloud for texts above grade 2 level'],
-    modifications: [],
-    reviewDate: '2027-06-15',
-  }),
+  // Simi's IEP is the fictional SD23 form in docs/demo/sample-iep-sd23.txt, read with the same importer the app uses.
+  iep: iep('1e000000-0000-4000-8000-0000000000a1', SIMI_SECTIONS),
   goals: [
-    goal(KAI_GOALS.reading, 'kai-r', 'Reading', 'Retell the main idea of a short text in his own words'),
-    goal(KAI_GOALS.selfReg, 'kai-sr', 'Self-regulation', 'Ask for a break using his break card before he feels overwhelmed'),
-    goal(KAI_GOALS.routines, 'kai-rt', 'Routines', 'Finish each step of the writing routine with fewer prompts'),
-    goal(KAI_GOALS.transitions, 'kai-tr', 'Transitions', 'Stay on task within 5 minutes of coming back from a break'),
+    goal(KAI_GOALS.reading, 'kai-r', SIMI_SECTIONS.goals[1].area, SIMI_SECTIONS.goals[1].text),
+    goal(KAI_GOALS.selfReg, 'kai-sr', SIMI_SECTIONS.goals[0].area, SIMI_SECTIONS.goals[0].text),
+    goal(KAI_GOALS.routines, 'kai-rt', SIMI_SECTIONS.goals[3].area, SIMI_SECTIONS.goals[3].text),
+    goal(KAI_GOALS.transitions, 'kai-tr', SIMI_SECTIONS.goals[2].area, SIMI_SECTIONS.goals[2].text),
   ],
   objectives: [
     objective({
@@ -452,7 +437,8 @@ export const SOFIA: StudentFixture = {
   ],
 }
 
-export const STUDENT_FIXTURES: StudentFixture[] = [KAI, AMARA, SOFIA]
+/** The demo seeds one student: Simi. AMARA and SOFIA stay defined for older tests but are not seeded. */
+export const STUDENT_FIXTURES: StudentFixture[] = [KAI]
 
 export const studentFixture = (key: FixtureStudentKey): StudentFixture =>
-  STUDENT_FIXTURES.find((s) => s.key === key) as StudentFixture
+  [KAI, AMARA, SOFIA].find((s) => s.key === key) as StudentFixture
