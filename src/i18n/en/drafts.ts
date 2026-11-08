@@ -50,6 +50,7 @@ export const drafts = {
   'drafts.fb.language': 'Language',
   'drafts.fb.make': 'Make family summary',
   'drafts.fb.making': 'Writing summary',
+  'drafts.fb.notTranslated': 'Translation not available, English shown.',
   'drafts.fb.failed': 'Could not make the summary.',
   'drafts.fb.text': 'Summary text',
   'drafts.fb.approve': 'Approve for family',
