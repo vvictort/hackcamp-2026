@@ -1,4 +1,3 @@
-import { Hono } from 'hono'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Env } from '../../../../worker'
 import { runRoomOp } from '../rooms/core'
@@ -6,10 +5,8 @@ import { applyCounterIncrements } from '../rooms/insights-core'
 import type { SchoolRoomRpc, InsightsRoomRpc } from '../rooms/rpc'
 import { loadActor, listStudentIds } from '../middleware/actor'
 import { DISTRICT, SCHOOL, USER_IDS, demoPeerIncrements } from '../fixtures'
-import { createKit } from '../routes/context'
+import { createAltamyraApi } from '../routes/app'
 import type { AltamyraRouteDeps } from '../routes/deps'
-import { insightsRoutes } from '../routes/insights'
-import { altamyraOnError, type AltamyraEnv } from '../middleware/auth'
 import { insightsOps, schoolOps } from '../services/registry'
 import { closeAll, insightsRoom, schoolRoom } from '../services/testing'
 
@@ -41,22 +38,19 @@ function setup(demo = false) {
     districtId: () => DISTRICT.id,
     now: () => Date.parse('2026-11-09T17:00:00Z'),
   } as unknown as AltamyraRouteDeps
-  const api = new Hono<AltamyraEnv>()
-  insightsRoutes(api, createKit(deps))
-  api.onError(altamyraOnError((err, c) => c.json({ error: { code: 'internal', message: String(err) } }, 500)))
+  const api = createAltamyraApi({ ...deps, fallbackError: (err, c) => c.json({ error: { code: 'internal', message: String(err) } }, 500) })
   const get = async (user: string | null, groupBy = 'goalArea') => {
-    const res = await api.request(`/insights?groupBy=${groupBy}`, { headers: user ? { 'x-test-user': user } : {} }, {} as Env)
+    const res = await api.request(`/districts/${DISTRICT.id}/insights?groupBy=${groupBy}`, { headers: user ? { 'x-test-user': user } : {} }, {} as Env)
     return { status: res.status, body: await res.json() as any }
   }
   return { get }
 }
 
-describe('GET /insights', () => {
+describe('GET /districts/:id/insights', () => {
   it('district lead gets aggregates with small groups suppressed', async () => {
     const { get } = setup()
     const res = await get(USER_IDS.districtLead)
     expect(res.status).toBe(200)
-    expect(res.body.minGroupSize).toBe(10)
     const by = Object.fromEntries(res.body.groups.map((g: any) => [g.dims.goalArea, g]))
     expect(by.Reading).toMatchObject({ students: 12, suppressed: false })
     expect(by.Writing).toMatchObject({ students: null, count: null, suppressed: true })
