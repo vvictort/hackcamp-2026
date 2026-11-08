@@ -242,11 +242,11 @@ function SiteNav() {
 
         <div className="flex items-center gap-2">
           <span className="hidden sm:contents">
-            <Link to="/home" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+            <Link to="/sign-in" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
               Sign in
             </Link>
           </span>
-          <Link to="/home" className={buttonVariants({ size: 'lg' })}>
+          <Link to="/sign-up" className={buttonVariants({ size: 'lg' })}>
             Get started
           </Link>
         </div>
@@ -282,7 +282,7 @@ export default function Landing() {
                 IEP goals, collects progress evidence as you teach, and drafts the reports.
               </p>
               <div className="animate-rise flex flex-wrap justify-center gap-3" style={delay(2)}>
-                <ArrowPill to="/home">Get started</ArrowPill>
+                <ArrowPill to="/sign-up">Get started</ArrowPill>
                 <ArrowPill href="#how" outline>See how it works</ArrowPill>
               </div>
             </div>
@@ -445,7 +445,7 @@ export default function Landing() {
               Less paperwork. More teaching.
             </h2>
             <div className="relative flex flex-wrap justify-center gap-3">
-              <Link to="/home" className={buttonVariants({ variant: 'raised', size: 'lg' })}>
+              <Link to="/sign-up" className={buttonVariants({ variant: 'raised', size: 'lg' })}>
                 Get started
                 <ArrowRight className="size-5" aria-hidden />
               </Link>
@@ -458,7 +458,7 @@ export default function Landing() {
                     {label}
                   </a>
                 ))}
-                <Link to="/home" className="inline-flex min-h-11 items-center text-body font-semibold underline-offset-4 hover:underline">
+                <Link to="/sign-in" className="inline-flex min-h-11 items-center text-body font-semibold underline-offset-4 hover:underline">
                   Sign in
                 </Link>
               </nav>

@@ -2,16 +2,15 @@
  * App navigation: a slim icon sidebar on large screens and a top bar on small
  * ones, rendered ONCE (one grid that becomes a column at lg), so each control
  * and test id exists a single time. Routed items come from src/nav.ts;
- * planned modules without a page show an "Example only" note. Sign-in via
- * <AuthOverlay>, sign-out from the account menu.
+ * planned modules without a page show an "Example only" note. Sign-in links
+ * to /sign-in?next=<current path>, sign-out from the account menu.
  * Keep the data-testid hooks (`app-navigation`, `nav-sign-in-button`,
  * `nav-user-name`, `nav-user-email`) and the "Account menu" button name: the
  * shipped tests rely on them.
  */
 
-import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { AuthOverlay, useAuthProfileReady, signOut } from 'deepspace'
+import { useAuthProfileReady, signOut } from 'deepspace'
 import {
   Activity,
   FileText,
@@ -33,6 +32,7 @@ import {
   AvatarFallback,
   AvatarImage,
   Button,
+  buttonVariants,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -63,7 +63,6 @@ export default function Navigation() {
   const { isLoaded, isSignedIn, user, userLoading } = useAuthProfileReady({ requireUser: true })
   const location = useLocation()
   const { info } = useToast()
-  const [showAuthModal, setShowAuthModal] = useState(false)
   const profileReady = !isSignedIn || (!userLoading && !!user)
   const role = user?.role
   const [first, ...rest] = nav
@@ -139,15 +138,18 @@ export default function Navigation() {
         </DropdownMenuContent>
       </DropdownMenu>
     ) : (
-      <Button data-testid="nav-sign-in-button" onClick={() => setShowAuthModal(true)} className="h-12 lg:size-12 lg:px-0">
+      <Link
+        data-testid="nav-sign-in-button"
+        to={`/sign-in?next=${encodeURIComponent(location.pathname + location.search)}`}
+        className={buttonVariants({ className: 'h-12 lg:size-12 lg:px-0' })}
+      >
         <LogIn className="size-5" aria-hidden />
         <span className="lg:sr-only">Sign in</span>
-      </Button>
+      </Link>
     )
 
   return (
-    <>
-      <nav
+    <nav
         data-testid="app-navigation"
         aria-label="Main"
         className="sticky top-0 z-20 shrink-0 border-b border-border bg-card lg:top-6 lg:h-[calc(100dvh-3rem)] lg:w-22 lg:rounded-2xl lg:border-b-0 lg:py-6 lg:shadow-raised"
@@ -163,9 +165,6 @@ export default function Navigation() {
             {items.map(navItem)}
           </ul>
         </div>
-      </nav>
-
-      {showAuthModal && <AuthOverlay onClose={() => setShowAuthModal(false)} />}
-    </>
+    </nav>
   )
 }

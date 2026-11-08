@@ -16,7 +16,7 @@
  */
 
 import { Suspense, type ReactNode } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { DeepSpaceAuthProvider, useAuthStatus } from 'deepspace'
 import { RecordProvider, RecordScope, AgentTools } from 'deepspace'
 import Navigation from '../../components/Navigation'
@@ -24,7 +24,16 @@ import { useToast } from '@/components/ui'
 import { APP_NAME, SCOPE_ID } from '../../constants'
 import { schemas } from '../../schemas'
 
+/** Auth pages own the full viewport: no nav rail, no page gutter. */
+const BARE_ROUTES = ['/sign-in', '/sign-up']
+
 export default function AppLayout() {
+  const bare = BARE_ROUTES.includes(useLocation().pathname)
+  const outlet = (
+    <Suspense fallback={<div role="status" className="flex h-full items-center justify-center text-muted-foreground">Loading...</div>}>
+      <Outlet />
+    </Suspense>
+  )
   return (
     <DeepSpaceAuthProvider>
       {/* The prerendered landing owns the document <title> and React drops it
@@ -35,14 +44,14 @@ export default function AppLayout() {
             own cards directly on the canvas. <main> owns the page gutter, so
             pages add none of their own. */}
         <div className="min-h-screen bg-background">
-          <div className="mx-auto flex min-h-screen max-w-370 flex-col lg:flex-row lg:gap-8 lg:p-6">
-            <Navigation />
-            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">
-              <Suspense fallback={<div role="status" className="flex h-full items-center justify-center text-muted-foreground">Loading...</div>}>
-                <Outlet />
-              </Suspense>
-            </main>
-          </div>
+          {bare ? (
+            <main className="min-h-screen">{outlet}</main>
+          ) : (
+            <div className="mx-auto flex min-h-screen max-w-370 flex-col lg:flex-row lg:gap-8 lg:p-6">
+              <Navigation />
+              <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">{outlet}</main>
+            </div>
+          )}
         </div>
       </AuthBoot>
     </DeepSpaceAuthProvider>

@@ -10,13 +10,13 @@
  *
  * The `fallback` keeps signed-out visitors inside the app's own chrome
  * (without it, AuthGate shows the SDK's full-screen, non-dismissible
- * overlay). The sign-in overlay opens on demand and can be dismissed.
+ * overlay). It links to /sign-in and /sign-up with ?next=<current path> so
+ * those pages can return the visitor here afterwards.
  */
 
-import { useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
-import { AuthGate, AuthOverlay } from 'deepspace'
-import { Button, buttonVariants, Card } from '@/components/ui'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import { AuthGate } from 'deepspace'
+import { buttonVariants, Card } from '@/components/ui'
 
 export default function ProtectedLayout() {
   return (
@@ -27,7 +27,8 @@ export default function ProtectedLayout() {
 }
 
 function SignedOutPanel() {
-  const [showAuthModal, setShowAuthModal] = useState(false)
+  const { pathname, search } = useLocation()
+  const next = `?next=${encodeURIComponent(pathname + search)}`
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-8">
@@ -37,14 +38,14 @@ function SignedOutPanel() {
           <p className="text-body text-muted-foreground">This page is only available to signed-in users.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={() => setShowAuthModal(true)}>Sign in</Button>
-          <Link to="/" className={buttonVariants({ variant: 'secondary' })}>
-            Back to home
+          <Link to={`/sign-in${next}`} className={buttonVariants()}>
+            Sign in
+          </Link>
+          <Link to={`/sign-up${next}`} className={buttonVariants({ variant: 'secondary' })}>
+            Create an account
           </Link>
         </div>
       </Card>
-
-      {showAuthModal && <AuthOverlay onClose={() => setShowAuthModal(false)} />}
     </div>
   )
 }
