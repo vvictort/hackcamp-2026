@@ -113,6 +113,8 @@ Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fi
 
 Demo data is dated relative to the moment you press the button, so Home shows a mix of Fresh, Stale and Data needed goals, a weekly digest, ranked "What works" strategies and Coming up items on any day. **Load demo data** works once per local database; to start over, stop the server and delete `.wrangler/state`, then start again. **Act as: Student** links you to the consented demo student so a practice session can start.
 
+The demo seed and the role switcher appear only with `ALTAMIRA_DEV_SEED=true` in the secrets config and are never on in a deploy.
+
 The demo controls and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`. They answer 404 otherwise, and the flag must never be set in a deploy.
 
 On Home, "Reset demo data" (with a confirm dialog) wipes the demo rows and loads them again dated from today, so Pulse shows Fresh, Stale and Data needed goals again. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.

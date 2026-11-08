@@ -44,7 +44,7 @@ export async function refreshAltamiraMe(): Promise<void> {
   }
   let devEnabled = false
   let active: AltamiraRole | null = null
-  if (me) {
+  if (me && (me as MeResponse & { devSeed?: boolean }).devSeed === true) {
     try {
       const d = await apiGet<{ active: AltamiraRole | null }>('/dev/roles')
       devEnabled = true

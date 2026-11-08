@@ -13,7 +13,9 @@ export const insights = {
   'insights.noArea': 'No goal area',
   'insights.students': '{n} students',
   'insights.events': '{n} data points',
-  'insights.suppressed': 'Too few students',
+  'insights.suppressed': 'Hidden: fewer than {n} students',
+  'insights.notForRole': 'Insights are for district leads',
+  'insights.notForRoleBody': 'Switch to the district lead role to see de-identified trends across schools.',
   'insights.minNote': 'Groups under {n} students are hidden to protect privacy.',
   'insights.suppressedHelp': 'Hidden when fewer than {n} students, to protect privacy.',
 } as const
