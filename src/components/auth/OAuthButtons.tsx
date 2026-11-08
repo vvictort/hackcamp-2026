@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { useLang } from '@/i18n'
 
 type Provider = 'google' | 'github'
 
@@ -33,6 +34,7 @@ export function OAuthButtons({
   disabled?: boolean
   className?: string
 }) {
+  const { t } = useLang()
   const [pending, setPending] = useState<Provider | null>(null)
 
   // Coming back with the browser's Back button restores this page from the
@@ -45,7 +47,7 @@ export function OAuthButtons({
 
   const start = (provider: Provider, name: string) => {
     if (!navigator.onLine) {
-      onError?.(`You're offline, so ${name} can't be reached. Check your connection and try again.`)
+      onError?.(t('auth.oauth.offline', { provider: name }))
       return
     }
     setPending(provider)
@@ -65,10 +67,10 @@ export function OAuthButtons({
           disabled={disabled || (pending !== null && pending !== id)}
           onClick={() => start(id, name)}
         >
-          {pending === id ? `Opening ${name}…` : (
+          {pending === id ? t('auth.oauth.opening', { provider: name }) : (
             <>
               <Glyph />
-              Continue with {name}
+              {t('auth.oauth.continueWith', { provider: name })}
             </>
           )}
         </Button>

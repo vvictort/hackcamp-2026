@@ -4,6 +4,8 @@ import { Card } from '@/components/ui'
 import { Logo, LogoMark } from '../LogoMark'
 import { cn } from '@/lib/utils'
 import { APP_NAME } from '@/constants'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { useLang } from '@/i18n'
 
 interface AuthLayoutProps {
   /** The page's one h1. */
@@ -42,6 +44,7 @@ export function AuthLayout({
   className,
 }: AuthLayoutProps) {
   const titleId = useId()
+  const { t } = useLang()
   return (
     <div className={cn('flex justify-center py-2 sm:py-8 lg:min-h-[calc(100dvh-3rem)] lg:items-center lg:py-0', className)}>
       <div
@@ -51,9 +54,12 @@ export function AuthLayout({
         )}
       >
         <div className="flex min-w-0 flex-col gap-6">
-          <Link to="/" aria-label={`${APP_NAME} home`} className="inline-flex min-h-11 animate-rise items-center self-start rounded-full">
-            <Logo />
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link to="/" aria-label={t('auth.home', { app: APP_NAME })} className="inline-flex min-h-11 animate-rise items-center rounded-full">
+              <Logo />
+            </Link>
+            <LanguageSwitcher className="h-11 w-auto min-w-0 max-w-[60%] shrink-0 gap-2 rounded-full" />
+          </div>
           <Card aria-labelledby={titleId} className="animate-rise gap-0 p-6 sm:p-8">
             {eyebrow && <div className="mb-6">{eyebrow}</div>}
             <div key={contentKey} className="stagger-rise flex flex-col gap-8">

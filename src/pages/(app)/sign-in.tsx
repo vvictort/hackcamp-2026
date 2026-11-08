@@ -7,16 +7,19 @@ import { AuthLayout } from '@/components/auth/AuthLayout'
 import { OAuthButtons } from '@/components/auth/OAuthButtons'
 import { startOnboarding } from '@/components/auth/onboarding'
 import { APP_NAME } from '@/constants'
+import { useLang } from '@/i18n'
+import type { MessageKey } from '@/i18n/en'
 import { Button, FormField, Input, PasswordInput, useToast } from '@/components/ui'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function validateEmail(v: string) {
-  if (!v.trim()) return 'Enter your email address.'
-  if (!EMAIL_RE.test(v.trim())) return 'Enter an email like name@school.ca.'
+// Validators return a message key ('' = valid); the component calls t() on it.
+function validateEmail(v: string): MessageKey | '' {
+  if (!v.trim()) return 'auth.signIn.emailRequired'
+  if (!EMAIL_RE.test(v.trim())) return 'auth.signIn.emailInvalid'
   return ''
 }
-const validatePassword = (v: string) => (v ? '' : 'Enter your password.')
+const validatePassword = (v: string): MessageKey | '' => (v ? '' : 'auth.signIn.passwordRequired')
 
 /** Only same-origin paths: never `//host` or `/\\host` (browsers read both
  *  as another origin), and never back to an auth page, which would loop. */
@@ -30,6 +33,7 @@ export default function SignInPage() {
   const next = safeNext(params.get('next'))
   const navigate = useNavigate()
   const toast = useToast()
+  const { t } = useLang()
 
   // Two steps so the first screen stays calm: Google/GitHub (how teachers get
   // accounts), then email + password only for those who ask for it.
@@ -50,8 +54,10 @@ export default function SignInPage() {
     ;(on ? emailRef : toEmailRef).current?.focus()
   }
 
-  const emailError = touched.email ? validateEmail(email) : ''
-  const passwordError = touched.password ? validatePassword(password) : ''
+  const emailKey = touched.email ? validateEmail(email) : ''
+  const passwordKey = touched.password ? validatePassword(password) : ''
+  const emailError = emailKey && t(emailKey)
+  const passwordError = passwordKey && t(passwordKey)
 
   // Signed in already, or the session just landed after a successful submit.
   if (isLoaded && isSignedIn && !pending) return <Navigate to={next} replace />
@@ -67,46 +73,46 @@ export default function SignInPage() {
     try {
       const { error } = await signIn.email({ email: email.trim(), password })
       if (!error) {
-        toast.success('Signed in', `Welcome back to ${APP_NAME}.`)
+        toast.success(t('auth.signIn.successTitle'), t('auth.signIn.successMessage', { app: APP_NAME }))
         navigate(next, { replace: true })
         return
       }
       if (error.status === 401 || error.code === 'INVALID_EMAIL_OR_PASSWORD') {
-        toast.error('Email or password is incorrect.', 'Check both and try again.')
+        toast.error(t('auth.signIn.wrongTitle'), t('auth.signIn.wrongMessage'))
         setPassword('')
         setTouched((t) => ({ ...t, password: false }))
         passwordRef.current?.focus()
       } else if (error.status === 429) {
-        toast.warning('Too many attempts.', 'Wait a minute, then try again.')
+        toast.warning(t('auth.signIn.tooManyTitle'), t('auth.signIn.tooManyMessage'))
       } else {
-        toast.error("Couldn't sign you in.", error.message || 'Please try again in a moment.')
+        toast.error(t('auth.signIn.failTitle'), error.message || t('auth.signIn.failMessage'))
       }
     } catch {
-      toast.error(`Couldn't reach ${APP_NAME}.`, 'Check your connection and try again.')
+      toast.error(t('auth.signIn.networkTitle', { app: APP_NAME }), t('auth.signIn.networkMessage'))
     }
     setPending(false)
   }
 
   return (
     <AuthLayout
-      title={emailStep ? 'Sign in with email' : 'Sign in'}
-      description={emailStep ? 'For accounts that already have a password.' : 'Welcome back. Sign in to see your class.'}
+      title={emailStep ? t('auth.signIn.titleEmail') : t('auth.signIn.title')}
+      description={emailStep ? t('auth.signIn.descriptionEmail') : t('auth.signIn.description')}
       className="px-4 py-6 sm:px-6 lg:py-6"
       footer={
         <p>
-          New to {APP_NAME}?{' '}
+          {t('auth.signIn.newTo', { app: APP_NAME })}{' '}
           <Link
             to={`/sign-up?next=${encodeURIComponent(next)}`}
             className="py-3 font-semibold text-foreground underline underline-offset-4 hover:text-signal"
           >
-            Create an account
+            {t('auth.signIn.create')}
           </Link>
         </p>
       }
     >
       {emailStep ? (
-        <form noValidate onSubmit={onSubmit} aria-label="Sign in with email" className="stagger-rise flex flex-col gap-4">
-          <FormField label="Email" required error={emailError}>
+        <form noValidate onSubmit={onSubmit} aria-label={t('auth.signIn.titleEmail')} className="stagger-rise flex flex-col gap-4">
+          <FormField label={t('auth.signIn.email')} required error={emailError}>
             <Input
               ref={emailRef}
               type="email"
@@ -119,7 +125,7 @@ export default function SignInPage() {
               onBlur={() => setTouched((t) => ({ ...t, email: true }))}
             />
           </FormField>
-          <FormField label="Password" required error={passwordError}>
+          <FormField label={t('auth.signIn.password')} required error={passwordError}>
             <PasswordInput
               ref={passwordRef}
               name="password"
@@ -131,11 +137,11 @@ export default function SignInPage() {
           </FormField>
           <div className="flex flex-col items-center gap-3">
             <Button type="submit" size="lg" className="w-full" loading={pending}>
-              {pending ? 'Signing in…' : 'Sign in'}
+              {pending ? t('auth.signIn.submitting') : t('auth.signIn.submit')}
             </Button>
             <Button variant="link" disabled={pending} onClick={() => showEmail(false)}>
               <ArrowLeft aria-hidden />
-              Use Google or GitHub instead
+              {t('auth.signIn.useOAuth')}
             </Button>
           </div>
         </form>
@@ -146,11 +152,11 @@ export default function SignInPage() {
           <OAuthButtons
             className="w-full"
             onStart={startOnboarding}
-            onError={(m) => toast.error("Couldn't open sign-in.", m)}
+            onError={(m) => toast.error(t('auth.signIn.oauthErrorTitle'), m)}
           />
           <Button ref={toEmailRef} variant="link" onClick={() => showEmail(true)}>
             <Mail aria-hidden />
-            Sign in with email
+            {t('auth.signIn.withEmail')}
           </Button>
         </div>
       )}

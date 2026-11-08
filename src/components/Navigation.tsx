@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { nav } from '../nav'
 import { endSession } from '@/lib/session'
+import { useLang } from '@/i18n'
+import type { MessageKey } from '@/i18n/en'
 import { Logo } from './LogoMark'
 import { cn, initialOf } from '../lib/utils'
 import {
@@ -46,24 +48,25 @@ import {
   useToast,
 } from './ui'
 
-type Item = { label: string; Icon: LucideIcon; to?: string }
+type Item = { label: MessageKey; Icon: LucideIcon; to?: string }
 
 /** Icons for routed entries in src/nav.ts; new entries fall back to LayoutGrid. */
 const ICONS: Record<string, LucideIcon> = { '/home': House, '/settings': Settings }
 
 /** Modules without a page yet: shown after Home, they explain instead of navigating. */
 const PLANNED: Item[] = [
-  { label: 'Students', Icon: UsersRound },
-  { label: 'Lesson Lens', Icon: ScanSearch },
-  { label: 'Pulse', Icon: Activity },
-  { label: 'Progress drafts', Icon: FileText },
-  { label: 'Team', Icon: Handshake },
+  { label: 'app.nav.students', Icon: UsersRound },
+  { label: 'app.nav.lessonLens', Icon: ScanSearch },
+  { label: 'app.nav.pulse', Icon: Activity },
+  { label: 'app.nav.progressDrafts', Icon: FileText },
+  { label: 'app.nav.team', Icon: Handshake },
 ]
 
 export default function Navigation() {
   const { isLoaded, isSignedIn, user, userLoading } = useAuthProfileReady({ requireUser: true })
   const location = useLocation()
   const { info } = useToast()
+  const { t } = useLang()
   const profileReady = !isSignedIn || (!userLoading && !!user)
   const role = user?.role
   const [first, ...rest] = nav
@@ -81,15 +84,15 @@ export default function Navigation() {
     )
     const icon = <item.Icon className="size-5.5" strokeWidth={1.9} aria-hidden />
     const control = item.to ? (
-      <Link to={item.to} aria-label={item.label} aria-current={active ? 'page' : undefined} className={className}>
+      <Link to={item.to} aria-label={t(item.label)} aria-current={active ? 'page' : undefined} className={className}>
         {icon}
       </Link>
     ) : (
       <button
         type="button"
-        aria-label={item.label}
+        aria-label={t(item.label)}
         className={className}
-        onClick={() => info('Example only', `${item.label} is not built yet.`)}
+        onClick={() => info(t('app.nav.exampleOnly'), t('app.nav.notBuilt', { label: t(item.label) }))}
       >
         {icon}
       </button>
@@ -98,7 +101,7 @@ export default function Navigation() {
       <li key={item.label}>
         <Tooltip>
           <TooltipTrigger render={control} />
-          <TooltipContent side="right">{item.label}</TooltipContent>
+          <TooltipContent side="right">{t(item.label)}</TooltipContent>
         </Tooltip>
       </li>
     )
@@ -111,7 +114,7 @@ export default function Navigation() {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="raised" size="icon" aria-label="Account menu" className="size-12">
+            <Button variant="raised" size="icon" aria-label={t('app.nav.accountMenu')} className="size-12">
               <Avatar className="size-10">
                 <AvatarImage src={user.imageUrl ?? undefined} referrerPolicy="no-referrer" />
                 <AvatarFallback className="bg-secondary text-label font-bold text-foreground">
@@ -126,7 +129,7 @@ export default function Navigation() {
         />
         <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel>
-            <div className="truncate text-label font-semibold text-foreground">{user.name || 'Signed in'}</div>
+            <div className="truncate text-label font-semibold text-foreground">{user.name || t('app.nav.signedIn')}</div>
             <div data-testid="nav-user-email" className="truncate text-small font-normal text-muted-foreground">
               {user.email}
             </div>
@@ -134,7 +137,7 @@ export default function Navigation() {
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => endSession()}>
             <LogOut aria-hidden />
-            Sign out
+            {t('common.signOut')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -145,14 +148,14 @@ export default function Navigation() {
         className={buttonVariants({ className: 'h-12 lg:size-12 lg:px-0' })}
       >
         <LogIn className="size-5" aria-hidden />
-        <span className="lg:sr-only">Sign in</span>
+        <span className="lg:sr-only">{t('common.signIn')}</span>
       </Link>
     )
 
   return (
     <nav
         data-testid="app-navigation"
-        aria-label="Main"
+        aria-label={t('app.nav.main')}
         className="sticky top-0 z-20 shrink-0 border-b border-border bg-card lg:top-6 lg:h-[calc(100dvh-3rem)] lg:w-22 lg:rounded-2xl lg:border-b-0 lg:py-6 lg:shadow-raised"
       >
         {/* Phones: brand + account on one row, icons in a scrollable row below.

@@ -15,6 +15,9 @@ import { Button, Card, EmptyState, PageHeader, Progress, Spinner, StatusBadge, u
 import { useClassroom } from '@/lib/classroom'
 import { OnboardingRedirect } from '@/components/auth/onboarding'
 import { cn } from '@/lib/utils'
+import { useLang } from '@/i18n'
+import { T } from '@/i18n/rich'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 /** Pill button with a round arrow tucked inside the right end. One tap target. */
 function ArrowButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
@@ -31,16 +34,17 @@ function ArrowButton({ children, onClick }: { children: ReactNode; onClick: () =
 export default function HomePage() {
   const { user } = useAuthProfileReady({ requireUser: true })
   const { info } = useToast()
+  const { t } = useLang()
   const firstName = user?.name?.split(' ')[0] ?? ''
-  const example = (what: string) => () => info('Example only', `${what} isn't connected yet.`)
+  const example = (what: string) => () => info(t('app.nav.exampleOnly'), t('app.home.notConnected', { what }))
 
   const room = useClassroom()
   const { classes, suggestions, drafts, events, pulse, studentById } = room
   const pulsePct = pulse.goal ? Math.min(100, Math.round((pulse.done / pulse.goal) * 100)) : 0
   const pulseDue = classes.filter((c) => c.status === 'pulse').length
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+  const summaryKey = `app.home.summary${pulseDue === 1 ? 'One' : 'Many'}${suggestions.length === 1 ? 'One' : 'Many'}` as const
   const loadExample = () =>
-    room.seed().catch(() => info('Could not load the example classroom', 'Check your connection and try again.'))
+    room.seed().catch(() => info(t('app.home.seedFailedTitle'), t('app.home.seedFailedBody')))
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
@@ -48,27 +52,20 @@ export default function HomePage() {
       <PageHeader
         titleClassName="sm:text-hero"
         title={
-          <>
-            Good morning
-            {firstName && (
-              <>
-                , <span className="text-highlight">{firstName}</span>
-              </>
-            )}
-            .
-          </>
+          firstName ? <T k="app.home.greeting" vars={{ name: firstName }} /> : t('app.home.greetingNoName')
         }
         description={
           room.loading || room.empty
-            ? 'Your classes, suggestions and progress drafts show here.'
-            : `${plural(pulseDue, 'Pulse check-in is', 'Pulse check-ins are')} due, and ${plural(suggestions.length, 'suggestion is', 'suggestions are')} waiting for you.`
+            ? t('app.home.intro')
+            : t(summaryKey, { pulse: pulseDue, suggestions: suggestions.length })
         }
         actions={
           <>
-            <Button variant="raised" size="icon" aria-label="Search" onClick={example('Search')}>
+            <Button variant="raised" size="icon" aria-label={t('app.home.search')} onClick={example(t('app.home.search'))}>
               <Search strokeWidth={1.9} aria-hidden />
             </Button>
-            <Button variant="raised" size="icon" aria-label="Notifications" onClick={example('Notifications')}>
+            <LanguageSwitcher />
+            <Button variant="raised" size="icon" aria-label={t('app.home.notifications')} onClick={example(t('app.home.notifications'))}>
               <Bell strokeWidth={1.9} aria-hidden />
             </Button>
           </>
@@ -77,23 +74,23 @@ export default function HomePage() {
 
       {room.loading ? (
         <p role="status" className="flex items-center gap-3 text-body text-muted-foreground">
-          <Spinner /> Loading your classroom
+          <Spinner /> {t('app.home.loading')}
         </p>
       ) : room.failed ? (
-        <Card role="alert" title="Could not load your classroom">
-          <p className="text-body text-muted-foreground">Check your connection and reload the page.</p>
+        <Card role="alert" title={t('app.home.failedTitle')}>
+          <p className="text-body text-muted-foreground">{t('app.home.failedBody')}</p>
         </Card>
       ) : room.empty ? (
         <Card>
           <EmptyState
-            title="No classroom yet"
-            description="Load a fictional example classroom to see how Altamyra works. It is saved to your account, and you can use it without any real student data."
-            action={{ label: room.seeding ? 'Loading…' : 'Load example classroom', onClick: room.canSeed ? loadExample : () => {} }}
+            title={t('app.home.emptyTitle')}
+            description={t('app.home.emptyBody')}
+            action={{ label: room.seeding ? t('app.home.loadingShort') : t('app.home.loadExample'), onClick: room.canSeed ? loadExample : () => {} }}
           />
         </Card>
       ) : (
         <div className="stagger-rise grid gap-4 md:grid-cols-2 lg:gap-5 xl:grid-cols-12">
-          <Card title="Today" className="md:col-span-2 xl:col-span-7 xl:row-span-2">
+          <Card title={t('app.home.today')} className="md:col-span-2 xl:col-span-7 xl:row-span-2">
             <ol className="flex flex-1 flex-col justify-between gap-2">
               {classes.map((c) => {
                 const current = c.status === 'next'
@@ -105,13 +102,13 @@ export default function HomePage() {
                     <span className={cn('text-label tabular-nums', current ? 'font-bold' : 'text-muted-foreground')}>{c.time}</span>
                     <div className="flex flex-col gap-1">
                       <p className="text-body font-bold">
-                        {current && <span className="sr-only">Up next: </span>}
+                        {current && <span className="sr-only">{t('app.home.upNext')}</span>}
                         {c.subject}
                       </p>
                       <p className="text-small text-muted-foreground">{c.lesson}</p>
                       {c.status === 'pulse' && (
                         <StatusBadge tone="warning" className="mt-2 self-start">
-                          Pulse due
+                          {t('app.home.pulseDue')}
                         </StatusBadge>
                       )}
                     </div>
@@ -121,36 +118,36 @@ export default function HomePage() {
             </ol>
           </Card>
 
-          <Card tone="ink" title="Lesson Lens" className="xl:col-span-5">
-            <p className="-mt-2 text-body text-ink-muted">{suggestions.length} suggestions to review</p>
+          <Card tone="ink" title={t('app.home.lessonLens')} className="xl:col-span-5">
+            <p className="-mt-2 text-body text-ink-muted">{suggestions.length === 1 ? t('app.home.suggestionsOne') : t('app.home.suggestionsMany', { n: suggestions.length })}</p>
             <ul className="flex flex-col divide-y divide-ink-foreground/10">
               {suggestions.map((s) => {
                 const modification = s.kind === 'modification'
                 return (
                   <li key={s.id} className="flex items-center justify-between gap-3 py-3">
                     <span className="min-w-0 truncate text-body font-bold">{studentById(s.studentId).name}</span>
-                    <StatusBadge tone={modification ? 'warning' : 'success'}>{modification ? 'Modification' : 'Adaptation'}</StatusBadge>
+                    <StatusBadge tone={modification ? 'warning' : 'success'}>{modification ? t('app.home.modification') : t('app.home.adaptation')}</StatusBadge>
                   </li>
                 )
               })}
             </ul>
-            <ArrowButton onClick={example('Reviewing suggestions')}>Review now</ArrowButton>
+            <ArrowButton onClick={example(t('app.home.reviewingSuggestions'))}>{t('app.home.reviewNow')}</ArrowButton>
           </Card>
 
-          <Card title="Pulse this week" className="xl:col-span-5">
+          <Card title={t('app.home.pulseWeek')} className="xl:col-span-5">
             <p className="text-h1 font-extrabold tabular-nums">
               {pulse.done}
               <span className="text-muted-foreground">/{pulse.goal}</span>
             </p>
             <div className="flex flex-col gap-3">
               <p className="text-body text-muted-foreground">
-                Check-ins logged. {Math.max(0, pulse.goal - pulse.done)} to go.
+                {t('app.home.checkinsToGo', { n: Math.max(0, pulse.goal - pulse.done) })}
               </p>
-              <Progress value={pulsePct} tone="signal" label="Pulse check-ins this week" />
+              <Progress value={pulsePct} tone="signal" label={t('app.home.pulseProgress')} />
             </div>
           </Card>
 
-          <Card title="Progress drafts" className="md:col-span-2 xl:col-span-7">
+          <Card title={t('app.home.progressDrafts')} className="md:col-span-2 xl:col-span-7">
             <ul className="-my-3 flex flex-col">
               {drafts.map((d) => {
                 const student = studentById(d.studentId)
@@ -167,19 +164,19 @@ export default function HomePage() {
                     </div>
                     <div className="hidden w-40 flex-col gap-2 sm:flex">
                       <p className="text-small font-semibold tabular-nums">
-                        {d.linked} of {d.sentences} linked
+                        {t('app.home.linked', { linked: d.linked, total: d.sentences })}
                       </p>
                       <Progress value={Math.round((d.linked / d.sentences) * 100)} />
                     </div>
                     <p className="text-small font-semibold tabular-nums sm:hidden">
                       {d.linked}/{d.sentences}
-                      <span className="sr-only"> sentences linked</span>
+                      <span className="sr-only"> {t('app.home.sentencesLinked')}</span>
                     </p>
                     <Button
                       variant="raised"
                       size="icon"
-                      aria-label={`Open ${student.firstName}'s draft`}
-                      onClick={example('Draft review')}
+                      aria-label={t('app.home.openDraft', { name: student.firstName })}
+                      onClick={example(t('app.home.draftReview'))}
                       className="after:absolute after:inset-0 after:rounded-md"
                     >
                       <ChevronRight strokeWidth={1.9} aria-hidden />
@@ -190,7 +187,7 @@ export default function HomePage() {
             </ul>
           </Card>
 
-          <Card title="Coming up" className="md:col-span-2 xl:col-span-5">
+          <Card title={t('app.home.comingUp')} className="md:col-span-2 xl:col-span-5">
             <ul className="flex flex-col gap-3">
               {events.map((e) => (
                 <li key={e.date} className="flex items-center gap-4">

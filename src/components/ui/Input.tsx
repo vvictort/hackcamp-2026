@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useLang } from '@/i18n'
 
 /**
  * States: default (grey border), hover (ink border), keyboard focus (the
@@ -28,6 +29,7 @@ Input.displayName = 'Input'
 /** Input with a show/hide toggle. Pass autoComplete="current-password" or "new-password". */
 const PasswordInput = React.forwardRef<HTMLInputElement, Omit<React.ComponentProps<'input'>, 'type'>>(
   ({ className, disabled, ...props }, ref) => {
+    const { t } = useLang()
     const [visible, setVisible] = React.useState(false)
     const Icon = visible ? EyeOff : Eye
     return (
@@ -35,18 +37,18 @@ const PasswordInput = React.forwardRef<HTMLInputElement, Omit<React.ComponentPro
         <Input
           ref={ref}
           type={visible ? 'text' : 'password'}
-          className={cn('pr-12', className)}
+          className={cn('pe-12', className)}
           disabled={disabled}
           {...props}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-label={visible ? t('auth.password.hide') : t('auth.password.show')}
           aria-pressed={visible}
           aria-controls={props.id}
           disabled={disabled}
-          className="absolute inset-y-0 right-0 inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          className="absolute inset-y-0 end-0 inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
         >
           <Icon aria-hidden className="size-5" />
         </button>

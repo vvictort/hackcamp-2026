@@ -26,7 +26,10 @@ import {
 } from '@/components/ui'
 import { SessionsPanel } from '@/components/SessionsPanel'
 import { endSession } from '@/lib/session'
-import { POSITIONS } from '@/lib/positions'
+import { POSITIONS, POSITION_LABELS } from '@/lib/positions'
+import { useLang } from '@/i18n'
+import type { MessageKey } from '@/i18n/en'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { initialOf } from '@/lib/utils'
 
 interface Profile {
@@ -37,12 +40,12 @@ interface Profile {
 }
 
 const SECTIONS = [
-  { id: 'profile', label: 'Profile' },
-  { id: 'school', label: 'School and position' },
-  { id: 'prefs', label: 'Preferences' },
-  { id: 'devices', label: 'Signed-in devices' },
-  { id: 'a11y', label: 'Accessibility' },
-] as const
+  { id: 'profile', label: 'app.settings.profile' },
+  { id: 'school', label: 'app.settings.school' },
+  { id: 'prefs', label: 'app.settings.prefs' },
+  { id: 'devices', label: 'app.settings.devices' },
+  { id: 'a11y', label: 'app.settings.a11y' },
+] as const satisfies readonly { id: string; label: MessageKey }[]
 type Section = (typeof SECTIONS)[number]['id']
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -57,6 +60,7 @@ function Field({ label, value }: { label: string; value: string }) {
 export default function SettingsPage() {
   const { user } = useUser()
   const { success, error } = useToast()
+  const { t, lang, setLang } = useLang()
   const { records } = useQuery<Profile>('users')
   const { put, ready } = useMutations<Profile>('users')
   // Admins can read every users row, so pick this person's own (recordId is the user id).
@@ -65,17 +69,18 @@ export default function SettingsPage() {
   const [section, setSection] = useState<Section>('profile')
   const [school, setSchool] = useState('')
   const [position, setPosition] = useState('')
-  const [language, setLanguage] = useState('en')
   const [pulseReminder, setPulseReminder] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const recordId = me?.recordId
   useEffect(() => {
     const d = me?.data
+  // Stored value stays English; only the display label is translated.
+  const positionLabel = (p: string) => (p in POSITION_LABELS ? t(POSITION_LABELS[p as keyof typeof POSITION_LABELS]) : p)
     if (!d) return
     setSchool(d.school ?? '')
     setPosition(d.position ?? '')
-    setLanguage(d.language || 'en')
+    if (d.language) setLang(d.language)
     setPulseReminder(d.pulseReminder !== 'off')
     // Load once per record; later edits stay local until saved.
   }, [recordId])
@@ -85,31 +90,33 @@ export default function SettingsPage() {
     if (!recordId) return
     setSaving(true)
     try {
-      await put(recordId, { school: school.trim(), position, language, pulseReminder: pulseReminder ? 'on' : 'off' })
-      success('Saved', 'Your profile and preferences are up to date.')
+      await put(recordId, { school: school.trim(), position, language: lang, pulseReminder: pulseReminder ? 'on' : 'off' })
+      success(t('app.settings.saved'), t('app.settings.savedBody'))
     } catch {
-      error('Could not save', 'Check your connection and try again.')
+      error(t('app.settings.saveFailed'), t('app.settings.saveFailedBody'))
     } finally {
       setSaving(false)
     }
   }
 
   const d = me?.data
-  const role = user?.role ? user.role[0].toUpperCase() + user.role.slice(1) : 'Not set'
+  // Stored value stays English; only the display label is translated.
+  const positionLabel = (p: string) => (p in POSITION_LABELS ? t(POSITION_LABELS[p as keyof typeof POSITION_LABELS]) : p)
+  const role = user?.role ? user.role[0].toUpperCase() + user.role.slice(1) : t('app.settings.notSet')
   const current = SECTIONS.find((s) => s.id === section)!
   // Drafts live on this page, so switching sections keeps unsaved edits; either form's Save sends all of them.
   const saveButton = (
     <Button type="submit" className="self-end" loading={saving} disabled={!ready || !recordId}>
-      Save changes
+      {t('common.save')}
     </Button>
   )
 
   return (
     <div className="flex w-full flex-col gap-6 lg:gap-8">
-      <PageHeader title="Settings" description="Your profile, school and preferences." />
+      <PageHeader title={t('settings.title')} description={t('app.settings.description')} />
 
       <div className="stagger-rise grid grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-5">
-        <nav aria-label="Settings sections" className="min-w-0">
+        <nav aria-label={t('app.settings.sections')} className="min-w-0">
           <ul className="-m-1 flex gap-2 overflow-x-auto p-1 lg:flex-col lg:overflow-visible">
             {SECTIONS.map((s) => (
               <li key={s.id} className="shrink-0">
@@ -120,7 +127,7 @@ export default function SettingsPage() {
                   className="px-5 max-lg:shadow-none lg:w-full lg:justify-start"
                   onClick={() => setSection(s.id)}
                 >
-                  {s.label}
+                  {t(s.label)}
                 </Button>
               </li>
             ))}
@@ -129,7 +136,7 @@ export default function SettingsPage() {
 
         <div className="min-w-0">
           {/* Keyed by section: a switch re-mounts the panel so it rises in again. */}
-          <Card key={section} id="settings-panel" title={current.label} className="animate-rise">
+          <Card key={section} id="settings-panel" title={t(current.label)} className="animate-rise">
             {section === 'profile' && (
               <>
                 <div className="flex items-center gap-4">
@@ -140,18 +147,20 @@ export default function SettingsPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <p className="truncate text-h3 font-bold">{user?.name || 'Not set'}</p>
+                    <p className="truncate text-h3 font-bold">{user?.name || t('app.settings.notSet')}</p>
                     <p className="truncate text-body text-muted-foreground">
-                      {[d?.position, d?.school].filter(Boolean).join(' at ') || 'Add your school and position'}
+                      {d?.position && d?.school
+                        ? t('app.settings.at', { position: positionLabel(d.position), school: d.school })
+                        : [d?.position && positionLabel(d.position), d?.school].filter(Boolean).join('') || t('app.settings.addSchool')}
                     </p>
                   </div>
                 </div>
                 <dl className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
-                  <Field label="Email" value={user?.email ?? 'Not set'} />
-                  <Field label="Access level" value={role} />
+                  <Field label={t('app.settings.email')} value={user?.email ?? t('app.settings.notSet')} />
+                  <Field label={t('app.settings.accessLevel')} value={role} />
                 </dl>
                 <Button variant="secondary" className="self-start" onClick={() => endSession()}>
-                  Sign out
+                  {t('common.signOut')}
                 </Button>
               </>
             )}
@@ -160,18 +169,18 @@ export default function SettingsPage() {
               <form onSubmit={save} className="flex flex-col gap-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="school">School</Label>
-                    <Input id="school" value={school} maxLength={120} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Riverside Elementary" autoComplete="organization" />
+                    <Label htmlFor="school">{t('app.settings.schoolLabel')}</Label>
+                    <Input id="school" value={school} maxLength={120} onChange={(e) => setSchool(e.target.value)} placeholder={t('app.settings.schoolPlaceholder')} autoComplete="organization" />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="position">Position</Label>
+                    <Label htmlFor="position">{t('app.settings.position')}</Label>
                     <Select value={position} onValueChange={setPosition}>
                       <SelectTrigger id="position">
-                        <SelectValue placeholder="Choose your position" />
+                        <SelectValue placeholder={t('app.settings.positionPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {POSITIONS.map((p) => (
-                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                          <SelectItem key={p} value={p}>{t(POSITION_LABELS[p])}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -184,16 +193,9 @@ export default function SettingsPage() {
             {section === 'prefs' && (
               <form onSubmit={save} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2 md:max-w-sm">
-                  <Label htmlFor="language">Language</Label>
-                  <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger id="language">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="fr">Français</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <span className="text-label font-semibold">{t('common.language')}</span>
+                  <LanguageSwitcher className="h-11 w-full justify-between gap-2 rounded-md" />
+                  <span className="text-small text-muted-foreground">{t('settings.language.hint')}</span>
                 </div>
                 <label className="flex min-h-11 cursor-pointer items-start gap-3 text-body">
                   <input
@@ -203,8 +205,8 @@ export default function SettingsPage() {
                     className="mt-1 size-5 shrink-0 cursor-pointer accent-foreground"
                   />
                   <span>
-                    Remind me to log a Pulse check-in after class
-                    <span className="block text-small text-muted-foreground">You can always add one yourself from the dashboard.</span>
+                    {t('app.settings.pulseReminder')}
+                    <span className="block text-small text-muted-foreground">{t('app.settings.pulseReminderHint')}</span>
                   </span>
                 </label>
                 {saveButton}
@@ -218,9 +220,9 @@ export default function SettingsPage() {
                   <MonitorSmartphone className="size-6" aria-hidden />
                 </span>
                 <div className="flex flex-col gap-1.5">
-                  <h3 className="text-h3 font-bold">Text size</h3>
+                  <h3 className="text-h3 font-bold">{t('app.settings.textSize')}</h3>
                   <p className="max-w-[60ch] text-body text-muted-foreground">
-                    To read larger text, use your browser&apos;s zoom or text size: every page is built to work at 200%.
+                    {t('app.settings.textSizeBody')}
                   </p>
                 </div>
               </div>

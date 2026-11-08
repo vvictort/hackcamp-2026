@@ -17,6 +17,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { AuthGate } from 'deepspace'
 import { buttonVariants, Card } from '@/components/ui'
+import { useLang } from '@/i18n'
 
 export default function ProtectedLayout() {
   return (
@@ -27,6 +28,7 @@ export default function ProtectedLayout() {
 }
 
 function SignedOutPanel() {
+  const { t } = useLang()
   const { pathname, search } = useLocation()
   const next = `?next=${encodeURIComponent(pathname + search)}`
 
@@ -34,15 +36,15 @@ function SignedOutPanel() {
     <div className="flex w-full max-w-3xl flex-col gap-8">
       <Card className="animate-rise max-w-md gap-5">
         <div className="flex flex-col gap-2">
-          <h1 className="text-h1 font-extrabold text-foreground">Sign in to continue</h1>
-          <p className="text-body text-muted-foreground">This page is only available to signed-in users.</p>
+          <h1 className="text-h1 font-extrabold text-foreground">{t('app.gate.title')}</h1>
+          <p className="text-body text-muted-foreground">{t('app.gate.body')}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link to={`/sign-in${next}`} className={buttonVariants()}>
-            Sign in
+            {t('common.signIn')}
           </Link>
           <Link to={`/sign-up${next}`} className={buttonVariants({ variant: 'secondary' })}>
-            Create an account
+            {t('app.gate.createAccount')}
           </Link>
         </div>
       </Card>

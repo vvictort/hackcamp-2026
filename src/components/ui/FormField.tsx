@@ -1,6 +1,7 @@
 import { cloneElement, useId, type ReactElement, type ReactNode } from 'react'
 import { CircleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLang } from '@/i18n'
 import { Label } from './Label'
 
 /** What FormField hands its control. Spread it onto the Input. */
@@ -33,6 +34,7 @@ interface FormFieldProps {
  * fields below it. Spacing: label to control gap-2, control to message 1.5.
  */
 export function FormField({ label, required, hint, error, id: idProp, className, children }: FormFieldProps) {
+  const { t } = useLang()
   const autoId = useId()
   const id = idProp ?? autoId
   const messageId = `${id}-message`
@@ -49,7 +51,7 @@ export function FormField({ label, required, hint, error, id: idProp, className,
         <Label htmlFor={id}>
           {label}
           {required && (
-            <span aria-hidden className="ml-1 text-destructive-strong">
+            <span aria-hidden className="ms-1 text-destructive-strong">
               *
             </span>
           )}
@@ -64,7 +66,7 @@ export function FormField({ label, required, hint, error, id: idProp, className,
           >
             <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
             <span>
-              <span className="sr-only">Error: </span>
+              <span className="sr-only">{t('auth.field.error')} </span>
               {error}
             </span>
           </span>

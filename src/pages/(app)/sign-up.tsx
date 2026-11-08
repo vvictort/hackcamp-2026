@@ -42,11 +42,11 @@ import {
 import { APP_NAME } from '@/constants'
 import { LANGUAGES } from '@/i18n/languages'
 import { useLang } from '@/i18n'
+import type { MessageKey } from '@/i18n/en'
 import { POSITIONS } from '@/lib/positions'
 import { endSession } from '@/lib/session'
 
 const GUTTER = 'px-4 py-6 sm:px-6 lg:py-6'
-const ASIDE = 'A living IEP for every learner in your class.'
 const TOTAL = 4
 
 const INVALID_CLASS =
@@ -54,10 +54,20 @@ const INVALID_CLASS =
 
 type Stage = 2 | 3 | 4
 
-const STAGES: Record<Stage, { title: string; description: string }> = {
-  2: { title: 'About you', description: `So ${APP_NAME} can show you the right things first.` },
-  3: { title: 'Your school', description: 'Where you teach, and the language you want to use.' },
-  4: { title: 'One last thing', description: "This pilot isn't ready for real student records yet." },
+const STAGES: Record<Stage, { title: MessageKey; description: MessageKey }> = {
+  2: { title: 'auth.signUp.about.title', description: 'auth.signUp.about.description' },
+  3: { title: 'auth.signUp.school.title', description: 'auth.signUp.school.description' },
+  4: { title: 'auth.signUp.consent.title', description: 'auth.signUp.consent.description' },
+}
+
+/** Display label per stored position value (the English value is what is saved). */
+const POSITION_KEY: Record<(typeof POSITIONS)[number], MessageKey> = {
+  'Classroom teacher': 'auth.position.classroom-teacher',
+  'Resource / case-manager teacher': 'auth.position.resource-teacher',
+  'Education assistant': 'auth.position.education-assistant',
+  'Substitute teacher': 'auth.position.substitute-teacher',
+  Administrator: 'auth.position.administrator',
+  'District inclusive-education lead': 'auth.position.district-lead',
 }
 
 /** Only same-origin paths: never `//host` or `/\\host` (browsers read both
@@ -68,10 +78,11 @@ function safeNext(raw: string | null) {
 
 /** Visible step text and bar. Screen readers get the step from the h1 instead. */
 function StepIndicator({ step }: { step: number }) {
+  const { t } = useLang()
   return (
     <div aria-hidden className="flex flex-col gap-2">
       <p className="text-small font-semibold text-muted-foreground">
-        Step {step} of {TOTAL}
+        {t('auth.step.of', { current: step, total: TOTAL })}
       </p>
       <Progress
         value={(step / TOTAL) * 100}
@@ -82,11 +93,9 @@ function StepIndicator({ step }: { step: number }) {
   )
 }
 
-const stepTitle = (step: number, title: string) => (
+const stepTitle = (t: ReturnType<typeof useLang>['t'], step: number, title: string) => (
   <>
-    <span className="sr-only">
-      Step {step} of {TOTAL}:{' '}
-    </span>
+    <span className="sr-only">{t('auth.step.of', { current: step, total: TOTAL })}: </span>
     {title}
   </>
 )
@@ -97,28 +106,29 @@ export default function SignUpPage() {
   const next = safeNext(params.get('next'))
   const nextQuery = params.get('next') ? `?next=${encodeURIComponent(next)}` : ''
   const { error } = useToast()
+  const { t } = useLang()
 
   if (!isSignedIn) {
     return (
       <AuthLayout
         className={GUTTER}
         eyebrow={<StepIndicator step={1} />}
-        title={stepTitle(1, 'Create your account')}
-        description="Use your school Google or GitHub account. It takes a minute."
-        aside={ASIDE}
+        title={stepTitle(t, 1, t('auth.signUp.account.title'))}
+        description={t('auth.signUp.account.description')}
+        aside={t('auth.signUp.aside')}
         footer={
           <>
-            Already have an account?{' '}
+            {t('auth.signUp.account.haveOne')}{' '}
             <Link to={`/sign-in${nextQuery}`} className="py-3 font-semibold text-foreground underline underline-offset-4 hover:text-signal">
-              Sign in
+              {t('auth.signUp.account.signIn')}
             </Link>
           </>
         }
       >
         <div className="flex flex-col gap-4">
-          <OAuthButtons onStart={startOnboarding} onError={(m) => error('Could not open sign-in', m)} />
+          <OAuthButtons onStart={startOnboarding} onError={(m) => error(t('auth.signUp.oauthErrorTitle'), m)} />
           <p className="text-small text-muted-foreground">
-            There&apos;s no email sign-up: your Google or GitHub account is your login, so there&apos;s no new password to remember.
+            {t('auth.signUp.account.note')}
           </p>
         </div>
       </AuthLayout>
@@ -148,7 +158,7 @@ function initialDraft(): Draft {
 function ProfileStages({ next }: { next: string }) {
   const navigate = useNavigate()
   const { user, isLoading: userLoading } = useUser()
-  const { lang, setLang } = useLang()
+  const { lang, setLang, t } = useLang()
   const { success, error } = useToast()
   const { records, status } = useQuery<Profile>('users')
   const { put, ready } = useMutations<Profile>('users')
@@ -197,16 +207,16 @@ function ProfileStages({ next }: { next: string }) {
   if (status === 'loading' || userLoading) {
     return (
       <div role="status" className="flex min-h-screen items-center justify-center gap-3 text-body text-muted-foreground">
-        <Spinner /> Loading your profile…
+        <Spinner /> {t('auth.signUp.loading')}
       </div>
     )
   }
   if (!done && complete) return <Navigate to={next} replace />
 
   const problems: Record<Stage, string> = {
-    2: draft.position ? '' : 'Choose your position.',
-    3: draft.school.trim() ? '' : 'Enter your school name.',
-    4: consent ? '' : 'Please confirm to continue.',
+    2: draft.position ? '' : t('auth.signUp.about.positionError'),
+    3: draft.school.trim() ? '' : t('auth.signUp.school.schoolError'),
+    4: consent ? '' : t('auth.signUp.consent.error'),
   }
   const problem = (tried && problems[stage]) || undefined
 
@@ -227,7 +237,7 @@ function ProfileStages({ next }: { next: string }) {
     if (stage < 4) return update({ stage: (stage + 1) as Stage })
 
     if (!recordId) {
-      error('Could not save', 'Your account is still loading. Try again in a moment.')
+      error(t('auth.signUp.saveErrorTitle'), t('auth.signUp.accountLoading'))
       return
     }
     setSaving(true)
@@ -240,11 +250,11 @@ function ProfileStages({ next }: { next: string }) {
         consentAt: new Date().toISOString(),
       })
       endOnboarding()
-      success("You're all set.", 'Your dashboard is ready.')
+      success(t('auth.signUp.doneTitle'), t('auth.signUp.doneMessage'))
       navigate(next, { replace: true })
     } catch {
       setDone(false)
-      error('Could not save', 'Check your connection and try again.')
+      error(t('auth.signUp.saveErrorTitle'), t('auth.signUp.saveNetwork'))
     } finally {
       setSaving(false)
     }
@@ -264,12 +274,12 @@ function ProfileStages({ next }: { next: string }) {
       contentKey={stage}
       headingRef={headingRef}
       eyebrow={<StepIndicator step={stage} />}
-      title={stepTitle(stage, STAGES[stage].title)}
-      description={STAGES[stage].description}
-      aside={ASIDE}
+      title={stepTitle(t, stage, t(STAGES[stage].title))}
+      description={t(STAGES[stage].description)}
+      aside={t('auth.signUp.aside')}
       footer={
         <>
-          Signed in as {user?.email || user?.name || 'you'}. Not you?{' '}
+          {t('auth.signUp.signedInAs', { who: user?.email || user?.name || t('auth.signUp.you') })}{' '}
           <button
             type="button"
             onClick={() => {
@@ -279,7 +289,7 @@ function ProfileStages({ next }: { next: string }) {
             }}
             className="cursor-pointer py-3 font-semibold text-foreground underline underline-offset-4 hover:text-signal"
           >
-            Sign out
+            {t('auth.signUp.signOut')}
           </button>
         </>
       }
@@ -288,24 +298,24 @@ function ProfileStages({ next }: { next: string }) {
         <div className="flex flex-col gap-4">
           {stage === 2 && (
             <>
-              <FormField label="Full name" hint="From your Google or GitHub account.">
+              <FormField label={t('auth.signUp.about.name')} hint={t('auth.signUp.about.nameHint')}>
                 <Input
                   readOnly
-                  value={user?.name || 'Not set'}
+                  value={user?.name || t('auth.signUp.about.notSet')}
                   autoComplete="name"
                   className="bg-muted enabled:hover:border-input"
                 />
               </FormField>
-              <FormField label="Position" required hint="Sets what your dashboard shows first." error={problem}>
+              <FormField label={t('auth.signUp.about.position')} required hint={t('auth.signUp.about.positionHint')} error={problem}>
                 {(control) => (
                   <Select value={draft.position} onValueChange={(position) => update({ position })}>
                     <SelectTrigger ref={positionRef} {...control} className={INVALID_CLASS}>
-                      <SelectValue placeholder="Choose your position" />
+                      <SelectValue placeholder={t('auth.signUp.about.positionPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {POSITIONS.map((p) => (
                         <SelectItem key={p} value={p}>
-                          {p}
+                          {t(POSITION_KEY[p])}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -317,17 +327,17 @@ function ProfileStages({ next }: { next: string }) {
 
           {stage === 3 && (
             <>
-              <FormField label="School" required hint="The school where you teach this year." error={problem}>
+              <FormField label={t('auth.signUp.school.school')} required hint={t('auth.signUp.school.schoolHint')} error={problem}>
                 <Input
                   ref={schoolRef}
                   value={draft.school}
                   maxLength={120}
                   onChange={(e) => update({ school: e.target.value })}
-                  placeholder="e.g. Riverside Elementary"
+                  placeholder={t('auth.signUp.school.schoolPlaceholder')}
                   autoComplete="organization"
                 />
               </FormField>
-              <FormField label="Preferred language" hint="The app switches as soon as you choose.">
+              <FormField label={t('auth.signUp.school.language')} hint={t('auth.signUp.school.languageHint')}>
                 {(control) => (
                   <Select
                     value={language}
@@ -341,7 +351,7 @@ function ProfileStages({ next }: { next: string }) {
                     </SelectTrigger>
                     <SelectContent>
                       {LANGUAGES.map((l) => (
-                        <SelectItem key={l.code} value={l.code} lang={l.code}>
+                        <SelectItem key={l.code} value={l.code} lang={l.code} dir={l.rtl ? 'rtl' : 'ltr'}>
                           {l.native}
                         </SelectItem>
                       ))}
@@ -366,8 +376,8 @@ function ProfileStages({ next }: { next: string }) {
                   className="mt-0.5 size-5 shrink-0 cursor-pointer accent-foreground"
                 />
                 <span>
-                  I will only enter fictional or de-identified student information.
-                  <span aria-hidden className="ml-1 text-destructive-strong">*</span>
+                  {t('auth.signUp.consent.label')}
+                  <span aria-hidden className="ms-1 text-destructive-strong">*</span>
                 </span>
               </label>
               <p id="consent-message" className="mt-1.5 min-h-10 text-small">
@@ -375,13 +385,13 @@ function ProfileStages({ next }: { next: string }) {
                   <span className="flex animate-in items-start gap-1.5 font-semibold text-destructive-strong fade-in-0">
                     <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
                     <span>
-                      <span className="sr-only">Error: </span>
+                      <span className="sr-only">{t('auth.field.error')} </span>
                       {problem}
                     </span>
                   </span>
                 ) : (
                   <span className="text-muted-foreground">
-                    Use made-up names or initials, and leave out anything that could identify a student.
+                    {t('auth.signUp.consent.hint')}
                   </span>
                 )}
               </p>
@@ -393,11 +403,11 @@ function ProfileStages({ next }: { next: string }) {
           {stage > 2 && (
             <Button type="button" variant="ghost" size="lg" onClick={back} disabled={saving}>
               <ChevronLeft aria-hidden className="rtl:rotate-180" />
-              Back
+              {t('auth.signUp.back')}
             </Button>
           )}
           <Button type="submit" size="lg" className="flex-1" loading={saving} disabled={stage === 4 && !ready}>
-            {stage < 4 ? 'Continue' : saving ? 'Saving…' : 'Finish setting up'}
+            {stage < 4 ? t('auth.signUp.continue') : saving ? t('auth.signUp.saving') : t('auth.signUp.finish')}
           </Button>
         </div>
       </form>

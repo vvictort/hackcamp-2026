@@ -5,18 +5,20 @@
  */
 
 import type { Role } from 'deepspace'
+import type { MessageKey } from '@/i18n/en'
 
 export interface NavItem {
   path: string
-  label: string
+  /** i18n key, translated at render. */
+  label: MessageKey
   roles?: Role[]
   devOnly?: boolean
 }
 
 export const nav: NavItem[] = [
-  { path: '/home', label: 'Home' },
-  { path: '/settings', label: 'Settings' },
+  { path: '/home', label: 'nav.home' },
+  { path: '/settings', label: 'nav.settings' },
   // The /api-status debug page still exists: add
-  // `{ path: '/api-status', label: 'API Status', devOnly: true }` to surface it.
+  // `{ path: '/api-status', label: 'app.nav.apiStatus', devOnly: true }` to surface it.
   // ── Features add nav items below this line ──
 ]
