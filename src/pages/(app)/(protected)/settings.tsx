@@ -79,13 +79,13 @@ export default function SettingsPage() {
   const card = 'flex flex-col gap-3 rounded-lg bg-card p-4 shadow-raised sm:p-5'
 
   return (
-    <div className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6 sm:px-6 lg:gap-5 lg:px-0 lg:py-0">
+    <div className="flex w-full flex-col gap-4 px-4 py-6 sm:px-6 lg:gap-5 lg:px-0 lg:py-0">
       <header className="flex flex-col gap-1 lg:pt-1">
         <h1 className="text-display font-extrabold">Settings</h1>
         <p className="text-body text-muted-foreground">Your profile, school and preferences.</p>
       </header>
 
-      <div className="grid items-start gap-3 lg:gap-4 xl:grid-cols-12">
+      <div className="grid gap-3 lg:gap-4 xl:grid-cols-12">
         <div className="flex flex-col gap-3 lg:gap-4 xl:col-span-5">
           <section aria-labelledby="account-title" className={card}>
             <h2 id="account-title" className="sr-only">Your account</h2>
@@ -109,7 +109,7 @@ export default function SettingsPage() {
             </Button>
           </section>
 
-          <section className={`${card} sm:flex-row sm:items-start`}>
+          <section className={`${card} flex-1 sm:flex-row sm:items-start`}>
             <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
               <MonitorSmartphone className="size-6" aria-hidden />
             </span>
@@ -146,7 +146,7 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section aria-labelledby="prefs-title" className={card}>
+          <section aria-labelledby="prefs-title" className={`${card} flex-1`}>
             <h2 id="prefs-title" className="text-h2 font-bold">Preferences</h2>
             <div className="flex flex-col gap-2 md:max-w-sm">
               <Label htmlFor="language">Language</Label>
@@ -172,11 +172,10 @@ export default function SettingsPage() {
                 <span className="block text-small text-muted-foreground">You can always add one yourself from the dashboard.</span>
               </span>
             </label>
+            <Button type="submit" className="mt-auto self-end" loading={saving} disabled={!ready || !recordId}>
+              Save changes
+            </Button>
           </section>
-
-          <Button type="submit" className="self-end" loading={saving} disabled={!ready || !recordId}>
-            Save changes
-          </Button>
         </form>
       </div>
     </div>
