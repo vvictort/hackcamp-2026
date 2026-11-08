@@ -19,7 +19,7 @@ export const START_PATH: Record<AltamiraRole, string> = {
   case_manager: '/home',
   parent: '/family',
   district_lead: '/insights',
-  school_admin: '/admin/roles',
+  school_admin: '/admin/tickets',
 }
 
 /** True when `role` may open `path` (a nav route). Unlisted routes are open. */

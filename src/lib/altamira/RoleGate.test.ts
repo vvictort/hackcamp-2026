@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nav } from '@/nav'
-import { canOpen } from './RoleGate'
+import { canOpen, START_PATH } from './RoleGate'
 
 describe('role access by route', () => {
   it('student-era routes are gone', () => {
@@ -10,8 +10,14 @@ describe('role access by route', () => {
   it('lets each role into its own pages only', () => {
     expect(canOpen('/capture', 'ea')).toBe(true)
     expect(canOpen('/capture', 'case_manager')).toBe(false)
-    expect(canOpen('/review', 'case_manager')).toBe(false)
-    expect(canOpen('/lesson-lens', 'ea')).toBe(false)
+    expect(canOpen('/end-of-day', 'ea')).toBe(true)
+    expect(canOpen('/end-of-day', 'case_manager')).toBe(false)
+    expect(canOpen('/summaries', 'case_manager')).toBe(true)
+    expect(canOpen('/summaries', 'parent')).toBe(false)
+    expect(canOpen('/progress', 'teacher')).toBe(true)
+    expect(canOpen('/progress', 'district_lead')).toBe(false)
+    expect(canOpen('/admin/tickets', 'school_admin')).toBe(true)
+    expect(canOpen('/admin/tickets', 'case_manager')).toBe(false)
     expect(canOpen('/family', 'parent')).toBe(true)
     expect(canOpen('/family', 'case_manager')).toBe(false)
     expect(canOpen('/insights', 'district_lead')).toBe(true)
@@ -23,11 +29,20 @@ describe('role access by route', () => {
   })
   it('sidebar items per role', () => {
     const items = (r: Parameters<typeof canOpen>[1]) => nav.filter((n) => !n.hidden && canOpen(n.path, r)).map((n) => n.path)
-    expect(items('ea')).toEqual(['/home', '/students', '/capture', '/review', '/settings'])
-    expect(items('teacher')).toEqual(['/home', '/students', '/lesson-lens', '/capture', '/review', '/settings'])
-    expect(items('case_manager')).toEqual(['/home', '/students', '/settings'])
+    const staff = ['/home', '/students', '/capture', '/progress', '/summaries', '/settings']
+    expect(items('ea')).toEqual(staff)
+    expect(items('teacher')).toEqual(staff)
+    expect(items('case_manager')).toEqual(['/home', '/students', '/progress', '/summaries', '/settings'])
     expect(items('parent')).toEqual(['/family', '/settings'])
     expect(items('district_lead')).toEqual(['/insights', '/settings'])
-    expect(items('school_admin')).toEqual(['/admin/roles', '/settings'])
+    expect(items('school_admin')).toEqual(['/admin/tickets', '/admin/roles', '/settings'])
+  })
+  it('has no duplicate paths and none of the removed screens', () => {
+    const paths = nav.map((n) => n.path)
+    expect(new Set(paths).size).toBe(paths.length)
+    for (const gone of ['/lesson-lens', '/review', '/ea']) expect(paths).not.toContain(gone)
+  })
+  it('each role starts on a page it may open', () => {
+    for (const [role, path] of Object.entries(START_PATH)) expect(canOpen(path, role as keyof typeof START_PATH)).toBe(true)
   })
 })

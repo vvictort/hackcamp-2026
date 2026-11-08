@@ -10,3 +10,6 @@ export function assignBody(f: { userId: string; displayName: string; role: Altam
   if (f.role === 'parent') return { kind: 'parent_link' as const, userId, displayName, studentId }
   return { kind: 'membership' as const, userId, displayName, role: f.role, studentId: studentId || null, classId: null, districtId: null }
 }
+
+/** Roles that must be tied to one student when assigned. */
+export const NEEDS_STUDENT: AltamiraRole[] = ['ea', 'parent']

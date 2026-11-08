@@ -25,12 +25,13 @@ export interface NavItem {
 export const nav: NavItem[] = [
   { path: '/home', label: 'nav.home', roles: ['ea', 'teacher', 'case_manager'], showInDemo: true },
   { path: '/students', label: 'app.nav.students', roles: ['ea', 'teacher', 'case_manager'] },
-  { path: '/lesson-lens', label: 'app.nav.lessonLens', roles: ['teacher'] },
   { path: '/capture', label: 'app.nav.capture', roles: ['ea', 'teacher'] },
-  { path: '/review', label: 'app.nav.review', roles: ['ea', 'teacher'] },
-  { path: '/ea', label: 'app.nav.ea', roles: ['ea'], hidden: true },
+  { path: '/progress', label: 'app.nav.progress', roles: ['ea', 'teacher', 'case_manager'] },
+  { path: '/summaries', label: 'app.nav.summaries', roles: ['ea', 'teacher', 'case_manager'] },
+  { path: '/end-of-day', label: 'app.nav.endOfDay', roles: ['ea', 'teacher'], hidden: true },
   { path: '/family', label: 'app.nav.family', roles: ['parent'] },
   { path: '/insights', label: 'app.nav.insights', roles: ['district_lead'] },
+  { path: '/admin/tickets', label: 'app.nav.tickets', roles: ['school_admin'] },
   { path: '/admin/roles', label: 'app.nav.roles', roles: ['school_admin'] },
   { path: '/settings', label: 'nav.settings' },
   // The /api-status debug page still exists: add
