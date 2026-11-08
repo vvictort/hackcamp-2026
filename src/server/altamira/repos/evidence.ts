@@ -73,7 +73,7 @@ export function isHead(sql: SqlExecutor, id: string): boolean {
 }
 
 export function insertDataPoint(sql: SqlExecutor, dp: DataPoint): void {
-  insertEntity(sql, 'data_points', dp, ['activeAdaptations'])
+  insertEntity(sql, 'data_points', dp, ['activeAdaptations', 'sessionDetail'])
 }
 
 export const reviewById = (sql: SqlExecutor, id: string) => findById(sql, 'review_queue', ReviewItem, id)
