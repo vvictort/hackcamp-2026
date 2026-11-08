@@ -13,6 +13,7 @@ import { profileGet } from '../services/lens'
 import { studentsGet } from '../services/school'
 import { iepApplyTicket, ticketsForStudent, ticketsGet, ticketsList, ticketsResolve, ticketsSubmit } from '../services/tickets'
 import type { Kit } from './context'
+import { studentLabel } from './student-flows'
 
 const StatusQuery = z.object({ status: z.enum(['pending', 'all']).default('pending') })
 
@@ -40,7 +41,9 @@ export function ticketRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   app.get('/tickets', signedIn, async (c) => {
     const r = req(c)
     const { status } = r.query(StatusQuery, { status: c.req.query('status') })
-    return r.json(TicketsResponse, await r.school(ticketsList, { schoolId: deps.schoolId(r.env), status }))
+    const list = await r.school(ticketsList, { schoolId: deps.schoolId(r.env), status })
+    for (const t of list.tickets) t.studentLabel = await studentLabel(r, t.studentId, t.studentLabel)
+    return r.json(TicketsResponse, list)
   })
 
   /** Creates IEP version N+1 with the change made, then closes the ticket as applied. */
