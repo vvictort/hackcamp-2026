@@ -40,3 +40,27 @@ describe('synthesizeSpeech', () => {
     expect(new DataView(w.buffer).getUint32(40, true)).toBe(10)
   })
 })
+
+describe('synthesizeSpeech output', () => {
+  it('reads the sample rate from the mime type and writes a valid 16-bit mono WAV', async () => {
+    const out = await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k' }, { fetch: asFetch(async () => audio('audio/L16;codec=pcm;rate=16000', [1, 0, 2, 0])) })
+    const v = new DataView(out!.buffer)
+    const tag = (o: number) => String.fromCharCode(...out!.slice(o, o + 4))
+    expect([tag(0), tag(8), tag(12), tag(36)]).toEqual(['RIFF', 'WAVE', 'fmt ', 'data'])
+    expect(v.getUint32(4, true)).toBe(36 + 4)
+    expect(v.getUint16(22, true)).toBe(1)
+    expect(v.getUint32(24, true)).toBe(16000)
+    expect(v.getUint16(34, true)).toBe(16)
+    expect([...out!.slice(44)]).toEqual([1, 0, 2, 0])
+  })
+
+  it('falls over from a timed-out model to the next one', async () => {
+    const f = vi.fn((_u: string, init: RequestInit) => new Promise<Response>((_res, rej) => init.signal!.addEventListener('abort', () => rej(new Error('abort')))))
+    f.mockImplementationOnce(f.getMockImplementation()!)
+    const second = vi.fn(async () => audio('audio/wav', [7]))
+    let n = 0
+    const fetcher = (u: string, init: RequestInit) => (n++ === 0 ? f(u, init) : second())
+    const out = await synthesizeSpeech('hi', { GEMINI_API_KEY: 'k', ALTAMIRA_GEMINI_TTS_MODELS: 'a,b' }, { fetch: asFetch(fetcher), timeoutMs: 20 })
+    expect([...out!]).toEqual([7])
+  })
+})
