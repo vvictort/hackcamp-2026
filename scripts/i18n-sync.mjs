@@ -55,7 +55,7 @@ async function sync(code) {
         console.warn(`${code}: partial (${Object.keys(body.messages).length} keys), retrying`)
         continue
       }
-      await writeFile(join(dir, `${code}.json`), JSON.stringify({ v: body.v, messages: body.messages }, null, 1) + '\n')
+      await writeFile(join(dir, `${code}.json`), JSON.stringify({ v: body.v, keep: body.keep, src: body.src, messages: body.messages }, null, 1) + '\n')
       return `${code}: ${Object.keys(body.messages).length} keys`
     }
     console.warn(`${code}: attempt ${attempt} failed (${res?.status ?? 'no answer'})`)

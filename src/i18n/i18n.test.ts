@@ -12,6 +12,7 @@ import { en } from './en'
 import { DEFAULT_LANG, LANGUAGES } from './languages'
 import { translate } from './index'
 import { rich } from './rich'
+import { KEEP, freshMessages, hashText } from './version'
 
 describe('i18n', () => {
   it('has unique language codes and English as the source', () => {
@@ -44,5 +45,18 @@ describe('i18n', () => {
     }
     expect(dupes).toEqual([])
     expect(Object.keys(en).length).toBe(seen.size)
+  })
+
+  it('keeps only translations whose English did not change', () => {
+    const file = {
+      v: 'old',
+      keep: hashText(KEEP),
+      src: { 'common.signIn': hashText(en['common.signIn']), 'common.signOut': 'changed-since', 'gone.key': 'x' },
+      messages: { 'common.signIn': 'Entrar', 'common.signOut': 'Salir', 'gone.key': 'Adiós' },
+    }
+    expect(freshMessages(file)).toEqual({ 'common.signIn': 'Entrar' })
+    // A different do-not-translate list invalidates everything; a file with no hashes is kept whole.
+    expect(freshMessages({ ...file, keep: 'other' })).toEqual({})
+    expect(freshMessages({ v: 'old', messages: { 'common.signIn': 'Entrar' } })).toEqual({ 'common.signIn': 'Entrar' })
   })
 })

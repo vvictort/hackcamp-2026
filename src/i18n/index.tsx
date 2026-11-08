@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { en, type MessageKey } from './en'
 import { DEFAULT_LANG, LANGUAGES, findLanguage, type Language } from './languages'
-import { catalogueVersion } from './version'
+import { catalogueVersion, freshMessages } from './version'
 
 type Messages = Partial<Record<MessageKey, string>>
 type Vars = Record<string, string | number>
@@ -16,7 +16,7 @@ type Vars = Record<string, string | number>
 const STORAGE_KEY = 'altamyra.lang'
 
 /** Translations committed to the repo (scripts/i18n-sync.mjs). Each loads on demand as its own small file. */
-const locales = import.meta.glob<{ default: { v: string; messages: Messages } }>('./locales/*.json')
+const locales = import.meta.glob<{ default: { v: string; keep?: string; src?: Record<string, string>; messages: Messages } }>('./locales/*.json')
 
 export function translate(messages: Messages, key: MessageKey, vars?: Vars): string {
   const text = messages[key] ?? en[key]
@@ -96,31 +96,31 @@ export function LangProvider({ children }: { children: ReactNode }) {
     setMessages(saved ?? {})
     const ctrl = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
-    const load = (attempt: number) => {
-      setLoading(true)
+    // `quiet` refreshes in the background: usable text is already on screen, so no spinner.
+    const load = (attempt: number, quiet: boolean) => {
+      if (!quiet) setLoading(true)
       fetch(`/api/i18n/${lang}`, { signal: ctrl.signal })
         .then((r) => (r.ok ? (r.json() as Promise<{ messages: Messages; complete?: boolean }>) : Promise.reject(new Error(String(r.status)))))
         .then((body) => {
           setMessages(body.messages)
           if (body.complete) writeSaved(lang, body.messages)
-          // A partial result means the server is still filling gaps: ask again a few times.
-          else if (attempt < 3) timer = setTimeout(() => load(attempt + 1), 8000)
+          // A partial result means the server is still filling gaps: ask again a few times, quietly.
+          else if (attempt < 3) timer = setTimeout(() => load(attempt + 1, true), 8000)
         })
-        .catch(() => !ctrl.signal.aborted && !saved && setFailed(true))
+        .catch(() => !ctrl.signal.aborted && !quiet && !saved && setFailed(true))
         .finally(() => !ctrl.signal.aborted && setLoading(false))
     }
     const file = locales[`./locales/${lang}.json`]
-    if (!file) load(0)
+    if (!file) load(0, !!saved)
     else {
-      setLoading(true)
       file()
         .then((m) => {
           if (ctrl.signal.aborted) return
-          setMessages(m.default.messages)
-          if (m.default.v === catalogueVersion()) setLoading(false)
-          else load(0) // the file is behind the English text: use it meanwhile, refresh from the server
+          // Only translations that still match today's English are shown; anything else is English until refreshed.
+          setMessages(freshMessages(m.default) as Messages)
+          if (m.default.v !== catalogueVersion()) load(0, true) // behind the English text: refresh in the background
         })
-        .catch(() => !ctrl.signal.aborted && load(0))
+        .catch(() => !ctrl.signal.aborted && load(0, !!saved))
     }
     return () => {
       ctrl.abort()

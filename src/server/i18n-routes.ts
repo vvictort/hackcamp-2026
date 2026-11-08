@@ -21,7 +21,7 @@ import type { Hono } from 'hono'
 import { apiWorkerFetch } from 'deepspace/worker'
 import { en } from '../i18n/en.js'
 import { findLanguage } from '../i18n/languages.js'
-import { KEEP, catalogueVersion } from '../i18n/version.js'
+import { KEEP, catalogueVersion, freshMessages, hashText, sourceHashes } from '../i18n/version.js'
 import type { AppContext, Env } from '../../worker.js'
 
 const MODEL = 'claude-haiku-5-5'
@@ -44,7 +44,9 @@ async function room(env: Env, tool: string, params: Record<string, unknown>) {
   return (await res.json()) as { success: boolean; data?: { records?: { recordId: string; data: { value?: string } }[] } }
 }
 
-async function readCache(env: Env, lang: string): Promise<{ recordId?: string; value?: { v: string; messages: Catalogue } }> {
+type Stored = { v: string; keep?: string; src?: Record<string, string>; messages: Catalogue }
+
+async function readCache(env: Env, lang: string): Promise<{ recordId?: string; value?: Stored }> {
   const r = await room(env, 'records.query', { collection: 'settings', where: { key: `i18n:${lang}` }, limit: 1 })
   const rec = r.data?.records?.[0]
   if (!rec?.data.value) return { recordId: rec?.recordId }
@@ -128,7 +130,9 @@ async function build(env: Env, lang: string, name: string, existing: Catalogue, 
     }),
   )
   if (Object.keys(out).length > Object.keys(existing).length) {
-    const value = JSON.stringify({ v: catalogueVersion(), messages: out })
+    const now = sourceHashes()
+    const src = Object.fromEntries(Object.keys(out).filter((k) => k in now).map((k) => [k, now[k]]))
+    const value = JSON.stringify({ v: catalogueVersion(), keep: hashText(KEEP), src, messages: out })
     if (recordId) await room(env, 'records.update', { collection: 'settings', recordId, data: { value } })
     else await room(env, 'records.create', { collection: 'settings', data: { key: `i18n:${lang}`, value } })
   }
@@ -144,7 +148,8 @@ export function registerI18nRoutes(app: Hono<AppContext>): void {
     const { code, name } = language
     try {
       const cached = await readCache(c.env, code)
-      const current = cached.value?.v === catalogueVersion() ? cached.value.messages : {}
+      // Reuse every stored translation whose English did not change; only the rest is translated.
+      const current = cached.value ? freshMessages(cached.value) : {}
       const have = (m: Catalogue) => Object.keys(en).filter((k) => m[k]).length
       let messages = current
       if (have(current) < total) {
@@ -159,7 +164,9 @@ export function registerI18nRoutes(app: Hono<AppContext>): void {
       if (done === 0) throw new Error('nothing translated')
       // A partial result is served (English fills the gaps) but not cached by browsers, so the next request completes it.
       c.header('Cache-Control', done === total ? 'public, max-age=3600' : 'no-store')
-      return c.json({ lang: code, v: catalogueVersion(), complete: done === total, messages })
+      const now = sourceHashes()
+      const src = Object.fromEntries(Object.keys(messages).filter((k) => k in now).map((k) => [k, now[k]]))
+      return c.json({ lang: code, v: catalogueVersion(), keep: hashText(KEEP), src, complete: done === total, messages })
     } catch (err) {
       console.error('[i18n]', code, err instanceof Error ? err.message : err)
       return c.json({ error: 'Translation unavailable' }, 503)
