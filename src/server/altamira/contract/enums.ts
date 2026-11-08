@@ -98,6 +98,11 @@ export type ConsentKind = z.infer<typeof ConsentKind>
 export const FAMILY_SUMMARY_STATUSES = ['draft', 'approved'] as const
 export const FamilySummaryStatus = z.enum(FAMILY_SUMMARY_STATUSES)
 
+/** Daily (EA/teacher), weekly (case manager) and monthly (parent) summaries. Period: YYYY-MM-DD, YYYY-Www, YYYY-MM. */
+export const SUMMARY_KINDS = ['daily', 'weekly', 'monthly'] as const
+export const SummaryKind = z.enum(SUMMARY_KINDS)
+export type SummaryKind = z.infer<typeof SummaryKind>
+
 /** Roles held in the school room's memberships table. Parents are linked through parent_links. */
 export const MEMBERSHIP_ROLES = ['case_manager', 'teacher', 'ea', 'school_admin', 'district_lead'] as const
 export const MembershipRole = z.enum(MEMBERSHIP_ROLES)

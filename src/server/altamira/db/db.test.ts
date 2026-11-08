@@ -78,7 +78,10 @@ describe('DDL matches the contract schemas', () => {
     usage_events: student.UsageEvent,
     consents: student.Consent,
     proficiency_ratings: student.ProficiencyRating,
-    family_summaries: student.FamilySummary,
+    notes: student.Note,
+    videos: student.Video,
+    day_reviews: student.DayReview,
+    summaries: student.Summary,
     audit_log: student.AuditEntry,
   }
   const schoolTables: Record<string, z.ZodObject> = {
@@ -292,7 +295,7 @@ describe('v3 upgrade of an existing student room', () => {
     db.run("INSERT INTO family_summaries VALUES ('f1', 'd1', 'en', 'Hello', 'approved', '2026-10-01T00:00:00.000Z', 'u', '2026-10-02T00:00:00.000Z', 2)")
     expect(migrateStudent(db)).toBe(STUDENT_MIGRATIONS.length)
     expect(db.all<{ id: string; kind: string }>('SELECT id, kind FROM consents')).toEqual([{ id: 'c2', kind: 'voice_note' }])
-    expect(db.get<{ text: string; version: number }>('SELECT text, version FROM family_summaries WHERE id = ?', 'f1')).toEqual({ text: 'Hello', version: 2 })
+    expect(db.get<{ text: string; version: number; kind: string; period: string }>('SELECT text, version, kind, period FROM summaries WHERE id = ?', 'f1')).toEqual({ text: 'Hello', version: 2, kind: 'monthly', period: '2026-10' })
     expect(db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('progress_drafts','proposals','parent_inputs','draft_citations','handoffs')")).toEqual([])
   })
 })

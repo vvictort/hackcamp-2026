@@ -1,10 +1,5 @@
-import type { ConsentKind } from '../contract/enums'
-import {
-  Consent,
-  FamilySummary,
-  Probe,
-  ProficiencyRating,
-} from '../contract/student'
+import type { ConsentKind, SummaryKind } from '../contract/enums'
+import { Consent, DayReview, Note, Probe, ProficiencyRating, Summary, Video } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
 import { findById, parseRow, parseRows } from './base'
 
@@ -35,20 +30,45 @@ export function latestProficiency(sql: SqlExecutor, goalId: string): Proficiency
   return row ? parseRow(ProficiencyRating, row) : undefined
 }
 
-// ---------- family summaries ----------
+// ---------- summaries (daily, weekly, monthly) ----------
 
-export const summaryById = (sql: SqlExecutor, id: string) => findById(sql, 'family_summaries', FamilySummary, id)
+export const summaryById = (sql: SqlExecutor, id: string) => findById(sql, 'summaries', Summary, id)
 
-export function listSummaries(sql: SqlExecutor): FamilySummary[] {
-  return parseRows(FamilySummary, sql.all<Row>('SELECT * FROM family_summaries ORDER BY created_at, rowid'))
+export function summaryFor(sql: SqlExecutor, kind: SummaryKind, period: string): Summary | undefined {
+  const row = sql.get<Row>('SELECT * FROM summaries WHERE kind = ? AND period = ? ORDER BY created_at DESC, rowid DESC LIMIT 1', kind, period)
+  return row ? parseRow(Summary, row) : undefined
 }
 
-export function approvedSummaries(sql: SqlExecutor): FamilySummary[] {
-  return parseRows(
-    FamilySummary,
-    sql.all<Row>("SELECT * FROM family_summaries WHERE status = 'approved' ORDER BY approved_at, rowid"),
-  )
+/** Newest period first. */
+export function listSummaries(sql: SqlExecutor, q: { kind?: SummaryKind; status?: Summary['status'] } = {}): Summary[] {
+  const where = ['1 = 1']
+  const params: string[] = []
+  if (q.kind) {
+    where.push('kind = ?')
+    params.push(q.kind)
+  }
+  if (q.status) {
+    where.push('status = ?')
+    params.push(q.status)
+  }
+  return parseRows(Summary, sql.all<Row>(`SELECT * FROM summaries WHERE ${where.join(' AND ')} ORDER BY period DESC, rowid DESC`, ...params))
 }
+
+// ---------- notes, videos, day reviews ----------
+
+export const notesBetween = (sql: SqlExecutor, from: string, to: string): Note[] =>
+  parseRows(Note, sql.all<Row>('SELECT * FROM notes WHERE recorded_at >= ? AND recorded_at < ? ORDER BY recorded_at, rowid', from, to))
+
+export const videosBetween = (sql: SqlExecutor, from: string, to: string): Video[] =>
+  parseRows(Video, sql.all<Row>('SELECT * FROM videos WHERE recorded_at >= ? AND recorded_at < ? ORDER BY recorded_at, rowid', from, to))
+
+export function dayReviewOf(sql: SqlExecutor, date: string): DayReview | undefined {
+  const row = sql.get<Row>('SELECT * FROM day_reviews WHERE date = ?', date)
+  return row ? parseRow(DayReview, row) : undefined
+}
+
+export const dayReviewsBetween = (sql: SqlExecutor, fromDate: string, toDate: string): DayReview[] =>
+  parseRows(DayReview, sql.all<Row>('SELECT * FROM day_reviews WHERE date >= ? AND date <= ? ORDER BY date', fromDate, toDate))
 
 // ---------- probes ----------
 

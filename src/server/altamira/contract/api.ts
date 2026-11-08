@@ -10,6 +10,7 @@ import {
   MetricType,
   PromptLevel,
   Proficiency,
+  SummaryKind,
 } from './enums'
 import { InsightDimension } from './insights'
 import { CaptureBatch, Lesson, LessonAnalysis, Membership, ParentLink } from './school'
@@ -20,6 +21,7 @@ import {
   Consent,
   DataPoint,
   Decision,
+  DayReview,
   FamilySummary,
   Goal,
   IepSections,
@@ -28,7 +30,10 @@ import {
   Objective,
   ProficiencyRating,
   ReviewItem,
+  Note,
   Suggestion,
+  Summary,
+  Video,
 } from './student'
 import { ProposeObjectivesOutput } from './ai'
 
@@ -430,10 +435,80 @@ export const FamilyConsentBody = z.object({ kind: ConsentKind, granted: z.boolea
 export type FamilyConsentBody = z.infer<typeof FamilyConsentBody>
 export const FamilyConsentsResponse = z.object({ consents: z.array(Consent) })
 
-export const FamilySummaryApproveBody = ExpectedVersion.extend({ text: z.string().min(1).optional() })
-export const FamilySummaryResponse = z.object({ summary: FamilySummary })
-/** GET /family/:id/summaries and GET /students/:id/summaries. Parents and case managers get approved ones only. */
-export const FamilySummariesResponse = z.object({ summaries: z.array(FamilySummary) })
+// ---------- Summaries (daily, weekly, monthly) ----------
+
+export const SummaryGenerateBody = z.object({
+  kind: SummaryKind,
+  /** YYYY-MM-DD, YYYY-Www or YYYY-MM by kind; defaults to today, this week or this month. */
+  period: z.string().optional(),
+  /** Monthly only: BCP 47 tag of the family's language; defaults to English. */
+  language: z.string().min(2).max(16).optional(),
+})
+export type SummaryGenerateBody = z.infer<typeof SummaryGenerateBody>
+
+export const SummaryPatchBody = z.object({
+  studentId: Id,
+  text: z.string().trim().min(1).max(8000),
+  translatedText: z.string().trim().min(1).max(8000).nullable().optional(),
+  /** Language of translatedText when the translation is written or fixed by hand. */
+  language: z.string().min(2).max(16).optional(),
+  version: z.number().int().min(1),
+})
+export const SummaryApproveBody = z.object({ studentId: Id, version: z.number().int().min(1) })
+export const SummaryResponse = z.object({ summary: Summary })
+/** GET /students/:id/summaries and GET /family/:id/summaries. The room filters by role: EA and teacher see drafts, the case manager approved weekly, the parent approved monthly. */
+export const SummariesResponse = z.object({ summaries: z.array(Summary) })
+export const SummariesQuery = z.object({ kind: SummaryKind.optional() })
+/** @deprecated use SummariesResponse. */
+export const FamilySummariesResponse = SummariesResponse
+export const PendingSummariesResponse = z.object({
+  summaries: z.array(z.object({ id: Id, studentId: Id, label: z.string(), kind: SummaryKind, period: z.string() })),
+})
+export const WeeklySummariesResponse = z.object({
+  summaries: z.array(z.object({ id: Id, studentId: Id, label: z.string(), period: z.string(), text: z.string(), approvedAt: Timestamp.nullable() })),
+})
+
+// ---------- Daily record ----------
+
+export const NoteBody = z.object({ objectiveId: Id.nullable().optional(), text: z.string().trim().min(1).max(2000) })
+export const NoteResponse = z.object({ note: Note })
+/** Upload first (same storage pattern as voice notes), then register the file here. */
+export const VideoBody = z.object({
+  fileKey: z.string().min(1),
+  contentType: z.string().regex(/^video\//, 'contentType must be video/*'),
+  sizeBytes: z.number().int().min(0).max(500 * 1024 * 1024),
+  objectiveId: Id.nullable().optional(),
+  recordedAt: Timestamp.optional(),
+})
+export const VideoResponse = z.object({ video: Video })
+
+export const DayCountsSchema = z.object({
+  dataPoints: z.number().int(),
+  events: z.number().int(),
+  notes: z.number().int(),
+  videos: z.number().int(),
+  voiceNotes: z.number().int(),
+})
+export const DaysQuery = z.object({ from: DateString.optional(), to: DateString.optional() })
+export const DaysResponse = z.object({
+  days: z.array(z.object({ date: DateString, counts: DayCountsSchema, reviewed: z.boolean() })),
+})
+export const DayDetailResponse = z.object({
+  date: DateString,
+  dataPoints: z.array(DataPoint),
+  events: z.array(DataPoint),
+  notes: z.array(Note),
+  videos: z.array(Video),
+  voiceNotes: z.array(DataPoint),
+  review: DayReview.nullable(),
+  dailySummary: Summary.nullable(),
+})
+export const DayCompleteBody = z.object({ note: z.string().trim().max(2000).nullable().optional() })
+export const DayCompleteResponse = z.object({ review: DayReview, dailySummary: Summary.nullable() })
+export const MyDayReviewResponse = z.object({
+  date: DateString,
+  students: z.array(z.object({ studentId: Id, label: z.string(), entriesToday: z.number().int(), reviewed: z.boolean() })),
+})
 
 // ---------- Insights (M5) ----------
 
@@ -444,6 +519,8 @@ export const InsightsQuery = z.object({
 export type InsightsQuery = z.infer<typeof InsightsQuery>
 
 export const InsightsResponse = z.object({
+  /** Deterministic text built from the aggregates (not AI); never mentions suppressed groups or students. */
+  monthlyNarrative: z.object({ period: z.string().nullable(), text: z.string() }),
   groups: z.array(
     z.object({
       dims: z.record(z.string(), z.string().nullable()),
