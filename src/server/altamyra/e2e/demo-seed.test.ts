@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { closeAll } from '../services/testing'
 import { WHAT_WORKS_MIN_N } from '../services/thresholds'
-import { coverageOf } from '../../../lib/altamyra/coverage'
 import { amara, kai, sofia } from './flows'
 import { createHarness } from './harness'
+
+type GoalStatus = { objectiveId: string | null; current: number | null; recentCount: number; latestDecision: string | null }
+function coverageOf(s: GoalStatus): 'fresh' | 'stale' | 'data_needed' {
+  if (!s.objectiveId || s.current === null || s.recentCount === 0 || s.latestDecision === 'data_needed') return 'data_needed'
+  return s.recentCount < 2 ? 'stale' : 'fresh'
+}
 
 afterEach(closeAll)
 const U = 'demo-user-1'

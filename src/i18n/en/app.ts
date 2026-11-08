@@ -177,14 +177,6 @@ export const app = {
   'app.tickets.status.applied': 'Applied',
   'app.tickets.status.declined': 'Declined',
 
-  // Lesson Lens errors (used by src/lib/lessonLens.ts)
-  'app.home.lensNotConnected': "Lesson Lens isn't connected yet.",
-  'app.home.lensNoAnswer': "Lesson Lens didn't answer. Try again in a minute.",
-  'app.home.lensBadReply': "Lesson Lens sent back something we couldn't use. Try again.",
-  'app.home.lensNotFound': "That item wasn't found. Reload the page and try again.",
-  'app.home.lensSignedOut': 'Your session ended. Sign in again to use Lesson Lens.',
-  'app.home.lensFailed': "Lesson Lens couldn't finish that. Try again.",
-
   // Roles
   'app.role.case_manager': 'Case manager',
   'app.role.teacher': 'Teacher',
