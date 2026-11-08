@@ -1,53 +1,27 @@
-/** Summaries client: daily, weekly and monthly summaries and their approval. */
-import { ApiError, api, apiGet, apiPost } from './api'
+import type { z } from 'zod'
+import type { WeeklySummariesResponse } from '@/server/altamyra/contract/api'
+import type { SummaryKind } from '@/server/altamyra/contract/enums'
+import type { Summary } from '@/server/altamyra/contract/student'
+import { apiFetch, emptyOn404, enc } from './api'
 
-export type SummaryKind = 'daily' | 'weekly' | 'monthly'
+export type { Summary, SummaryKind }
 export const SUMMARY_KINDS: SummaryKind[] = ['daily', 'weekly', 'monthly']
-
-export type Summary = {
-  id: string
-  studentId: string
-  kind: SummaryKind
-  period: string
-  status: 'draft' | 'approved'
-  text: string
-  translatedText?: string | null
-  language?: string | null
-  version: number
-  approvedAt?: string | null
-}
-
-const enc = encodeURIComponent
-
-function list(r: unknown): Summary[] {
-  if (Array.isArray(r)) return r as Summary[]
-  const s = (r as { summaries?: Summary[] } | null)?.summaries
-  return Array.isArray(s) ? s : []
-}
-
-async function emptyOn404<T>(p: Promise<T>, empty: T): Promise<T> {
-  try {
-    return await p
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return empty
-    throw e
-  }
-}
+export type WeeklySummary = z.output<typeof WeeklySummariesResponse>['summaries'][number]
 
 export const listSummaries = (studentId: string, kind: SummaryKind) =>
-  emptyOn404(apiGet<unknown>(`/students/${enc(studentId)}/summaries?kind=${kind}`).then(list), [])
+  emptyOn404(apiFetch<{ summaries: Summary[] }>(`/students/${enc(studentId)}/summaries`, { query: { kind } }).then((r) => r.summaries), [])
 
 /** Approved weekly summaries for the case manager. */
-export const listWeekly = () => emptyOn404(apiGet<unknown>('/me/weekly').then(list), [])
+export const listWeekly = () => emptyOn404(apiFetch<{ summaries: WeeklySummary[] }>('/me/weekly').then((r) => r.summaries), [])
 
 export const generateSummary = (studentId: string, kind: SummaryKind, period?: string) =>
-  apiPost<Summary>(`/students/${enc(studentId)}/summaries/generate`, period ? { kind, period } : { kind })
+  apiFetch<{ summary: Summary }>(`/students/${enc(studentId)}/summaries/generate`, { body: period ? { kind, period } : { kind } })
 
-export const saveSummary = (s: Pick<Summary, 'id' | 'studentId' | 'version'>, body: { text: string; translatedText?: string }) =>
-  api<Summary>('PATCH', `/summaries/${enc(s.id)}`, { studentId: s.studentId, version: s.version, ...body })
+export const saveSummary = (summaryId: string, studentId: string, version: number, body: { text: string; translatedText?: string }) =>
+  apiFetch<{ summary: Summary }>(`/summaries/${enc(summaryId)}`, { method: 'PATCH', body: { studentId, version, ...body } })
 
-export const approveSummary = (s: Pick<Summary, 'id' | 'studentId' | 'version'>) =>
-  apiPost<Summary>(`/summaries/${enc(s.id)}/approve`, { studentId: s.studentId, version: s.version })
+export const approveSummary = (summaryId: string, studentId: string, version: number) =>
+  apiFetch<{ summary: Summary }>(`/summaries/${enc(summaryId)}/approve`, { body: { studentId, version } })
 
 /** The newest summary: drafts first, since they are the ones waiting for a decision. */
 export function pickCurrent(all: Summary[]): Summary | null {

@@ -1,77 +1,82 @@
-/** Small typed fetch client for the Altamyra /api/v1 backend. */
-
 import { getAuthToken } from 'deepspace'
+import type { MeResponse } from '@/server/altamyra/contract/api'
+
+export type { MeResponse }
 
 export class ApiError extends Error {
   constructor(
+    readonly status: number,
     readonly code: string,
     message: string,
-    readonly status: number,
   ) {
     super(message)
     this.name = 'ApiError'
   }
 }
 
+export const enc = encodeURIComponent
+
 const BASE = '/api/v1'
 
-export async function api<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
-  // The worker authenticates /api/v1 with the DeepSpace bearer token, not a cookie alone.
+type Query = Record<string, string | undefined>
+
+export function buildUrl(path: string, query?: Query): string {
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(query ?? {})) if (v) qs.set(k, v)
+  const s = qs.toString()
+  return `${BASE}${path}${s ? `?${s}` : ''}`
+}
+
+export async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAuthToken().catch(() => null)
-  const headers: Record<string, string> = {}
-  if (token) headers.authorization = `Bearer ${token}`
-  if (body !== undefined) headers['content-type'] = 'application/json'
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    credentials: 'include',
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  const text = await res.text()
-  let json: unknown = null
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export type ApiOptions = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  body?: unknown
+  query?: Query
+  timeoutMs?: number
+}
+
+export async function apiFetch<T>(path: string, { method, body, query, timeoutMs }: ApiOptions = {}): Promise<T> {
+  const hasBody = body !== undefined
+  const headers = await authHeaders()
+  if (hasBody) headers['Content-Type'] = 'application/json'
+  const ctl = new AbortController()
+  const timer = timeoutMs ? setTimeout(() => ctl.abort(), timeoutMs) : undefined
+  let res: Response
   try {
-    json = text ? JSON.parse(text) : null
+    res = await fetch(buildUrl(path, query), {
+      method: method ?? (hasBody ? 'POST' : 'GET'),
+      credentials: 'include',
+      headers,
+      body: hasBody ? JSON.stringify(body) : undefined,
+      signal: ctl.signal,
+    })
   } catch {
-    json = null
+    throw ctl.signal.aborted
+      ? new ApiError(0, 'timeout', 'The request took too long. Try again, or paste the text instead of uploading a PDF.')
+      : new ApiError(0, 'network', 'Could not reach the server.')
+  } finally {
+    clearTimeout(timer)
   }
+  const data: unknown = await res.json().catch(() => null)
   if (!res.ok) {
-    const err = (json as { error?: { code?: string; message?: string } } | null)?.error
-    throw new ApiError(err?.code ?? `http_${res.status}`, err?.message ?? res.statusText, res.status)
+    const err = (data as { error?: { code?: string; message?: string } } | null)?.error
+    throw new ApiError(res.status, err?.code ?? 'error', err?.message ?? `Request failed (${res.status}).`)
   }
-  return json as T
+  return data as T
 }
 
-export const apiGet = <T>(path: string) => api<T>('GET', path)
-export const apiPost = <T>(path: string, body: unknown = {}) => api<T>('POST', path, body)
+export const apiGet = <T>(path: string) => apiFetch<T>(path)
+export const apiPost = <T>(path: string, body: unknown = {}) => apiFetch<T>(path, { body })
 
-// ---- Response shapes used by the shell (mirror src/server/altamyra/contract/api.ts) ----
-
-export type StudentSummary = { id: string; displayToken: string; firstName: string | null; grade: string; roles: string[] }
-
-export type MeResponse = {
-  userId: string
-  displayName: string | null
-  memberships: { role: string; studentId: string | null; classId: string | null; districtId: string | null }[]
-  caseload: StudentSummary[]
-  students: StudentSummary[]
-  classes: { id: string; name: string; subject: string; grade: string }[]
-  todaySchedule: {
-    classId: string
-    className: string
-    subject: string
-    startsAt: string
-    endsAt: string
-    studentIds: string[]
-    lessonId: string | null
-    lessonTitle: string | null
-  }[]
-  parentOf: string[]
+export async function emptyOn404<T>(p: Promise<T>, empty: T): Promise<T> {
+  try {
+    return await p
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return empty
+    throw e
+  }
 }
-
-export type DigestItem = {
-  studentId: string
-  decision: { id: string; objectiveId: string; rule: 'below_aimline' | 'above_aimline' | 'data_needed'; firedAt: string }
-}
-
-/** GET /me/coming-up: scheduled work over the next 14 days. */
-export type ComingUpItem = { studentId: string; kind: 'iep_meeting' | 'review_queue' | 'data_due'; date: string; count: number | null }

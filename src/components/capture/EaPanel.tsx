@@ -14,13 +14,15 @@ import {
   type PromptLevel,
 } from "@/server/altamyra/contract/enums";
 import {
-  ApiError,
+  captureErrorKind,
   recordEvent,
   sendVoiceNote,
 } from "@/lib/altamyra/capture-api";
 import { getCaptureObjectives } from "@/lib/altamyra/practice-api";
-import { capture } from "@/i18n/en/capture";
-import { useCt, type CaptureKey } from "./useCt";
+import { useLoad } from "@/lib/useLoad";
+import { useLang } from "@/i18n";
+import type { MessageKey } from "@/i18n/en";
+import { goalName } from "./NoteCapture";
 import { useVoiceConsent } from "./useVoiceConsent";
 
 type Goal = { objective: { id: string }; label: string; metricType: string };
@@ -45,51 +47,24 @@ export function formatClock(totalSeconds: number): string {
 }
 
 export function EaPanel({ studentId }: { studentId: string }) {
-  const ct = useCt();
-  const [goals, setGoals] = useState<Goal[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const { t } = useLang();
+  const loaded = useLoad(() => getCaptureObjectives(studentId), studentId);
+  const goals: Goal[] | null =
+    loaded.status === "ready"
+      ? loaded.data.objectives.map((o, i) => ({
+          objective: { id: o.objectiveId },
+          metricType: o.metricType,
+          label: goalName(o, i, t),
+        }))
+      : null;
 
-  useEffect(() => {
-    setGoals(null);
-    setFailed(false);
-    let live = true;
-    // The capture list works for EAs (goal ids, metric and unit, no IEP wording). Nothing else is read here.
-    getCaptureObjectives(studentId)
-      .then((res) => {
-        if (!live) return;
-        setGoals(
-          res.objectives.map((o, i) => {
-            const metricKey = `capture.ea.metric.${o.metricType}` as CaptureKey;
-            const metric =
-              metricKey in capture
-                ? ct(metricKey)
-                : o.metricType.replace("_", " ");
-            return {
-              objective: { id: o.objectiveId },
-              metricType: o.metricType,
-              label: ct("capture.ea.goalLabel", {
-                n: i + 1,
-                metric,
-                unit: o.unit,
-              }),
-            };
-          }),
-        );
-      })
-      .catch(() => live && setFailed(true));
-    return () => {
-      live = false;
-    };
-  }, [studentId, attempt, ct]);
-
-  if (failed)
+  if (loaded.status === "error")
     return (
       <Card>
-        <p role="alert">{ct("capture.common.loadFailed")}</p>
+        <p role="alert">{t("capture.common.loadFailed")}</p>
         <div>
-          <Button size="lg" onClick={() => setAttempt((n) => n + 1)}>
-            {ct("capture.common.retry")}
+          <Button size="lg" onClick={loaded.reload}>
+            {t("capture.common.retry")}
           </Button>
         </div>
       </Card>
@@ -97,8 +72,8 @@ export function EaPanel({ studentId }: { studentId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      {goals === null && <p role="status">{ct("capture.common.loading")}</p>}
-      {goals?.length === 0 && <p>{ct("capture.ea.noGoals")}</p>}
+      {goals === null && <p role="status">{t("capture.common.loading")}</p>}
+      {goals?.length === 0 && <p>{t("capture.ea.noGoals")}</p>}
       {goals?.map((g) => (
         <GoalCard key={g.objective.id} studentId={studentId} goal={g} />
       ))}
@@ -127,7 +102,7 @@ function SavedStatus({ saved }: { saved: Saved }) {
 }
 
 function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
-  const ct = useCt();
+  const { t } = useLang();
   const objectiveId = goal.objective.id;
   const [saved, setSaved] = useState<Saved>(null);
   const [level, setLevel] = useState<PromptLevel | null>(null);
@@ -154,31 +129,31 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
       setSaved({ ok: true, text: okText });
       return true;
     } catch {
-      setSaved({ ok: false, text: ct("capture.ea.saveFailed") });
+      setSaved({ ok: false, text: t("capture.ea.saveFailed") });
       return false;
     }
   }
 
   const kinds = eventKindsFor(goal.metricType);
   const levelName = (l: PromptLevel) =>
-    ct(`capture.ea.level.${l}` as CaptureKey);
+    t(`capture.ea.level.${l}` as MessageKey);
 
   return (
     <Card title={goal.label}>
       {kinds.length === 0 && (
-        <p className="text-muted-foreground">{ct("capture.ea.noControls")}</p>
+        <p className="text-muted-foreground">{t("capture.ea.noControls")}</p>
       )}
       {kinds.length > 0 && kinds.length < 3 && (
         <p className="text-muted-foreground">
-          {ct("capture.ea.goalUses", {
-            kind: ct(`capture.ea.kind.${kinds[0]}` as CaptureKey),
+          {t("capture.ea.goalUses", {
+            kind: t(`capture.ea.kind.${kinds[0]}` as MessageKey),
           })}
         </p>
       )}
       {kinds.includes("prompt_level") && (
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-2 font-semibold">
-            {ct("capture.ea.promptLevel")}
+            {t("capture.ea.promptLevel")}
           </legend>
           <div className="flex flex-wrap gap-3">
             {[...PROMPT_LEVELS].reverse().map((l) => (
@@ -197,7 +172,7 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
                       classId: null,
                       lessonId: null,
                     },
-                    ct("capture.ea.savedLevel", { level: levelName(l) }),
+                    t("capture.ea.savedLevel", { level: levelName(l) }),
                   );
                 }}
               >
@@ -210,12 +185,12 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
 
       {kinds.includes("counter") && (
         <div className="flex flex-col gap-3">
-          <h3 className="font-semibold">{ct("capture.ea.counter")}</h3>
+          <h3 className="font-semibold">{t("capture.ea.counter")}</h3>
           <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="outline"
               className={BIG}
-              aria-label={ct("capture.ea.minus")}
+              aria-label={t("capture.ea.minus")}
               onClick={() => setCount((n) => Math.max(0, n - 1))}
             >
               <Minus aria-hidden />
@@ -224,12 +199,12 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
               aria-live="polite"
               className="min-w-24 text-center text-h2 font-extrabold"
             >
-              {ct("capture.ea.count", { n: count })}
+              {t("capture.ea.count", { n: count })}
             </span>
             <Button
               variant="outline"
               className={BIG}
-              aria-label={ct("capture.ea.plus")}
+              aria-label={t("capture.ea.plus")}
               onClick={() => setCount((n) => n + 1)}
             >
               <Plus aria-hidden />
@@ -245,11 +220,11 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
                     classId: null,
                     lessonId: null,
                   },
-                  ct("capture.ea.savedCount", { n: count }),
+                  t("capture.ea.savedCount", { n: count }),
                 )
               }
             >
-              {ct("capture.ea.saveCount")}
+              {t("capture.ea.saveCount")}
             </Button>
           </div>
         </div>
@@ -257,7 +232,7 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
 
       {kinds.includes("timer") && (
         <div className="flex flex-col gap-3">
-          <h3 className="font-semibold">{ct("capture.ea.timer")}</h3>
+          <h3 className="font-semibold">{t("capture.ea.timer")}</h3>
           <div className="flex flex-wrap items-center gap-3">
             {!running ? (
               <Button
@@ -269,7 +244,7 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
                 }}
               >
                 <Play aria-hidden />
-                {ct("capture.ea.start")}
+                {t("capture.ea.start")}
               </Button>
             ) : (
               <Button
@@ -289,19 +264,19 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
                       classId: null,
                       lessonId: null,
                     },
-                    ct("capture.ea.savedTime", { seconds }),
+                    t("capture.ea.savedTime", { seconds }),
                   );
                 }}
               >
                 <Square aria-hidden />
-                {ct("capture.ea.stop")}
+                {t("capture.ea.stop")}
               </Button>
             )}
             <span className="text-h2 font-extrabold tabular-nums">
-              {ct("capture.ea.elapsed", { time: formatClock(elapsed) })}
+              {t("capture.ea.elapsed", { time: formatClock(elapsed) })}
             </span>
             {running && (
-              <StatusBadge tone="info">{ct("capture.ea.running")}</StatusBadge>
+              <StatusBadge tone="info">{t("capture.ea.running")}</StatusBadge>
             )}
           </div>
         </div>
@@ -312,7 +287,7 @@ function GoalCard({ studentId, goal }: { studentId: string; goal: Goal }) {
 }
 
 function VoiceNote({ studentId }: { studentId: string }) {
-  const ct = useCt();
+  const { t } = useLang();
   const toast = useToast();
   const [recording, setRecording] = useState(false);
   const [status, setStatus] = useState<Saved>(null);
@@ -324,16 +299,16 @@ function VoiceNote({ studentId }: { studentId: string }) {
     setBusy(true);
     try {
       const r = await sendVoiceNote(studentId, blob);
-      const msg = ct("capture.ea.voiceSent", { n: r.dataPoints.length });
+      const msg = t("capture.ea.voiceSent", { n: r.dataPoints.length });
       setStatus({ ok: true, text: msg });
       toast.success(msg);
     } catch (err) {
-      const noConsent =
-        err instanceof ApiError && err.code === "consent_required";
       setStatus({
         ok: false,
-        text: ct(
-          noConsent ? "capture.ea.voiceNoConsent" : "capture.ea.voiceFailed",
+        text: t(
+          captureErrorKind(err) === "consent"
+            ? "capture.ea.voiceNoConsent"
+            : "capture.ea.voiceFailed",
         ),
       });
     } finally {
@@ -346,7 +321,7 @@ function VoiceNote({ studentId }: { studentId: string }) {
       typeof MediaRecorder === "undefined" ||
       !navigator.mediaDevices?.getUserMedia
     ) {
-      return setStatus({ ok: false, text: ct("capture.ea.voiceUnsupported") });
+      return setStatus({ ok: false, text: t("capture.ea.voiceUnsupported") });
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -362,7 +337,7 @@ function VoiceNote({ studentId }: { studentId: string }) {
       setRecording(true);
       setStatus(null);
     } catch {
-      setStatus({ ok: false, text: ct("capture.ea.voiceDenied") });
+      setStatus({ ok: false, text: t("capture.ea.voiceDenied") });
     }
   }
 
@@ -372,27 +347,27 @@ function VoiceNote({ studentId }: { studentId: string }) {
   }
 
   return (
-    <Card title={ct("capture.ea.voice")}>
-      <p className="text-muted-foreground">{ct("capture.ea.voiceHint")}</p>
+    <Card title={t("capture.ea.voice")}>
+      <p className="text-muted-foreground">{t("capture.ea.voiceHint")}</p>
       {consent === "denied" ? (
         <StatusBadge tone="warning">
-          {ct("capture.ea.voiceNeedsConsent")}
+          {t("capture.ea.voiceNeedsConsent")}
         </StatusBadge>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
           {!recording ? (
             <Button className={BIG} onClick={start} loading={busy}>
               <Mic aria-hidden />
-              {ct("capture.ea.record")}
+              {t("capture.ea.record")}
             </Button>
           ) : (
             <Button variant="destructive" className={BIG} onClick={stop}>
               <Square aria-hidden />
-              {ct("capture.ea.stopRecording")}
+              {t("capture.ea.stopRecording")}
             </Button>
           )}
           {recording && (
-            <StatusBadge tone="info">{ct("capture.ea.recording")}</StatusBadge>
+            <StatusBadge tone="info">{t("capture.ea.recording")}</StatusBadge>
           )}
         </div>
       )}

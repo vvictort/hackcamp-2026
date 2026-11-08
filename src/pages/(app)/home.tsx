@@ -7,7 +7,7 @@
  * only when the backend has ALTAMYRA_DEV_SEED=true.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
 import { ArrowUpRight, CircleCheck, CircleX, FileText, FlaskConical, MoonStar, UsersRound } from 'lucide-react'
@@ -41,17 +41,8 @@ import { apiPost } from '@/lib/altamyra/api'
 import { runDemoDay, type DemoDayResult } from '@/lib/altamyra/demo-day-api'
 import { START_PATH } from '@/lib/altamyra/RoleGate'
 import { ALTAMYRA_ROLES, useAltamyraMe, type AltamyraRole } from '@/lib/altamyra/role'
-import {
-  getDayReview,
-  getPendingSummaries,
-  getTodayPlans,
-  reviewProgress,
-  splitToday,
-  summaryLink,
-  type DayReview,
-  type PendingSummary,
-  type TodayPlans,
-} from '@/lib/altamyra/home-api'
+import { getToday, reviewProgress, splitToday, summaryLink, type PendingSummary, type Today } from '@/lib/altamyra/home-api'
+import { useLoad } from '@/lib/useLoad'
 
 const ROLE_LABEL: Record<AltamyraRole, MessageKey> = {
   ea: 'app.role.ea',
@@ -64,31 +55,6 @@ const ROLE_LABEL: Record<AltamyraRole, MessageKey> = {
 
 const planLink = (id: string) => `/students/${encodeURIComponent(id)}?tab=plan`
 const linkClass = 'rounded-md font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2'
-
-type Today = { plans: TodayPlans; pending: PendingSummary[]; review: DayReview }
-
-function useToday(enabled: boolean, role: AltamyraRole | null) {
-  const [data, setData] = useState<Today | null>(null)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const load = useCallback(async () => {
-    setStatus('loading')
-    try {
-      const [plans, pending, review] = await Promise.all([
-        getTodayPlans(),
-        getPendingSummaries(),
-        role === 'ea' ? getDayReview() : Promise.resolve({ date: '', students: [] } as DayReview),
-      ])
-      setData({ plans, pending, review })
-      setStatus('ready')
-    } catch {
-      setStatus('error')
-    }
-  }, [role])
-  useEffect(() => {
-    if (enabled) void load()
-  }, [enabled, load])
-  return { data, status, reload: load }
-}
 
 function PendingCard({ pending }: { pending: PendingSummary[] }) {
   const { t } = useLang()
@@ -271,7 +237,7 @@ export default function HomePage() {
   const [demoDay, setDemoDay] = useState<DemoDayResult | null>(null)
   const seeded = !!me && me.memberships.length + me.parentOf.length > 0
   const staffRole = role === 'ea' || role === 'teacher'
-  const today = useToday(!!me && seeded && staffRole, role)
+  const today = useLoad(() => getToday(role), me && seeded && staffRole ? (role ?? '') : null)
 
   const run = async (fn: () => Promise<void>, ok?: string) => {
     setBusy(true)
@@ -367,7 +333,7 @@ export default function HomePage() {
                 void run(async () => {
                   await apiPost('/dev/seed', { reset: true })
                   await switchRole(role ?? 'case_manager')
-                  if (staffRole) await today.reload()
+                  if (staffRole) today.reload()
                 }, t('app.home.resetDone'))
               }}
             >
@@ -397,7 +363,7 @@ export default function HomePage() {
               <p role="alert" className="text-body text-destructive">
                 {t('app.home.loadFailed')}
               </p>
-              <Button variant="outline" onClick={() => void today.reload()}>
+              <Button variant="outline" onClick={today.reload}>
                 {t('app.home.retry')}
               </Button>
             </div>

@@ -8,46 +8,32 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/ui";
-import { s } from "@/components/students/text";
-import { useLoad } from "@/components/students/useLoad";
-import { getMe } from "@/lib/altamyra/students-api";
+import { useLoad } from "@/lib/useLoad";
 import { getTodayPlans, missingPlan } from "@/lib/altamyra/plans-api";
-import type { StudentSummary } from "@/server/altamyra/contract/api";
+import { useAltamyraMe, visibleStudents } from "@/lib/altamyra/role";
+import { studentLabel } from "@/components/capture/StudentSelect";
+import { useLang } from "@/i18n";
 
 function StudentsPageBody() {
+  const { t } = useLang();
   const navigate = useNavigate();
-  const me = useLoad(getMe, "me");
-  const list: StudentSummary[] =
-    me.status === "ready"
-      ? [
-          ...new Map(
-            [...me.data.caseload, ...me.data.students].map((x) => [x.id, x]),
-          ).values(),
-        ]
-      : [];
-  const isTeacher =
-    me.status === "ready" &&
-    me.data.students.some((x) => x.roles.includes("teacher"));
+  const { me } = useAltamyraMe();
+  const list = visibleStudents(me);
+  const isTeacher = list.some((x) => x.roles.includes("teacher"));
   const today = useLoad(getTodayPlans, isTeacher ? "today" : null);
   const missing = missingPlan(today.status === "ready" ? today.data : null);
   return (
     <div className="flex w-full max-w-4xl flex-col gap-6 lg:gap-8">
       <PageHeader
-        title={s("students.list.title")}
-        description={s("students.list.description")}
+        title={t("students.list.title")}
+        description={t("students.list.description")}
       />
-      {me.status === "loading" && (
-        <p role="status" className="text-muted-foreground">
-          {s("students.loading")}
-        </p>
-      )}
-      {me.status === "error" && <p role="alert">{me.error.message}</p>}
-      {me.status === "ready" && list.length === 0 && (
+      {list.length === 0 && (
         <Card>
           <EmptyState
             icon={<UsersRound aria-hidden />}
-            title={s("students.list.empty")}
-            description={s("students.list.emptyHelp")}
+            title={t("students.list.empty")}
+            description={t("students.list.emptyHelp")}
           />
         </Card>
       )}
@@ -60,10 +46,10 @@ function StudentsPageBody() {
                 className="flex flex-col gap-1 rounded-lg"
               >
                 <span className="text-h2 font-extrabold">
-                  {st.firstName ?? st.displayToken}
+                  {studentLabel(st, t)}
                 </span>
                 <span className="text-small text-muted-foreground">
-                  {s("students.grade", { grade: st.grade })}
+                  {t("students.grade", { grade: st.grade })}
                 </span>
               </Link>
               {isTeacher &&
@@ -72,7 +58,7 @@ function StudentsPageBody() {
                 (missing.has(st.id) ? (
                   <span className="flex flex-wrap items-center gap-2">
                     <StatusBadge tone="warning">
-                      {s("students.list.noPlan")}
+                      {t("students.list.noPlan")}
                     </StatusBadge>
                     <Button
                       size="sm"
@@ -82,12 +68,12 @@ function StudentsPageBody() {
                         )
                       }
                     >
-                      {s("students.list.addPlan")}
+                      {t("students.list.addPlan")}
                     </Button>
                   </span>
                 ) : (
                   <StatusBadge tone="success">
-                    {s("students.list.hasPlan")}
+                    {t("students.list.hasPlan")}
                   </StatusBadge>
                 ))}
             </Card>

@@ -8,19 +8,21 @@ import { PlanTab } from "@/components/students/PlanTab";
 import { TicketPanel } from "@/components/students/TicketPanel";
 import { Timeline } from "@/components/students/Timeline";
 import { WhatWorks } from "@/components/students/WhatWorks";
-import { fmtDate, s } from "@/components/students/text";
-import { useLoad } from "@/components/students/useLoad";
+import { fmtDate } from "@/components/students/text";
+import { LoadError, useLoad } from "@/lib/useLoad";
 import { RoleGate } from "@/lib/altamyra/RoleGate";
+import { useAltamyraMe, visibleStudents } from "@/lib/altamyra/role";
 import {
-  getMe,
   getObjectives,
   getProfile,
   getTimeline,
 } from "@/lib/altamyra/students-api";
+import { useLang } from "@/i18n";
 
-const List = ({ items }: { items: string[] }) =>
-  items.length === 0 ? (
-    <p className="text-small text-muted-foreground">{s("students.none")}</p>
+function List({ items }: { items: string[] }) {
+  const { t } = useLang();
+  return items.length === 0 ? (
+    <p className="text-small text-muted-foreground">{t("students.none")}</p>
   ) : (
     <ul className="flex flex-wrap gap-2">
       {items.map((x) => (
@@ -32,8 +34,10 @@ const List = ({ items }: { items: string[] }) =>
       ))}
     </ul>
   );
+}
 
 function StudentProfileBody() {
+  const { t } = useLang();
   const { id = "" } = useParams();
   const [rev, setRev] = useState(0);
   const [importing, setImporting] = useState(false);
@@ -43,7 +47,7 @@ function StudentProfileBody() {
     setParams(v === "plan" ? { tab: "plan" } : {}, { replace: true });
   const bump = () => setRev((n) => n + 1);
 
-  const me = useLoad(getMe, "me");
+  const { me } = useAltamyraMe();
   const profile = useLoad(() => getProfile(id), `${id}:${rev}`);
   const full = profile.status === "ready" && profile.data.view === "full";
   const objectives = useLoad(
@@ -55,11 +59,7 @@ function StudentProfileBody() {
     profile.status === "ready" ? `${id}:${rev}` : null,
   );
 
-  const roles =
-    me.status === "ready"
-      ? ([...me.data.caseload, ...me.data.students].find((x) => x.id === id)
-          ?.roles ?? [])
-      : [];
+  const roles = visibleStudents(me).find((x) => x.id === id)?.roles ?? [];
   const isCm = roles.includes("case_manager");
   const isTeacher = roles.includes("teacher");
   const canRate = isCm || roles.includes("teacher") || roles.includes("ea");
@@ -67,7 +67,7 @@ function StudentProfileBody() {
   if (profile.status === "loading")
     return (
       <p role="status" className="text-muted-foreground">
-        {s("students.loading")}
+        {t("students.loading")}
       </p>
     );
   if (profile.status === "error")
@@ -79,7 +79,7 @@ function StudentProfileBody() {
           className="self-start"
           onClick={profile.reload}
         >
-          {s("students.retry")}
+          {t("students.retry")}
         </Button>
       </div>
     );
@@ -91,7 +91,7 @@ function StudentProfileBody() {
       className="inline-flex min-h-11 items-center gap-1 self-start rounded-full text-label font-semibold"
     >
       <ArrowLeft className="size-4" aria-hidden />
-      {s("students.back")}
+      {t("students.back")}
     </Link>
   );
 
@@ -100,10 +100,10 @@ function StudentProfileBody() {
       <div className="flex w-full max-w-4xl flex-col gap-6">
         {back}
         <PageHeader
-          title={p.firstName ?? s("students.student")}
-          description={s("students.supportsView")}
+          title={p.firstName ?? t("students.student")}
+          description={t("students.supportsView")}
         />
-        <Card title={s("students.supports")}>
+        <Card title={t("students.supports")}>
           <List items={p.supports} />
         </Card>
         <WhatWorks studentId={id} />
@@ -118,7 +118,7 @@ function StudentProfileBody() {
       {back}
       <PageHeader
         title={p.displayToken}
-        description={s("students.profile.summary", {
+        description={t("students.profile.summary", {
           grade: p.grade,
           version: p.iepVersion ?? "-",
           review: fmtDate(sec?.reviewDate) || "-",
@@ -127,7 +127,7 @@ function StudentProfileBody() {
           isCm && !sec && (
             <Button onClick={() => setImporting(true)}>
               <FileUp aria-hidden />
-              {s("students.import.open")}
+              {t("students.import.open")}
             </Button>
           )
         }
@@ -154,7 +154,7 @@ function StudentProfileBody() {
             onClick={() => setTab(k)}
             className={`min-h-11 rounded-full px-5 text-label font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${tab === k ? "bg-primary text-primary-foreground" : "bg-secondary"}`}
           >
-            {s(k === "iep" ? "students.tab.iep" : "students.tab.plan")}
+            {t(k === "iep" ? "students.tab.iep" : "students.tab.plan")}
           </button>
         ))}
       </div>
@@ -171,26 +171,26 @@ function StudentProfileBody() {
           className="flex flex-col gap-6 lg:gap-8"
         >
           {!sec ? (
-            <Card title={s("students.noIep")}>
+            <Card title={t("students.noIep")}>
               <p className="text-body text-muted-foreground">
-                {s(isCm ? "students.noIepCm" : "students.noIepOther")}
+                {t(isCm ? "students.noIepCm" : "students.noIepOther")}
               </p>
             </Card>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
-              <Card title={s("students.strengths")}>
+              <Card title={t("students.strengths")}>
                 <List items={sec.profile.strengths} />
               </Card>
-              <Card title={s("students.accommodations")}>
+              <Card title={t("students.accommodations")}>
                 <List items={sec.accommodations} />
               </Card>
-              <Card title={s("students.supports")}>
+              <Card title={t("students.supports")}>
                 <List items={sec.supports} />
               </Card>
-              <Card title={s("students.modifications")}>
+              <Card title={t("students.modifications")}>
                 {sec.modifications.length === 0 ? (
                   <p className="text-small text-muted-foreground">
-                    {s("students.none")}
+                    {t("students.none")}
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-1 text-body">
@@ -208,12 +208,10 @@ function StudentProfileBody() {
           {p.goals.length > 0 && (
             <section aria-labelledby="goals-h" className="flex flex-col gap-4">
               <h2 id="goals-h" className="text-h2 font-extrabold">
-                {s("students.goals")}
+                {t("students.goals")}
               </h2>
               {objectives.status === "error" && (
-                <p role="alert" className="text-small">
-                  {objectives.error.message}
-                </p>
+                <LoadError error={objectives.error} />
               )}
               {p.goals.map((g) => (
                 <GoalCard
@@ -238,10 +236,8 @@ function StudentProfileBody() {
               objectives={objs}
             />
           ) : timeline.status === "error" ? (
-            <Card title={s("students.timeline")}>
-              <p role="alert" className="text-small">
-                {timeline.error.message}
-              </p>
+            <Card title={t("students.timeline")}>
+              <LoadError error={timeline.error} />
             </Card>
           ) : null}
 
@@ -261,8 +257,8 @@ function StudentProfileBody() {
                   ["supports", "students.supports"],
                 ].map(([v, k]) => ({
                   value: `section:${v}`,
-                  label: s("ticket.section", {
-                    name: s(k as "students.strengths"),
+                  label: t("ticket.section", {
+                    name: t(k as "students.strengths"),
                   }),
                 })),
               ]}

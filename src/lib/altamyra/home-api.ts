@@ -1,33 +1,27 @@
-/** Home screen data: today's lesson plans, summaries waiting for approval, and the end-of-day count. */
-import { ApiError, apiGet } from './api'
+import type { z } from 'zod'
+import type { PendingSummariesResponse } from '@/server/altamyra/contract/api'
+import { apiFetch, emptyOn404, enc } from './api'
+import { getDayReview, type DayReview } from './eod-api'
+import { getTodayPlans, type TodayPlans } from './plans-api'
+import type { AltamyraRole } from './role'
 
-export type TodayPlan = { id: string; title: string; status: 'draft' | 'approved' }
-export type TodayStudent = { studentId: string; label: string; plan: TodayPlan | null }
-export type TodayPlans = { date: string; students: TodayStudent[] }
+export type PendingSummary = z.output<typeof PendingSummariesResponse>['summaries'][number]
+export type Today = { plans: TodayPlans; pending: PendingSummary[]; review: DayReview }
 
-export type PendingSummary = { id: string; studentId: string; label: string; kind: 'daily' | 'weekly' | 'monthly'; period: string }
-
-export type DayReviewStudent = { studentId: string; label: string; entriesToday: number; reviewed: boolean }
-export type DayReview = { date: string; students: DayReviewStudent[] }
-
-/** A missing endpoint (404) or an empty answer becomes `fallback`; any other failure still throws. */
-async function orFallback<T>(p: Promise<T | null | undefined>, fallback: T): Promise<T> {
-  try {
-    return (await p) ?? fallback
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return fallback
-    throw e
-  }
-}
-
-export const getTodayPlans = () =>
-  orFallback<TodayPlans>(apiGet<TodayPlans>('/lesson-plans/today'), { date: '', students: [] }).then((r) => ({ ...r, students: r.students ?? [] }))
+const NO_STUDENTS = { date: '', students: [] }
 
 export const getPendingSummaries = () =>
-  orFallback<{ summaries: PendingSummary[] }>(apiGet('/me/summaries/pending'), { summaries: [] }).then((r) => r.summaries ?? [])
+  emptyOn404(apiFetch<{ summaries: PendingSummary[] }>('/me/summaries/pending').then((r) => r.summaries), [])
 
-export const getDayReview = () =>
-  orFallback<DayReview>(apiGet<DayReview>('/me/day-review'), { date: '', students: [] }).then((r) => ({ ...r, students: r.students ?? [] }))
+/** What a staff home shows today; a missing endpoint reads as empty. Only EAs get the end-of-day review. */
+export async function getToday(role: AltamyraRole | null): Promise<Today> {
+  const [plans, pending, review] = await Promise.all([
+    emptyOn404(getTodayPlans(), NO_STUDENTS),
+    getPendingSummaries(),
+    role === 'ea' ? emptyOn404(getDayReview(), NO_STUDENTS) : NO_STUDENTS,
+  ])
+  return { plans, pending, review }
+}
 
 /** Students with a draft plan (need approval) and without any plan today. */
 export function splitToday(r: TodayPlans) {
@@ -39,7 +33,7 @@ export function splitToday(r: TodayPlans) {
 
 /** Link target for a pending summary. */
 export const summaryLink = (s: Pick<PendingSummary, 'id' | 'kind' | 'studentId'>) =>
-  `/summaries?id=${encodeURIComponent(s.id)}&kind=${s.kind}&student=${encodeURIComponent(s.studentId)}`
+  `/summaries?id=${enc(s.id)}&kind=${s.kind}&student=${enc(s.studentId)}`
 
 export const reviewProgress = (r: DayReview) => ({
   done: r.students.filter((s) => s.reviewed).length,

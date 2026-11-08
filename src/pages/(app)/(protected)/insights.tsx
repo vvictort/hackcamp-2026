@@ -1,32 +1,20 @@
 import { RoleGate } from '@/lib/altamyra/RoleGate'
 import { useMemo } from 'react'
-import { useAsyncResource, getAuthToken } from 'deepspace'
 import { CircleX, EyeOff, Lock, Sparkles } from 'lucide-react'
 import { useLang } from '@/i18n'
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/components/ui'
 import { useAltamyraMe } from '@/lib/altamyra/role'
+import { ApiError, apiFetch, enc } from '@/lib/altamyra/api'
+import { useLoad } from '@/lib/useLoad'
 
 type Group = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
 type InsightsData = { groups: Group[]; minGroupSize: number; monthlyNarrative?: string | { text?: string; period?: string | null } | null }
 
-class InsightsError extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message)
-  }
-}
-
-async function fetchFrom(url: string, signal: AbortSignal): Promise<InsightsData> {
-  const token = await getAuthToken().catch(() => null)
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal })
-  const json = (await res.json().catch(() => null)) as (InsightsData & { error?: { message?: string } }) | null
-  if (!res.ok || !json) throw new InsightsError(res.status, json?.error?.message ?? `HTTP ${res.status}`)
-  return { ...json, groups: json.groups ?? [], minGroupSize: json.minGroupSize ?? 10 }
-}
-
 /** The signed-in district lead's own district summary; the month defaults to the latest one with data. */
-function fetchInsights(districtId: string | null, signal: AbortSignal): Promise<InsightsData> {
-  if (!districtId) return Promise.reject(new InsightsError(403, 'forbidden'))
-  return fetchFrom(`/api/v1/districts/${encodeURIComponent(districtId)}/insights?groupBy=schoolId,goalArea`, signal)
+async function fetchInsights(districtId: string | null): Promise<InsightsData> {
+  if (!districtId) throw new ApiError(403, 'forbidden', 'forbidden')
+  const d = await apiFetch<InsightsData>(`/districts/${enc(districtId)}/insights`, { query: { groupBy: 'schoolId,goalArea' } })
+  return { ...d, groups: d.groups ?? [], minGroupSize: d.minGroupSize ?? 10 }
 }
 
 const narrativeOf = (d: InsightsData | null) => {
@@ -75,7 +63,7 @@ function InsightsView() {
   const { t } = useLang()
   const { me } = useAltamyraMe()
   const districtId = me?.memberships.find((m) => m.role === 'district_lead')?.districtId ?? null
-  const data = useAsyncResource<InsightsData>((signal) => fetchInsights(districtId, signal), [districtId], { retry: 0 })
+  const data = useLoad(() => fetchInsights(districtId), districtId ?? '')
 
   const bySchool = useMemo(() => {
     const map = new Map<string, Group[]>()
@@ -87,7 +75,7 @@ function InsightsView() {
   }, [data.data])
 
   const allHidden = (data.data?.groups ?? []).every((g) => g.suppressed)
-  const forbidden = data.status === 'error' && /HTTP 403|forbidden/i.test(data.error ?? '')
+  const forbidden = data.status === 'error' && data.error.status === 403
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6 lg:gap-8">

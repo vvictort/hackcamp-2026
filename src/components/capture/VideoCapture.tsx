@@ -3,10 +3,10 @@ import { CircleCheck, CircleX, Video } from 'lucide-react'
 import { Button, Card, FormField, Input, type FormFieldControlProps } from '@/components/ui'
 import { captureErrorKind, MAX_VIDEO_BYTES, sendVideo } from '@/lib/altamyra/capture-api'
 import { ObjectivePicker } from './NoteCapture'
-import { useCt } from './useCt'
+import { useLang } from '@/i18n'
 
 export function VideoCapture({ studentId, onSaved }: { studentId: string; onSaved?: () => void }) {
-  const ct = useCt()
+  const { t } = useLang()
   const [file, setFile] = useState<File | null>(null)
   const [goal, setGoal] = useState('')
   const [busy, setBusy] = useState(false)
@@ -15,17 +15,17 @@ export function VideoCapture({ studentId, onSaved }: { studentId: string; onSave
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!file) return setStatus({ ok: false, text: ct('capture.video.missing') })
-    if (file.size > MAX_VIDEO_BYTES) return setStatus({ ok: false, text: ct('capture.video.tooBig') })
+    if (!file) return setStatus({ ok: false, text: t('capture.video.missing') })
+    if (file.size > MAX_VIDEO_BYTES) return setStatus({ ok: false, text: t('capture.video.tooBig') })
     setBusy(true)
     try {
       await sendVideo(studentId, file, goal || null)
-      setStatus({ ok: true, text: ct('capture.video.saved') })
+      setStatus({ ok: true, text: t('capture.video.saved') })
       setFile(null)
       setInputKey((k) => k + 1)
       onSaved?.()
     } catch (err) {
-      setStatus({ ok: false, text: ct(captureErrorKind(err) === 'consent' ? 'capture.video.noConsent' : 'capture.video.failed') })
+      setStatus({ ok: false, text: t(captureErrorKind(err) === 'consent' ? 'capture.video.noConsent' : 'capture.video.failed') })
     } finally {
       setBusy(false)
     }
@@ -34,7 +34,7 @@ export function VideoCapture({ studentId, onSaved }: { studentId: string; onSave
   return (
     <Card>
       <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-        <FormField label={ct('capture.video.file')} hint={ct('capture.video.hint')}>
+        <FormField label={t('capture.video.file')} hint={t('capture.video.hint')}>
           {(c: FormFieldControlProps) => (
             <Input
               {...c}
@@ -60,7 +60,7 @@ export function VideoCapture({ studentId, onSaved }: { studentId: string; onSave
         <div>
           <Button type="submit" size="lg" loading={busy}>
             <Video aria-hidden />
-            {busy ? ct('capture.video.sending') : ct('capture.video.send')}
+            {busy ? t('capture.video.sending') : t('capture.video.send')}
           </Button>
         </div>
       </form>

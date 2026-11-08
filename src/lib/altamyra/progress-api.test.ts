@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { dayTotal, getDay, getDays, getWeeklySummary, lastNDays, sortDays, trendBars, visibleSummary, type DayRow } from './progress-api'
+import type { Summary } from './summaries-api'
+import { dayTotal, getDay, getDays, lastNDays, sortDays, trendBars, visibleSummary, type DayRow } from './progress-api'
 
 const row = (date: string, n: number): DayRow => ({ date, reviewed: false, counts: { dataPoints: n, events: 0, notes: 0, videos: 0, voiceNotes: 0 } })
 afterEach(() => vi.unstubAllGlobals())
@@ -13,10 +14,10 @@ describe('progress-api helpers', () => {
   })
   it('computes a range', () => expect(lastNDays(14, new Date(2026, 10, 8))).toEqual({ from: '2026-10-26', to: '2026-11-08' }))
   it('hides drafts from viewers who cannot see them', () => {
-    const d = { kind: 'weekly', text: 'x', status: 'draft' as const }
+    const d = { kind: 'weekly', text: 'x', status: 'draft' } as Summary
     expect(visibleSummary(d, false)).toBeNull()
     expect(visibleSummary(d, true)).toBe(d)
-    expect(visibleSummary({ ...d, status: 'approved' }, false)).not.toBeNull()
+    expect(visibleSummary({ ...d, status: 'approved' } as Summary, false)).not.toBeNull()
     expect(visibleSummary(null, true)).toBeNull()
   })
   it('scales trend bars oldest first', () => {
@@ -34,8 +35,7 @@ describe('progress-api calls', () => {
     vi.stubGlobal('fetch', f)
     await getDays('s1', '2026-11-01', '2026-11-08')
     await getDay('s1', '2026-11-08')
-    await getWeeklySummary('s1')
     const urls = (f.mock.calls as unknown as [string][]).map((c) => c[0])
-    expect(urls).toEqual(['/api/v1/students/s1/days?from=2026-11-01&to=2026-11-08', '/api/v1/students/s1/days/2026-11-08', '/api/v1/students/s1/summaries?kind=weekly'])
+    expect(urls).toEqual(['/api/v1/students/s1/days?from=2026-11-01&to=2026-11-08', '/api/v1/students/s1/days/2026-11-08'])
   })
 })

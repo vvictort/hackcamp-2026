@@ -24,7 +24,9 @@ import {
 } from '@/components/ui'
 import { useLang } from '@/i18n'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
-import { useAltamyraMe } from '@/lib/altamyra/role'
+import { useAltamyraMe, visibleStudents } from '@/lib/altamyra/role'
+import { useLoad } from '@/lib/useLoad'
+import { studentLabel } from '@/components/capture/StudentSelect'
 import {
   approveSummary,
   AUDIENCE_KEY,
@@ -69,17 +71,10 @@ function Loading() {
 
 function WeeklyReadOnly() {
   const { t } = useLang()
-  const [rows, setRows] = useState<Summary[] | null>(null)
-  const [failed, setFailed] = useState(false)
-  const load = useCallback(() => {
-    setFailed(false)
-    listWeekly()
-      .then((r) => setRows(r.filter((s) => s.status === 'approved')))
-      .catch(() => setFailed(true))
-  }, [])
-  useEffect(load, [load])
+  const weekly = useLoad(listWeekly, 'weekly')
+  const rows = weekly.data
 
-  if (failed) return <LoadError onRetry={load} />
+  if (weekly.status === 'error') return <LoadError onRetry={weekly.reload} />
   if (!rows) return <Loading />
   if (rows.length === 0)
     return (
@@ -117,8 +112,7 @@ function StaffSummaries() {
   const { t } = useLang()
   const { me } = useAltamyraMe()
   const [params, setParams] = useSearchParams()
-  const students = me ? (me.caseload.length ? me.caseload : me.students) : []
-  const nameOf = (s: (typeof students)[number]) => s.firstName ?? s.displayToken
+  const students = visibleStudents(me)
   const kindParam = params.get('kind') as SummaryKind | null
   const kind: SummaryKind = kindParam && SUMMARY_KINDS.includes(kindParam) ? kindParam : 'daily'
   const studentId = students.find((s) => s.id === params.get('student'))?.id ?? students[0]?.id ?? ''
@@ -158,7 +152,7 @@ function StaffSummaries() {
                 <SelectContent>
                   {students.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {nameOf(s)}
+                      {studentLabel(s, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -204,7 +198,7 @@ function SummaryEditor({ studentId, kind }: { studentId: string; kind: SummaryKi
   const generate = async () => {
     setBusy('generate')
     try {
-      adopt(await generateSummary(studentId, kind))
+      adopt((await generateSummary(studentId, kind)).summary)
       toast.success(t('app.summaries.generated'))
     } catch {
       toast.error(t('app.summaries.generateFailed'))
@@ -232,7 +226,7 @@ function SummaryEditor({ studentId, kind }: { studentId: string; kind: SummaryKi
   const save = async () => {
     setBusy('save')
     try {
-      adopt(await saveSummary(summary, body()))
+      adopt((await saveSummary(summary.id, studentId, summary.version, body())).summary)
       toast.success(t('app.summaries.saved'))
     } catch {
       toast.error(t('app.summaries.saveFailed'))
@@ -243,8 +237,8 @@ function SummaryEditor({ studentId, kind }: { studentId: string; kind: SummaryKi
   const approve = async () => {
     setBusy('approve')
     try {
-      const current = dirty ? await saveSummary(summary, body()) : summary
-      adopt(await approveSummary(current))
+      const current = dirty ? (await saveSummary(summary.id, studentId, summary.version, body())).summary : summary
+      adopt((await approveSummary(current.id, studentId, current.version)).summary)
       toast.success(t('app.summaries.approved'))
     } catch {
       toast.error(t('app.summaries.approveFailed'))

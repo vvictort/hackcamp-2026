@@ -4,18 +4,19 @@ import { CircleCheck, ClipboardCheck } from 'lucide-react'
 import { Button, buttonVariants, Card, EmptyState, FormField, Input, StatusBadge, useToast, type FormFieldControlProps } from '@/components/ui'
 import type { z } from 'zod'
 import type { ReviewQueueResponse } from '@/server/altamyra/contract/api'
-import { ApiError, cachedImage, confirmReview, correctDataPoint, fileKeyOfSourceRef, getReviewQueue } from '@/lib/altamyra/capture-api'
+import { ApiError } from '@/lib/altamyra/api'
+import { cachedImage, confirmReview, correctDataPoint, fileKeyOfSourceRef, getReviewQueue } from '@/lib/altamyra/capture-api'
+import { useAltamyraMe, visibleStudents, type StudentSummary } from '@/lib/altamyra/role'
 import { SAMPLE_ITEM_ROWS, SAMPLE_SHEET_URL } from './stampSheetCode'
-import { useCt } from './useCt'
-import { useStudents } from './useStudents'
+import { useLang } from '@/i18n'
 import { studentLabel } from './StudentSelect'
 
 type Entry = z.output<typeof ReviewQueueResponse>['items'][number]
 
 export function ReviewList({ studentId, onChanged }: { studentId?: string; onChanged?: () => void } = {}) {
-  const ct = useCt()
+  const { t } = useLang()
   const toast = useToast()
-  const { students } = useStudents()
+  const students = visibleStudents(useAltamyraMe().me)
   const [items, setItems] = useState<Entry[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [done, setDone] = useState<{ studentId: string }[]>([])
@@ -36,45 +37,42 @@ export function ReviewList({ studentId, onChanged }: { studentId?: string; onCha
   }
   const onError = (err: unknown) => {
     if (err instanceof ApiError && err.status === 409) {
-      toast.error(ct('capture.review.conflictToast'))
+      toast.error(t('capture.review.conflictToast'))
       load()
-    } else toast.error(ct('capture.review.failedToast'))
+    } else toast.error(t('capture.review.failedToast'))
   }
 
   if (failed)
     return (
       <Card>
-        <p role="alert">{ct('capture.common.loadFailed')}</p>
+        <p role="alert">{t('capture.common.loadFailed')}</p>
         <div>
-          <Button onClick={load}>{ct('capture.common.retry')}</Button>
+          <Button onClick={load}>{t('capture.common.retry')}</Button>
         </div>
       </Card>
     )
-  if (!items) return <p role="status">{ct('capture.common.loading')}</p>
+  if (!items) return <p role="status">{t('capture.common.loading')}</p>
 
   const timelineIds = [...new Set(done.map((d) => d.studentId))]
   return (
     <div className="flex flex-col gap-5">
       {timelineIds.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {timelineIds.map((id) => {
-            const s = students.find((x) => x.id === id)
-            return (
-              <Link key={id} to={`/students/${id}`} className={buttonVariants({ variant: 'outline' })}>
-                {ct('capture.common.profile', { student: s ? studentLabel(s, ct) : '' })}
-              </Link>
-            )
-          })}
+          {timelineIds.map((id) => (
+            <Link key={id} to={`/students/${id}`} className={buttonVariants({ variant: 'outline' })}>
+              {t('capture.common.profile', { student: studentName(students, id, t) })}
+            </Link>
+          ))}
         </div>
       )}
       {items.length === 0 ? (
         <Card>
-          <EmptyState icon={<ClipboardCheck />} title={ct('capture.review.empty')} description={ct('capture.review.emptyBody')} />
+          <EmptyState icon={<ClipboardCheck />} title={t('capture.review.empty')} description={t('capture.review.emptyBody')} />
         </Card>
       ) : (
         <ul className="flex flex-col gap-4">
           {items.map((e) => (
-            <ReviewRow key={e.item.id} entry={e} name={studentName(students, e.studentId, ct)} onDone={remove} onError={onError} />
+            <ReviewRow key={e.item.id} entry={e} name={studentName(students, e.studentId, t)} onDone={remove} onError={onError} />
           ))}
         </ul>
       )}
@@ -82,9 +80,9 @@ export function ReviewList({ studentId, onChanged }: { studentId?: string; onCha
   )
 }
 
-function studentName(students: ReturnType<typeof useStudents>['students'], id: string, ct: ReturnType<typeof useCt>) {
+function studentName(students: StudentSummary[], id: string, t: ReturnType<typeof useLang>['t']) {
   const s = students.find((x) => x.id === id)
-  return s ? studentLabel(s, ct) : ''
+  return s ? studentLabel(s, t) : ''
 }
 
 function ReviewRow({
@@ -98,7 +96,7 @@ function ReviewRow({
   onDone: (e: Entry, msg: string) => void
   onError: (err: unknown) => void
 }) {
-  const ct = useCt()
+  const { t } = useLang()
   const { dataPoint: dp, item, studentId } = entry
   const [mode, setMode] = useState<'view' | 'correct'>('view')
   const [value, setValue] = useState('')
@@ -115,7 +113,7 @@ function ReviewRow({
     setBusy(true)
     try {
       await confirmReview(studentId, item.id, { expectedVersion: item.version })
-      onDone(entry, ct('capture.review.confirmedToast'))
+      onDone(entry, t('capture.review.confirmedToast'))
     } catch (err) {
       onError(err)
       setBusy(false)
@@ -124,13 +122,13 @@ function ReviewRow({
   async function correct(ev: React.FormEvent) {
     ev.preventDefault()
     const n = Number(value)
-    const next = { value: value.trim() !== '' && Number.isFinite(n) ? undefined : ct('capture.review.needValue'), reason: reason.trim() ? undefined : ct('capture.review.needReason') }
+    const next = { value: value.trim() !== '' && Number.isFinite(n) ? undefined : t('capture.review.needValue'), reason: reason.trim() ? undefined : t('capture.review.needReason') }
     setErrs(next)
     if (next.value || next.reason) return
     setBusy(true)
     try {
       await correctDataPoint(studentId, dp.id, { expectedVersion: dp.version, value: n, reason: reason.trim() })
-      onDone(entry, ct('capture.review.correctedToast'))
+      onDone(entry, t('capture.review.correctedToast'))
     } catch (err) {
       onError(err)
       setBusy(false)
@@ -142,9 +140,9 @@ function ReviewRow({
       <Card>
         <div className="flex flex-wrap items-center gap-3">
           {name && <strong>{name}</strong>}
-          <StatusBadge tone="warning">{item.kind === 'low_confidence' ? ct('capture.review.kindLow') : ct('capture.review.kindSampled')}</StatusBadge>
+          <StatusBadge tone="warning">{item.kind === 'low_confidence' ? t('capture.review.kindLow') : t('capture.review.kindSampled')}</StatusBadge>
           {dp.aiConfidence !== null && (
-            <span className="text-small text-muted-foreground">{ct('capture.review.confidence', { pct: Math.round(dp.aiConfidence * 100) })}</span>
+            <span className="text-small text-muted-foreground">{t('capture.review.confidence', { pct: Math.round(dp.aiConfidence * 100) })}</span>
           )}
         </div>
         <div className="grid gap-4 sm:grid-cols-[minmax(0,16rem)_1fr]">
@@ -153,51 +151,51 @@ function ReviewRow({
               {row && (
                 <div
                   role="img"
-                  aria-label={ct('capture.review.itemCrop', { item: itemId ?? '' })}
+                  aria-label={t('capture.review.itemCrop', { item: itemId ?? '' })}
                   className="w-full rounded-md border border-border bg-white bg-no-repeat"
                   style={{ aspectRatio: `800 / ${row[1]}`, backgroundImage: `url(${image})`, backgroundSize: '100% auto', backgroundPosition: `0 ${(row[0] / (1000 - row[1])) * 100}%` }}
                 />
               )}
               <details open={!row}>
-                <summary className="cursor-pointer text-small font-semibold">{ct('capture.review.fullSheet')}</summary>
-                <img src={image} alt={ct('capture.review.sourceImage')} className="mt-2 max-h-60 w-auto rounded-md border border-border" />
+                <summary className="cursor-pointer text-small font-semibold">{t('capture.review.fullSheet')}</summary>
+                <img src={image} alt={t('capture.review.sourceImage')} className="mt-2 max-h-60 w-auto rounded-md border border-border" />
               </details>
             </div>
           ) : (
-            <p className="text-small text-muted-foreground">{fileKey ? ct('capture.review.noImage') : ''}</p>
+            <p className="text-small text-muted-foreground">{fileKey ? t('capture.review.noImage') : ''}</p>
           )}
           <div className="flex flex-col gap-1">
-            <span className="text-small text-muted-foreground">{ct('capture.review.proposed')}</span>
+            <span className="text-small text-muted-foreground">{t('capture.review.proposed')}</span>
             <span className="text-h2 font-extrabold">
               {Math.round(dp.value * 100) / 100} <span className="text-body font-normal">{dp.unit}</span>
             </span>
-            {fileKey && <span className="text-small text-muted-foreground break-all">{ct('capture.review.source', { key: fileKey })}</span>}
+            {fileKey && <span className="text-small text-muted-foreground break-all">{t('capture.review.source', { key: fileKey })}</span>}
           </div>
         </div>
         {mode === 'view' ? (
           <div className="flex flex-wrap gap-3">
             <Button size="lg" onClick={confirm} loading={busy}>
               <CircleCheck aria-hidden />
-              {ct('capture.review.confirm')}
+              {t('capture.review.confirm')}
             </Button>
             <Button size="lg" variant="secondary" onClick={() => setMode('correct')} disabled={busy}>
-              {ct('capture.review.correct')}
+              {t('capture.review.correct')}
             </Button>
           </div>
         ) : (
           <form onSubmit={correct} noValidate className="flex flex-col gap-4">
-            <FormField label={ct('capture.review.correctedValue')} required error={errs.value}>
+            <FormField label={t('capture.review.correctedValue')} required error={errs.value}>
               {(c: FormFieldControlProps) => <Input {...c} inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />}
             </FormField>
-            <FormField label={ct('capture.review.reason')} required hint={ct('capture.review.reasonHint')} error={errs.reason}>
+            <FormField label={t('capture.review.reason')} required hint={t('capture.review.reasonHint')} error={errs.reason}>
               {(c: FormFieldControlProps) => <Input {...c} value={reason} onChange={(e) => setReason(e.target.value)} />}
             </FormField>
             <div className="flex flex-wrap gap-3">
               <Button type="submit" size="lg" loading={busy}>
-                {ct('capture.review.save')}
+                {t('capture.review.save')}
               </Button>
               <Button type="button" size="lg" variant="ghost" onClick={() => setMode('view')} disabled={busy}>
-                {ct('capture.review.cancel')}
+                {t('capture.review.cancel')}
               </Button>
             </div>
           </form>

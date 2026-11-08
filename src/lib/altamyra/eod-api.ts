@@ -3,38 +3,17 @@
  * children from GET /me/day-review one by one, shows what was logged, lets the
  * actor add a note, approve the drafted daily summary and complete the record.
  */
-import { api } from './api'
+import type { z } from 'zod'
+import type { MyDayReviewResponse } from '@/server/altamyra/contract/api'
+import { apiFetch, enc } from './api'
 
-export type DayStudent = { studentId: string; label: string; entriesToday: number; reviewed: boolean }
-export type DayReview = { date: string; students: DayStudent[] }
-export type DailySummary = { id: string; text: string; status: 'draft' | 'approved'; version: number }
+export type DayReview = z.output<typeof MyDayReviewResponse>
+export type DayStudent = DayReview['students'][number]
 type Row = Record<string, unknown>
-export type DayRecord = {
-  dataPoints: Row[]
-  events: Row[]
-  notes: Row[]
-  videos: Row[]
-  voiceNotes: Row[]
-  review: Row | null
-  dailySummary: DailySummary | null
-}
 
-const enc = encodeURIComponent
-
-/** Local calendar date, yyyy-mm-dd. */
-export function todayLocal(now = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`
-}
-
-export const getDayReview = () => api<DayReview>('GET', '/me/day-review')
-export const getDay = (studentId: string, date: string) => api<DayRecord>('GET', `/students/${enc(studentId)}/days/${enc(date)}`)
+export const getDayReview = () => apiFetch<DayReview>('/me/day-review')
 export const completeDay = (studentId: string, date: string, note?: string) =>
-  api<unknown>('POST', `/students/${enc(studentId)}/days/${enc(date)}/complete`, note?.trim() ? { note: note.trim() } : {})
-export const editSummary = (summaryId: string, studentId: string, version: number, text: string) =>
-  api<{ summary: DailySummary }>('PATCH', `/summaries/${enc(summaryId)}`, { studentId, version, text })
-export const approveSummary = (summaryId: string, studentId: string, version: number) =>
-  api<{ summary: DailySummary }>('POST', `/summaries/${enc(summaryId)}/approve`, { studentId, version })
+  apiFetch<unknown>(`/students/${enc(studentId)}/days/${enc(date)}/complete`, { body: note?.trim() ? { note: note.trim() } : {} })
 
 // ---------- step logic ----------
 
@@ -63,7 +42,7 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const words = (s: string) => s.replace(/_/g, ' ')
 
 /** Plain one-line text for every thing logged today, in group order. */
-export function dayEntries(day: Pick<DayRecord, 'dataPoints' | 'events' | 'notes' | 'videos' | 'voiceNotes'>): EntryLine[] {
+export function dayEntries(day: Record<'dataPoints' | 'events' | 'notes' | 'videos' | 'voiceNotes', Row[]>): EntryLine[] {
   const out: EntryLine[] = []
   day.dataPoints.forEach((r, i) => {
     const v = num(r.value)

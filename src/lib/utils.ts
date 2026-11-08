@@ -27,3 +27,15 @@ export function cn(...inputs: ClassValue[]): string {
 export function initialOf(u?: { name?: string | null; email?: string | null } | null): string {
   return (u?.name?.trim() || u?.email?.trim() || '?')[0].toUpperCase()
 }
+
+export function localDate(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+export async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let bin = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(bin)
+}

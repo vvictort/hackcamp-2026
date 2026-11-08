@@ -1,26 +1,16 @@
-import { apiFetch } from './students-api'
-
-const seg = encodeURIComponent
+import type { z } from 'zod'
+import type { DayDetailResponse } from '@/server/altamyra/contract/api'
+import { localDate } from '@/lib/utils'
+import { apiFetch, enc } from './api'
+import type { Summary } from './summaries-api'
 
 export type DayCounts = { dataPoints: number; events: number; notes: number; videos: number; voiceNotes: number }
 export type DayRow = { date: string; counts: DayCounts; reviewed: boolean }
-export type DayDetail = {
-  date: string
-  dataPoints: { id?: string; value?: number | string; unit?: string; status?: string; recordedAt?: string; reason?: string | null }[]
-  events: { id?: string; kind?: string; label?: string; at?: string; text?: string }[]
-  notes: { id?: string; text: string; at?: string }[]
-  videos: { id?: string; name?: string; url?: string; at?: string }[]
-  voiceNotes: { id?: string; transcript?: string; at?: string }[]
-  review: { reviewed?: boolean; note?: string | null } | null
-  dailySummary: { text: string; status?: string } | null
-}
-export type StudentSummary = { id?: string; kind: string; text: string; status: 'draft' | 'approved'; periodStart?: string; periodEnd?: string } | null
+export type DayDetail = z.output<typeof DayDetailResponse>
 
 export const getDays = (studentId: string, from?: string, to?: string) =>
-  apiFetch<{ days: DayRow[] }>(`/students/${seg(studentId)}/days`, { query: { from, to } })
-export const getDay = (studentId: string, date: string) => apiFetch<DayDetail>(`/students/${seg(studentId)}/days/${seg(date)}`)
-export const getWeeklySummary = (studentId: string) =>
-  apiFetch<{ summary: StudentSummary }>(`/students/${seg(studentId)}/summaries`, { query: { kind: 'weekly' } })
+  apiFetch<{ days: DayRow[] }>(`/students/${enc(studentId)}/days`, { query: { from, to } })
+export const getDay = (studentId: string, date: string) => apiFetch<DayDetail>(`/students/${enc(studentId)}/days/${enc(date)}`)
 
 export const dayTotal = (c: DayCounts): number => c.dataPoints + c.events + c.notes + c.videos + c.voiceNotes
 
@@ -29,14 +19,12 @@ export const sortDays = (days: DayRow[]): DayRow[] => [...days].sort((a, b) => b
 
 /** Date range ending at `to` that covers the last `n` days (inclusive), as YYYY-MM-DD. */
 export function lastNDays(n: number, to: Date = new Date()): { from: string; to: string } {
-  const p = (x: number) => String(x).padStart(2, '0')
-  const f = (d: Date) => `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
   const start = new Date(to.getFullYear(), to.getMonth(), to.getDate() - (n - 1))
-  return { from: f(start), to: f(to) }
+  return { from: localDate(start), to: localDate(to) }
 }
 
 /** Summary visible to the viewer: case managers see approved only. */
-export function visibleSummary(s: StudentSummary, canSeeDraft: boolean): StudentSummary {
+export function visibleSummary(s: Summary | null, canSeeDraft: boolean): Summary | null {
   if (!s) return null
   return s.status === 'approved' || canSeeDraft ? s : null
 }

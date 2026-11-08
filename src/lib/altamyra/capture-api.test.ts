@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
+import { ApiError } from './api'
 import {
-  ApiError,
   captureErrorKind,
   confirmReview,
   correctDataPoint,

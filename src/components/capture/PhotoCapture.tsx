@@ -4,20 +4,19 @@ import { Button, buttonVariants, Card, FormField, Input, StatusBadge, type FormF
 import type { CaptureBatch } from '@/server/altamyra/contract/school'
 import type { DataPoint } from '@/server/altamyra/contract/student'
 import {
-  getDataPointSource,
   normalizeSheetCode,
   photoMedia,
   pollBatch,
   rememberImage,
   uploadPhotos,
 } from '@/lib/altamyra/capture-api'
-import { blobToBase64 } from '@/lib/altamyra/capture-api'
+import { ApiError } from '@/lib/altamyra/api'
 import { useAltamyraMe } from '@/lib/altamyra/role'
-import { createSampleSheet, PracticeApiError, sampleFileKey } from '@/lib/altamyra/practice-api'
+import { createSampleSheet, sampleFileKey } from '@/lib/altamyra/practice-api'
+import { getDataPointSource } from '@/lib/altamyra/students-api'
+import { blobToBase64 } from '@/lib/utils'
+import { useLang } from '@/i18n'
 import { SAMPLE_SHEET_URL, stampSheetCode } from './stampSheetCode'
-import { StudentSelect } from './StudentSelect'
-import { useCt } from './useCt'
-import { useStudents } from './useStudents'
 
 type Scored = { page: number; status: 'scored' | 'unreadable' | 'failed' | 'processing'; points: DataPoint[]; studentId: string | null }
 
@@ -44,11 +43,8 @@ async function describePages(batch: CaptureBatch): Promise<Scored[]> {
   return out
 }
 
-export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?: string; onScored?: () => void } = {}) {
-  const ct = useCt()
-  const { students, state, reload } = useStudents()
-  const [pickedStudent, setStudentId] = useState('')
-  const studentId = fixedStudent ?? pickedStudent
+export function PhotoCapture({ studentId, onScored }: { studentId: string; onScored?: () => void }) {
+  const { t } = useLang()
   const [code, setCode] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -70,7 +66,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     const sheetCode = normalizeSheetCode(code)
-    const next = { code: sheetCode ? undefined : ct('capture.photo.sheetCodeInvalid'), photo: file ? undefined : ct('capture.photo.photoMissing') }
+    const next = { code: sheetCode ? undefined : t('capture.photo.sheetCodeInvalid'), photo: file ? undefined : t('capture.photo.photoMissing') }
     setErrors(next)
     if (!sheetCode || !file) return
     setBusy(true)
@@ -84,7 +80,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
       setResults(await describePages(done.batch))
       onScored?.()
     } catch {
-      setErrors({ submit: ct('capture.photo.failed') })
+      setErrors({ submit: t('capture.photo.failed') })
     } finally {
       setBusy(false)
     }
@@ -92,7 +88,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
 
   async function useSample() {
     setSampleNote(null)
-    if (!studentId) return setSampleNote({ ok: false, text: ct('capture.photo.sampleNeedsStudent') })
+    if (!studentId) return setSampleNote({ ok: false, text: t('capture.photo.sampleNeedsStudent') })
     setSampleBusy(true)
     try {
       const made = await createSampleSheet(studentId)
@@ -102,9 +98,9 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
       setCode(made.code)
       setSample(true)
       setErrors({})
-      setSampleNote({ ok: true, text: ct('capture.photo.sampleReady', { code: made.code }) })
+      setSampleNote({ ok: true, text: t('capture.photo.sampleReady', { code: made.code }) })
     } catch (err) {
-      setSampleNote({ ok: false, text: ct(err instanceof PracticeApiError && err.status === 404 ? 'capture.photo.sampleUnavailable' : 'capture.photo.sampleFailed') })
+      setSampleNote({ ok: false, text: t(err instanceof ApiError && err.status === 404 ? 'capture.photo.sampleUnavailable' : 'capture.photo.sampleFailed') })
     } finally {
       setSampleBusy(false)
     }
@@ -119,33 +115,23 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
     setErrors({})
   }
 
-  if (state === 'error')
-    return (
-      <Card>
-        <p role="alert">{ct('capture.common.loadFailed')}</p>
-        <div>
-          <Button onClick={reload}>{ct('capture.common.retry')}</Button>
-        </div>
-      </Card>
-    )
-
   if (results)
     return (
-      <Card title={ct('capture.photo.results')} aria-live="polite">
+      <Card title={t('capture.photo.results')} aria-live="polite">
         <ul className="flex flex-col gap-3">
           {results.map((r) => (
             <li key={r.page} className="flex flex-col gap-2 rounded-md border border-border p-4">
               <div className="flex flex-wrap items-center gap-3">
-                <strong>{ct('capture.photo.page', { n: r.page })}</strong>
-                <ResultBadge r={r} ct={ct} />
+                <strong>{t('capture.photo.page', { n: r.page })}</strong>
+                <ResultBadge r={r} t={t} />
               </div>
               {studentId && r.studentId && r.studentId !== studentId && (
-                <p className="text-small text-muted-foreground">{ct('capture.photo.wrongStudent')}</p>
+                <p className="text-small text-muted-foreground">{t('capture.photo.wrongStudent')}</p>
               )}
               {r.points.map((p) => (
                 <p key={p.id} className="text-small text-muted-foreground">
-                  {ct('capture.photo.value', { value: Math.round(p.value * 100) / 100 })}
-                  {p.aiConfidence !== null && <> · {ct('capture.photo.confidence', { pct: Math.round(p.aiConfidence * 100) })}</>}
+                  {t('capture.photo.value', { value: Math.round(p.value * 100) / 100 })}
+                  {p.aiConfidence !== null && <> · {t('capture.photo.confidence', { pct: Math.round(p.aiConfidence * 100) })}</>}
                 </p>
               ))}
             </li>
@@ -154,11 +140,11 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
         <div className="flex flex-wrap gap-3">
           {results.some((r) => r.points.some((p) => p.status === 'pending_review')) && (
             <a href="#to-confirm" className={buttonVariants({ size: 'lg' })}>
-              {ct('capture.photo.goReview')}
+              {t('capture.photo.goReview')}
             </a>
           )}
           <Button variant="secondary" size="lg" onClick={reset}>
-            {ct('capture.photo.another')}
+            {t('capture.photo.another')}
           </Button>
         </div>
       </Card>
@@ -167,9 +153,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
   return (
     <Card>
       <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-        {state === 'ready' && students.length === 0 && <p>{ct('capture.common.noStudents')}</p>}
-        {fixedStudent === undefined && <StudentSelect students={students} value={studentId} onChange={setStudentId} />}
-        <FormField label={ct('capture.photo.sheetCode')} required hint={ct('capture.photo.sheetCodeHint')} error={errors.code}>
+        <FormField label={t('capture.photo.sheetCode')} required hint={t('capture.photo.sheetCodeHint')} error={errors.code}>
           {(control: FormFieldControlProps) => (
             <Input {...control} value={code} onChange={(e) => {
                 setCode(e.target.value)
@@ -178,7 +162,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
               autoCapitalize="characters" autoComplete="off" placeholder="AL-K7Q4L1" />
           )}
         </FormField>
-        <FormField label={ct('capture.photo.photo')} required hint={ct('capture.photo.photoHint')} error={errors.photo}>
+        <FormField label={t('capture.photo.photo')} required hint={t('capture.photo.photoHint')} error={errors.photo}>
           {(control: FormFieldControlProps) => (
             <Input {...control} type="file" accept="image/*" capture="environment" className="h-auto min-h-12 py-3" onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null)
@@ -186,7 +170,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
               }} />
           )}
         </FormField>
-        {preview && <img src={preview} alt={ct(sample ? 'capture.photo.samplePreview' : 'capture.photo.preview')} className="max-h-72 w-auto self-start rounded-md border border-border" />}
+        {preview && <img src={preview} alt={t(sample ? 'capture.photo.samplePreview' : 'capture.photo.preview')} className="max-h-72 w-auto self-start rounded-md border border-border" />}
         {errors.submit && (
           <p role="alert" className="text-destructive-strong">
             {errors.submit}
@@ -195,19 +179,19 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
         <div>
           <Button type="submit" size="lg" className="min-h-12" loading={busy}>
             <Camera aria-hidden />
-            {busy ? ct('capture.photo.scoring') : ct('capture.photo.submit')}
+            {busy ? t('capture.photo.scoring') : t('capture.photo.submit')}
           </Button>
         </div>
-        <p className="text-small text-muted-foreground">{ct('capture.photo.sample')}</p>
+        <p className="text-small text-muted-foreground">{t('capture.photo.sample')}</p>
         {devEnabled && (
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-4">
             <div>
               <Button type="button" variant="outline" size="lg" className="min-h-12" onClick={useSample} loading={sampleBusy}>
                 <FlaskConical aria-hidden />
-                {sampleBusy ? ct('capture.photo.sampleLoading') : ct('capture.photo.useSample')}
+                {sampleBusy ? t('capture.photo.sampleLoading') : t('capture.photo.useSample')}
               </Button>
             </div>
-            <p className="text-small text-muted-foreground">{ct('capture.photo.useSampleHint')}</p>
+            <p className="text-small text-muted-foreground">{t('capture.photo.useSampleHint')}</p>
             {sampleNote && (
               <p role={sampleNote.ok ? 'status' : 'alert'} className={sampleNote.ok ? 'text-small font-semibold' : 'text-small font-semibold text-destructive-strong'}>
                 {sampleNote.text}
@@ -220,11 +204,11 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
   )
 }
 
-function ResultBadge({ r, ct }: { r: Scored; ct: ReturnType<typeof useCt> }) {
-  if (r.status === 'unreadable') return <StatusBadge tone="destructive">{ct('capture.photo.unreadable')}</StatusBadge>
-  if (r.status === 'failed') return <StatusBadge tone="destructive">{ct('capture.photo.pageFailed')}</StatusBadge>
-  if (r.status === 'processing') return <StatusBadge tone="info">{ct('capture.photo.processing')}</StatusBadge>
+function ResultBadge({ r, t }: { r: Scored; t: ReturnType<typeof useLang>['t'] }) {
+  if (r.status === 'unreadable') return <StatusBadge tone="destructive">{t('capture.photo.unreadable')}</StatusBadge>
+  if (r.status === 'failed') return <StatusBadge tone="destructive">{t('capture.photo.pageFailed')}</StatusBadge>
+  if (r.status === 'processing') return <StatusBadge tone="info">{t('capture.photo.processing')}</StatusBadge>
   if (r.points.some((p) => p.status === 'pending_review'))
-    return <StatusBadge tone="warning">{ct('capture.photo.sentToReview')}</StatusBadge>
-  return <StatusBadge tone="success">{ct('capture.photo.confirmed')}</StatusBadge>
+    return <StatusBadge tone="warning">{t('capture.photo.sentToReview')}</StatusBadge>
+  return <StatusBadge tone="success">{t('capture.photo.confirmed')}</StatusBadge>
 }

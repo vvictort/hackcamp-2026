@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { PlanConflictError, acceptedChanges, approvePlan, canApprove, createPlan, editChange, getStudentPlans, missingPlan, pickPlan, titleFromText, todayIso, toggleChange, updatePlan, type LessonPlan } from './plans-api'
+import { localDate } from '@/lib/utils'
+import { PlanConflictError, acceptedChanges, approvePlan, canApprove, createPlan, editChange, getStudentPlans, missingPlan, pickPlan, titleFromText, toggleChange, updatePlan, type LessonPlan } from './plans-api'
 
 const plan = (o: Partial<LessonPlan>): LessonPlan => ({ id: 'p', studentId: 's', date: '2026-11-08', title: 't', originalText: 'o', proposed: [], tailoredText: 'x', status: 'draft', approvedBy: null, approvedAt: null, version: 1, ...o })
 
@@ -13,7 +14,7 @@ function mockFetch(body: unknown = {}) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('plans-api helpers', () => {
-  it('formats the local date', () => expect(todayIso(new Date(2026, 10, 8, 23, 30))).toBe('2026-11-08'))
+  it('formats the local date', () => expect(localDate(new Date(2026, 10, 8, 23, 30))).toBe('2026-11-08'))
   it('prefers the approved plan, then newest version', () => {
     expect(pickPlan([])).toBeNull()
     expect(pickPlan([plan({ id: 'a', version: 3 }), plan({ id: 'b', version: 1, status: 'approved' })])?.id).toBe('b')

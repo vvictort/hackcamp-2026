@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: async () => 'tok' }))
-import { ApiError, FAMILY_CONSENT_KINDS, familyText, getFamilySummaries, setConsent } from './family-api'
+import { ApiError } from './api'
+import { FAMILY_CONSENT_KINDS, familyText, getFamilySummaries, setConsent } from './family-api'
 
 afterEach(() => vi.unstubAllGlobals())
 

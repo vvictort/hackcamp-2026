@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { ApiError, buildUrl, confirmObjective, getDataPointSource, getProfile, importIep } from './students-api'
+import { ApiError, buildUrl } from './api'
+import { confirmObjective, getDataPointSource, getProfile } from './students-api'
 
 function mockFetch(status: number, body: unknown) {
   const fn = vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))
@@ -22,25 +23,21 @@ describe('students-api', () => {
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/v1/students/s%2F1')
     expect(init.credentials).toBe('include')
-    expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
     expect(init.method).toBe('GET')
   })
 
-  it('posts JSON for import and adds studentId for objectives', async () => {
+  it('adds studentId for objectives', async () => {
     const f = mockFetch(200, {})
-    await importIep('s1', { sourceKind: 'text', text: 'hi' })
     await confirmObjective('o1', 's1', { expectedVersion: 2 })
-    const a = f.mock.calls[0] as unknown as [string, RequestInit]
-    const b = f.mock.calls[1] as unknown as [string, RequestInit]
-    expect(a[0]).toBe('/api/v1/students/s1/iep/import')
-    expect(JSON.parse(a[1].body as string)).toEqual({ sourceKind: 'text', text: 'hi' })
+    const b = f.mock.calls[0] as unknown as [string, RequestInit]
     expect(b[0]).toBe('/api/v1/objectives/o1/confirm?studentId=s1')
     expect(b[1].method).toBe('POST')
   })
 
   it('passes source studentId', async () => {
     const f = mockFetch(200, {})
-    await getDataPointSource('d1', 's1')
+    await getDataPointSource('s1', 'd1')
     expect((f.mock.calls[0] as unknown as [string])[0]).toBe('/api/v1/data-points/d1/source?studentId=s1')
   })
 

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { createTicket, listTickets, sortTickets, ticketReady, type IepTicket } from './tickets-api'
+import { canDecline, createTicket, declineTicket, listSchoolTickets, listTickets, sortTickets, ticketReady, type Ticket } from './tickets-api'
 
-const t = (o: Partial<IepTicket>): IepTicket => ({ id: 'x', studentId: 's', target: 'g', proposedChange: 'p', reason: 'r', status: 'pending', createdAt: '2026-11-01', ...o })
+const t = (o: Partial<Ticket>) => ({ id: 'x', studentId: 's', target: 'g', proposedChange: 'p', reason: 'r', status: 'pending', createdAt: '2026-11-01', ...o }) as Ticket
 afterEach(() => vi.unstubAllGlobals())
 
 describe('tickets-api', () => {
@@ -24,5 +24,19 @@ describe('tickets-api', () => {
     expect(calls[0][0]).toBe('/api/v1/students/s1/tickets')
     expect(calls[0][1].method).toBe('POST')
     expect(calls[1][1].method).toBe('GET')
+  })
+  it('filters the school queue to pending and tolerates 404', async () => {
+    const f = vi.fn(async () => new Response('{}', { status: 404 }))
+    vi.stubGlobal('fetch', f)
+    expect(await listSchoolTickets('pending')).toEqual([])
+    expect((f.mock.calls as unknown as string[][])[0][0]).toBe('/api/v1/tickets?status=pending')
+  })
+  it('requires a reason to decline', async () => {
+    expect(canDecline('  ')).toBe(false)
+    expect(canDecline('Not needed')).toBe(true)
+    const f = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', f)
+    await declineTicket('t 1', 'why')
+    expect((f.mock.calls as unknown as string[][])[0][0]).toBe('/api/v1/tickets/t%201/decline')
   })
 })

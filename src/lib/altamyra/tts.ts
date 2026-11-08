@@ -2,7 +2,7 @@
  * Read-aloud client. Tries POST /api/v1/tts (Gemini audio). On 204/503, any
  * error or no key, falls back to window.speechSynthesis; null when neither exists.
  */
-import { getAuthToken } from 'deepspace'
+import { authHeaders } from './api'
 
 export const TTS_MAX_CHARS = 2000
 
@@ -13,9 +13,7 @@ export const canSpeakInBrowser = () =>
 
 /** Audio blob from the server, or null when the server has none (204, 503, network error). */
 export async function fetchTtsAudio(text: string, language: string, studentId?: string, fetchImpl: typeof fetch = fetch): Promise<Blob | null> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const token = await getAuthToken().catch(() => null)
-  if (token) headers.Authorization = `Bearer ${token}`
+  const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' }
   try {
     const res = await fetchImpl('/api/v1/tts', {
       method: 'POST',

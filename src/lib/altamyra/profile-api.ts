@@ -1,4 +1,3 @@
-import { getAuthToken } from 'deepspace'
 import type { z } from 'zod'
 import type {
   CaptureEventBody,
@@ -9,70 +8,27 @@ import type {
 } from '@/server/altamyra/contract/api'
 import type { Objective } from '@/server/altamyra/contract/student'
 import type { Proficiency } from '@/server/altamyra/contract/enums'
-import { ApiError, API_BASE, type IepImportInput } from './students-api'
+import { apiFetch, enc } from './api'
 
 type R<T extends z.ZodType> = z.infer<T>
-const seg = encodeURIComponent
 
-/** Same as the shared client, plus an optional timeout. Bearer token + cookies. */
-async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs?: number): Promise<T> {
-  const token = await getAuthToken().catch(() => null)
-  const headers: Record<string, string> = { accept: 'application/json' }
-  if (body !== undefined) headers['content-type'] = 'application/json'
-  if (token) headers.authorization = `Bearer ${token}`
-  const ctl = new AbortController()
-  const timer = timeoutMs ? setTimeout(() => ctl.abort(), timeoutMs) : null
-  let res: Response
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      method,
-      credentials: 'include',
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: ctl.signal,
-    })
-  } catch {
-    throw ctl.signal.aborted
-      ? new ApiError(0, 'timeout', 'The request took too long. Try again, or paste the text instead of uploading a PDF.')
-      : new ApiError(0, 'network', 'Could not reach the server.')
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
-  let data: unknown = null
-  try {
-    data = await res.json()
-  } catch {
-    /* empty or non-JSON body */
-  }
-  if (!res.ok) {
-    const err = (data as { error?: { code?: string; message?: string } } | null)?.error
-    throw new ApiError(res.status, err?.code ?? 'error', err?.message ?? `Request failed (${res.status}).`)
-  }
-  return data as T
-}
+export type IepImportInput = { sourceKind: 'text'; text: string } | { sourceKind: 'pdf'; fileName: string; contentType: string; bytesBase64: string }
+
+const importBody = (input: IepImportInput) =>
+  input.sourceKind === 'text'
+    ? { sourceKind: 'text', text: input.text }
+    : { sourceKind: 'pdf', file: { fileKey: input.fileName, contentType: input.contentType, bytesBase64: input.bytesBase64 } }
 
 /** Above the server's 35 s model-chain budget, plus PDF reading and storing. */
 export const IMPORT_TIMEOUT_MS = 60_000
 
 /** PDF text layer as plain text, so it can sit beside the parsed result. */
 export const extractIepText = (id: string, input: Extract<IepImportInput, { sourceKind: 'pdf' }>) =>
-  call<{ text: string }>(
-    'POST',
-    `/students/${seg(id)}/iep/source-text`,
-    { sourceKind: 'pdf', file: { fileKey: input.fileName, contentType: input.contentType, bytesBase64: input.bytesBase64 } },
-    20_000,
-  )
+  apiFetch<{ text: string }>(`/students/${enc(id)}/iep/source-text`, { body: importBody(input), timeoutMs: 20_000 })
 
 /** IEP import with a 60 s client timeout so a stuck model call shows an error. */
 export const importIepTimed = (id: string, input: IepImportInput) =>
-  call<IepImportResponse>(
-    'POST',
-    `/students/${seg(id)}/iep/import`,
-    input.sourceKind === 'text'
-      ? { sourceKind: 'text', text: input.text }
-      : { sourceKind: 'pdf', file: { fileKey: input.fileName, contentType: input.contentType, bytesBase64: input.bytesBase64 } },
-    IMPORT_TIMEOUT_MS,
-  )
+  apiFetch<IepImportResponse>(`/students/${enc(id)}/iep/import`, { body: importBody(input), timeoutMs: IMPORT_TIMEOUT_MS })
 
 // ---------- quick rating ----------
 
@@ -103,8 +59,6 @@ export function ratingEvent(objective: Pick<Objective, 'id' | 'metricType' | 'ta
       return null
   }
 }
-
-export const rateGoal = (studentId: string, event: CaptureEventBody) => call<unknown>('POST', `/students/${seg(studentId)}/events`, event)
 
 // ---------- proficiency ----------
 
@@ -139,4 +93,4 @@ export function suggestProficiency(st: Pick<GoalStatusResponse, 'baseline' | 'cu
 export const defaultPeriod = (now = new Date()) => now.toISOString().slice(0, 7)
 
 export const saveProficiency = (studentId: string, goalId: string, body: Pick<ProficiencySetBody, 'level' | 'period'> & { narrative?: string | null }) =>
-  call<R<typeof ProficiencyResponse>>('POST', `/goals/${seg(goalId)}/proficiency?studentId=${seg(studentId)}`, { narrative: null, ...body })
+  apiFetch<R<typeof ProficiencyResponse>>(`/goals/${enc(goalId)}/proficiency`, { body: { narrative: null, ...body }, query: { studentId } })

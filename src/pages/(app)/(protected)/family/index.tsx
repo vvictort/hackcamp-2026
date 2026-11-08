@@ -1,5 +1,5 @@
 /** Parent view: the approved monthly update (with audio) and consent toggles for the parent's own child. */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FileText, Users } from 'lucide-react'
 import {
   Button,
@@ -18,19 +18,18 @@ import {
 import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { useLang } from '@/i18n'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
+import { useAltamyraMe } from '@/lib/altamyra/role'
+import { useLoad } from '@/lib/useLoad'
+import { studentLabel } from '@/components/capture/StudentSelect'
 import {
   FAMILY_CONSENT_KINDS,
   familyText,
   getFamilySummaries,
-  getMe,
   setConsent,
   type Consent,
   type FamilyConsentKind,
   type FamilySummary,
-  type MeResponse,
 } from '@/lib/altamyra/family-api'
-
-type Student = MeResponse['students'][number]
 
 export default function FamilyPage() {
   return (
@@ -42,17 +41,11 @@ export default function FamilyPage() {
 
 function FamilyBody() {
   const { t } = useLang()
-  const [me, setMe] = useState<MeResponse | null>(null)
-  const [failed, setFailed] = useState(false)
+  const { me, loading } = useAltamyraMe()
+  const failed = !loading && !me
   const [studentId, setStudentId] = useState('')
 
-  useEffect(() => {
-    getMe()
-      .then(setMe)
-      .catch(() => setFailed(true))
-  }, [])
-
-  const students: Student[] = useMemo(() => (me ? me.students.filter((s) => me.parentOf.includes(s.id) || s.roles.includes('parent')) : []), [me])
+  const students = useMemo(() => (me ? me.students.filter((s) => me.parentOf.includes(s.id) || s.roles.includes('parent')) : []), [me])
   const current = students.find((s) => s.id === studentId) ?? students[0]
 
   return (
@@ -80,7 +73,7 @@ function FamilyBody() {
                   <SelectContent>
                     {students.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.firstName ?? s.displayToken}
+                        {studentLabel(s, t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -97,24 +90,14 @@ function FamilyBody() {
 
 function ParentView({ studentId }: { studentId: string }) {
   const { t } = useLang()
-  const [rows, setRows] = useState<FamilySummary[] | null>(null)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    let live = true
-    getFamilySummaries(studentId)
-      .then((r) => live && setRows(r))
-      .catch(() => live && setError(true))
-    return () => {
-      live = false
-    }
-  }, [studentId])
+  const summaries = useLoad(() => getFamilySummaries(studentId), studentId)
+  const rows = summaries.data
 
   const [latest, ...earlier] = rows ?? []
 
   return (
     <>
-      {error ? (
+      {summaries.status === 'error' ? (
         <p role="alert" className="text-body text-destructive">
           {t('drafts.family.loadFailed')}
         </p>

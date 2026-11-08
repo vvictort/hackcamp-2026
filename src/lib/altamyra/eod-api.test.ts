@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { completeDay, dayEntries, firstOpen, groupEntries, nextStep, stepAt, stepsFor, todayLocal } from './eod-api'
+import { completeDay, dayEntries, firstOpen, groupEntries, nextStep, stepAt, stepsFor } from './eod-api'
 
 vi.mock('deepspace', () => ({ getAuthToken: async () => null }))
 
@@ -20,7 +20,6 @@ describe('end-of-day steps', () => {
     expect(st).toEqual({ index: 2, total: 2, finished: true })
     expect(nextStep(st).index).toBe(2)
   })
-  it('formats the local date', () => expect(todayLocal(new Date(2026, 10, 8))).toBe('2026-11-08'))
 })
 
 describe('day entries', () => {

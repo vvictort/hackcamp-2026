@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
+import { useAltamyraMe, visibleStudents } from '@/lib/altamyra/role'
 import { Card, PageHeader } from '@/components/ui'
 import { lastStudent, rememberStudent } from '@/lib/altamyra/capture-api'
 import { cn } from '@/lib/utils'
@@ -9,20 +10,20 @@ import { PhotoCapture } from '@/components/capture/PhotoCapture'
 import { ReviewList } from '@/components/capture/ReviewList'
 import { StudentSelect } from '@/components/capture/StudentSelect'
 import { VideoCapture } from '@/components/capture/VideoCapture'
-import { useCt, type CaptureKey } from '@/components/capture/useCt'
-import { useStudents } from '@/components/capture/useStudents'
+import { useLang } from '@/i18n'
+import type { MessageKey } from '@/i18n/en'
 
 const KINDS = [
   { id: 'photo', label: 'capture.page.kindPhoto' },
   { id: 'video', label: 'capture.page.kindVideo' },
   { id: 'note', label: 'capture.page.kindNote' },
   { id: 'event', label: 'capture.page.kindEvent' },
-] as const satisfies readonly { id: string; label: CaptureKey }[]
+] as const satisfies readonly { id: string; label: MessageKey }[]
 type Kind = (typeof KINDS)[number]['id']
 
 function CapturePageBody() {
-  const ct = useCt()
-  const { students, state, reload } = useStudents()
+  const { t } = useLang()
+  const students = visibleStudents(useAltamyraMe().me)
   const [picked, setPicked] = useState(lastStudent)
   const [kind, setKind] = useState<Kind>('photo')
   const [refresh, setRefresh] = useState(0)
@@ -33,34 +34,22 @@ function CapturePageBody() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title={ct('capture.page.title')} description={ct('capture.page.description')} />
-      {state === 'error' ? (
-        <Card>
-          <p role="alert">{ct('capture.common.loadFailed')}</p>
-          <div>
-            <button type="button" className="underline" onClick={reload}>
-              {ct('capture.common.retry')}
-            </button>
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          {state === 'loading' && <p role="status">{ct('capture.common.loading')}</p>}
-          {state === 'ready' && students.length === 0 && <p>{ct('capture.common.noStudents')}</p>}
-          <StudentSelect
-            students={students}
-            value={studentId}
-            onChange={(id) => {
-              setPicked(id)
-              rememberStudent(id)
-            }}
-          />
-        </Card>
-      )}
+      <PageHeader title={t('capture.page.title')} description={t('capture.page.description')} />
+      <Card>
+        {students.length === 0 && <p>{t('capture.common.noStudents')}</p>}
+        <StudentSelect
+          students={students}
+          value={studentId}
+          onChange={(id) => {
+            setPicked(id)
+            rememberStudent(id)
+          }}
+        />
+      </Card>
 
       {studentId ? (
         <>
-          <div role="radiogroup" aria-label={ct('capture.page.kind')} className="flex flex-wrap gap-2">
+          <div role="radiogroup" aria-label={t('capture.page.kind')} className="flex flex-wrap gap-2">
             {KINDS.map((k) => (
               <button
                 key={k.id}
@@ -73,7 +62,7 @@ function CapturePageBody() {
                   kind === k.id ? 'border-transparent bg-primary text-primary-foreground' : 'border-input bg-card text-foreground hover:border-foreground',
                 )}
               >
-                {ct(k.label)}
+                {t(k.label)}
               </button>
             ))}
           </div>
@@ -83,15 +72,15 @@ function CapturePageBody() {
           {kind === 'event' && <EaPanel key={studentId} studentId={studentId} />}
         </>
       ) : (
-        state === 'ready' && students.length > 0 && <p className="text-muted-foreground">{ct('capture.page.pickStudent')}</p>
+        students.length > 0 && <p className="text-muted-foreground">{t('capture.page.pickStudent')}</p>
       )}
 
       <section id="to-confirm" aria-labelledby="to-confirm-h" className="flex flex-col gap-4">
         <div>
           <h2 id="to-confirm-h" className="text-h2 font-extrabold">
-            {ct('capture.page.toConfirm')}
+            {t('capture.page.toConfirm')}
           </h2>
-          <p className="text-muted-foreground">{ct('capture.page.toConfirmHint')}</p>
+          <p className="text-muted-foreground">{t('capture.page.toConfirmHint')}</p>
         </div>
         <ReviewList key={refresh} />
       </section>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError } from '@/lib/altamyra/students-api'
+import { useLang } from '@/i18n'
+import { ApiError } from '@/lib/altamyra/api'
 
 export type Loaded<T> =
   | { status: 'loading'; data: null; error: null; reload: () => void }
@@ -25,4 +26,21 @@ export function useLoad<T>(fn: () => Promise<T>, key: string | null): Loaded<T> 
   }, [key, tick])
   const reload = useCallback(() => setTick((n) => n + 1), [])
   return { ...state, reload } as Loaded<T>
+}
+
+export function LoadError({ error, onRetry, className = 'text-small' }: { error: Error; onRetry?: () => void; className?: string }) {
+  const { t } = useLang()
+  return (
+    <p role="alert" className={className}>
+      {error.message}
+      {onRetry && (
+        <>
+          {' '}
+          <button type="button" className="font-semibold underline" onClick={onRetry}>
+            {t('students.retry')}
+          </button>
+        </>
+      )}
+    </p>
+  )
 }

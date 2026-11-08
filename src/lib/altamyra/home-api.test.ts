@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: async () => null }))
-import { getPendingSummaries, getTodayPlans, reviewProgress, splitToday, summaryLink } from './home-api'
+import { getPendingSummaries, getToday, reviewProgress, splitToday, summaryLink } from './home-api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -12,7 +12,7 @@ describe('home api', () => {
   })
   it('treats a missing endpoint as empty', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404 })))
-    expect((await getTodayPlans()).students).toEqual([])
+    expect((await getToday('ea')).plans.students).toEqual([])
     expect(await getPendingSummaries()).toEqual([])
   })
   it('unwraps pending summaries', async () => {

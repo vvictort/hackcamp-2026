@@ -3,12 +3,13 @@ import { CircleCheck, FileText, Printer, TriangleAlert } from 'lucide-react'
 import { Button, Card, EmptyState, FormField, Input, StatusBadge, Textarea, useToast } from '@/components/ui'
 import { PlanUpload } from '@/components/lens/PlanUpload'
 import {
-  approvePlan, canApprove, createPlan, editChange, getStudentPlans, pickPlan, PlanConflictError, todayIso, toggleChange, updatePlan,
+  approvePlan, canApprove, createPlan, editChange, getStudentPlans, pickPlan, PlanConflictError, toggleChange, updatePlan,
   type LessonPlan, type ProposedChange,
 } from '@/lib/altamyra/plans-api'
-import { ApiError } from '@/lib/altamyra/students-api'
-import { s } from './text'
-import { useLoad } from './useLoad'
+import { ApiError } from '@/lib/altamyra/api'
+import { localDate } from '@/lib/utils'
+import { useLoad } from '@/lib/useLoad'
+import { useLang } from '@/i18n'
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Card title={title}>{children}</Card>
@@ -16,6 +17,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 const Text = ({ value }: { value: string }) => <p className="whitespace-pre-wrap text-body">{value}</p>
 
 function Editor({ plan, studentId, onSaved }: { plan: LessonPlan; studentId: string; onSaved: () => void }) {
+  const { t } = useLang()
   const toast = useToast()
   const [proposed, setProposed] = useState<ProposedChange[]>(plan.proposed)
   const [tailored, setTailored] = useState(plan.tailoredText)
@@ -36,11 +38,11 @@ function Editor({ plan, studentId, onSaved }: { plan: LessonPlan; studentId: str
       if (dirty) version = (await updatePlan(plan.id, studentId, version, { proposed, tailoredText: tailored })).plan.version
       if (approve) {
         await approvePlan(plan.id, studentId, version)
-        toast.success(s('plan.approved.toast'))
-      } else toast.success(s('plan.saved'))
+        toast.success(t('plan.approved.toast'))
+      } else toast.success(t('plan.saved'))
       onSaved()
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? s('plan.conflict') : s('plan.error'))
+      setError(e instanceof ApiError && e.status === 409 ? t('plan.conflict') : t('plan.error'))
       if (e instanceof ApiError && e.status === 409) onSaved()
     } finally {
       setBusy(false)
@@ -49,61 +51,63 @@ function Editor({ plan, studentId, onSaved }: { plan: LessonPlan; studentId: str
 
   return (
     <>
-      <Section title={s('plan.original')}><Text value={plan.originalText} /></Section>
-      <Section title={s('plan.proposed')}>
+      <Section title={t('plan.original')}><Text value={plan.originalText} /></Section>
+      <Section title={t('plan.proposed')}>
         {proposed.length === 0 ? (
-          <p className="text-small text-muted-foreground">{s('plan.proposed.none')}</p>
+          <p className="text-small text-muted-foreground">{t('plan.proposed.none')}</p>
         ) : (
           <ul className="flex flex-col gap-4">
             {proposed.map((c) => (
               <li key={c.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
                 <label className="flex items-center gap-2 text-label font-semibold">
                   <input type="checkbox" className="size-5 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" checked={c.accepted} onChange={() => setProposed((l) => toggleChange(l, c.id))} />
-                  {s('plan.proposed.accept')}
+                  {t('plan.proposed.accept')}
                   {c.label && <span className="font-normal text-muted-foreground">- {c.label}</span>}
                 </label>
-                <Textarea aria-label={s('plan.proposed.edit')} rows={2} value={c.text} onChange={(e) => setProposed((l) => editChange(l, c.id, e.target.value))} />
+                <Textarea aria-label={t('plan.proposed.edit')} rows={2} value={c.text} onChange={(e) => setProposed((l) => editChange(l, c.id, e.target.value))} />
               </li>
             ))}
           </ul>
         )}
       </Section>
-      <Section title={s('plan.tailored')}>
-        <Textarea aria-label={s('plan.tailored.edit')} rows={10} value={tailored} onChange={(e) => setTailored(e.target.value)} />
+      <Section title={t('plan.tailored')}>
+        <Textarea aria-label={t('plan.tailored.edit')} rows={10} value={tailored} onChange={(e) => setTailored(e.target.value)} />
       </Section>
       {error && <p role="alert" className="text-small text-destructive">{error}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={() => void run(true)} loading={busy} disabled={busy || !canApprove({ status: plan.status, tailoredText: tailored })}>
           <CircleCheck aria-hidden />
-          {busy ? s('plan.approving') : s('plan.approve')}
+          {busy ? t('plan.approving') : t('plan.approve')}
         </Button>
-        <Button variant="outline" onClick={() => void run(false)} disabled={busy}>{s('plan.saveEdits')}</Button>
+        <Button variant="outline" onClick={() => void run(false)} disabled={busy}>{t('plan.saveEdits')}</Button>
       </div>
     </>
   )
 }
 
 function ReadOnly({ plan }: { plan: LessonPlan }) {
+  const { t } = useLang()
   const used = plan.proposed.filter((c) => c.accepted)
   return (
     <>
-      <Section title={s('plan.original')}><Text value={plan.originalText} /></Section>
-      <Section title={s('plan.proposed')}>
+      <Section title={t('plan.original')}><Text value={plan.originalText} /></Section>
+      <Section title={t('plan.proposed')}>
         {used.length === 0 ? (
-          <p className="text-small text-muted-foreground">{s('plan.proposed.none')}</p>
+          <p className="text-small text-muted-foreground">{t('plan.proposed.none')}</p>
         ) : (
           <ul className="flex list-disc flex-col gap-2 pl-5 text-body">{used.map((c) => <li key={c.id}>{c.text}</li>)}</ul>
         )}
       </Section>
-      <Section title={s('plan.tailored')}><Text value={plan.tailoredText} /></Section>
-      <div><Button variant="outline" onClick={() => window.print()}><Printer aria-hidden />{s('plan.print')}</Button></div>
+      <Section title={t('plan.tailored')}><Text value={plan.tailoredText} /></Section>
+      <div><Button variant="outline" onClick={() => window.print()}><Printer aria-hidden />{t('plan.print')}</Button></div>
     </>
   )
 }
 
 /** Lesson plan tab: teacher adds, edits and approves; EA and case manager read the approved plan. */
 export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: boolean }) {
-  const [date, setDate] = useState(todayIso())
+  const { t } = useLang()
+  const [date, setDate] = useState(localDate())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -124,7 +128,7 @@ export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: bo
         // Plan already exists: say so plainly and switch to it.
         setNotice(e.message)
         load.reload()
-      } else setError(s('plan.add.failed'))
+      } else setError(t('plan.add.failed'))
     } finally {
       setBusy(false)
     }
@@ -133,34 +137,34 @@ export function PlanTab({ studentId, canEdit }: { studentId: string; canEdit: bo
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <FormField label={s('plan.date')} className="w-44">
+        <FormField label={t('plan.date')} className="w-44">
           <Input type="date" value={date} onChange={(e) => e.target.value && (setNotice(null), setDate(e.target.value))} />
         </FormField>
         {visible && (
           <div className="pb-1.5">
             {visible.status === 'approved' ? (
-              <StatusBadge tone="success">{s('plan.status.approved')}</StatusBadge>
+              <StatusBadge tone="success">{t('plan.status.approved')}</StatusBadge>
             ) : (
-              <StatusBadge tone="warning">{s('plan.status.draft')}</StatusBadge>
+              <StatusBadge tone="warning">{t('plan.status.draft')}</StatusBadge>
             )}
           </div>
         )}
       </div>
-      {load.status === 'loading' && <p role="status" className="text-muted-foreground">{s('plan.loading')}</p>}
+      {load.status === 'loading' && <p role="status" className="text-muted-foreground">{t('plan.loading')}</p>}
       {load.status === 'error' && (
         <div className="flex flex-col gap-3">
           <p role="alert" className="flex items-center gap-2"><TriangleAlert className="size-5" aria-hidden />{load.error.message}</p>
-          <Button variant="outline" className="self-start" onClick={load.reload}>{s('students.retry')}</Button>
+          <Button variant="outline" className="self-start" onClick={load.reload}>{t('students.retry')}</Button>
         </div>
       )}
       {load.status === 'ready' && !visible && (canEdit ? (
         <>
-          <p className="text-body text-muted-foreground">{s('plan.empty.teacher')}</p>
+          <p className="text-body text-muted-foreground">{t('plan.empty.teacher')}</p>
           <PlanUpload busy={busy} error={error} onSubmit={(v) => void add(v)} />
         </>
       ) : (
         <Card>
-          <EmptyState icon={<FileText aria-hidden />} title={s(date === todayIso() ? 'plan.empty.ea' : 'plan.empty.date')} />
+          <EmptyState icon={<FileText aria-hidden />} title={t(date === localDate() ? 'plan.empty.ea' : 'plan.empty.date')} />
         </Card>
       ))}
       {notice && visible && <p role="status" className="text-small text-muted-foreground">{notice}</p>}

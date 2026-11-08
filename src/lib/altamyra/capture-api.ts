@@ -1,10 +1,3 @@
-import { getAuthToken } from 'deepspace'
-/**
- * Fetch helpers for photo capture, the review queue and EA capture over the
- * Altamyra /api/v1 routes. Same-origin, cookies included, JSON bodies.
- * Photos and audio travel inline as base64 (MediaRef.bytesBase64); the server
- * reads a sheet code from the file name ("sheet-code-AL-XXXX").
- */
 import type { z } from 'zod'
 import type {
   CaptureBatchResponse as CaptureBatchResponseS,
@@ -12,67 +5,16 @@ import type {
   CaptureEventResponse as CaptureEventResponseS,
   DataPointCorrectBody,
   DataPointResponse as DataPointResponseS,
-  DataPointSourceResponse as DataPointSourceResponseS,
-  MeResponse,
-  ObjectivesResponse as ObjectivesResponseS,
   PhotoCaptureBody,
   ReviewConfirmBody,
   ReviewQueueResponse as ReviewQueueResponseS,
-  StudentProfileResponse,
   VoiceNoteResponse as VoiceNoteResponseS,
 } from '@/server/altamyra/contract/api'
 import type { MediaRef } from '@/server/altamyra/contract/common'
+import { blobToBase64 } from '@/lib/utils'
+import { ApiError, apiFetch, enc } from './api'
 
 type Out<S extends z.ZodType> = z.output<S>
-export const API_BASE = '/api/v1'
-
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message)
-    this.name = 'ApiError'
-  }
-}
-
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
-  const token = await getAuthToken().catch(() => null)
-  const headers: Record<string, string> = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    credentials: 'include',
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  const text = await res.text()
-  let json: unknown = null
-  try {
-    json = text ? JSON.parse(text) : null
-  } catch {
-    json = null
-  }
-  if (!res.ok) {
-    const err = (json as { error?: { code?: string; message?: string } } | null)?.error
-    throw new ApiError(res.status, err?.code ?? 'error', err?.message ?? `Request failed (${res.status})`)
-  }
-  return json as T
-}
-
-const enc = encodeURIComponent
-
-// ---------- files ----------
-
-/** Base64 (no data: prefix) of a Blob. */
-export async function blobToBase64(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer())
-  let bin = ''
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  return btoa(bin)
-}
 
 /** Sheet codes look like AL-K7Q4L1; anything else is rejected before upload. */
 export function normalizeSheetCode(input: string): string | null {
@@ -98,17 +40,13 @@ export const fileKeyOfSourceRef = (ref: string | null): string | null => ref?.ma
 
 // ---------- reads ----------
 
-export const getMe = () => request<MeResponse>('GET', '/me')
-export const getObjectives = (studentId: string) => request<Out<typeof ObjectivesResponseS>>('GET', `/students/${enc(studentId)}/objectives`)
-export const getProfile = (studentId: string) => request<StudentProfileResponse>('GET', `/students/${enc(studentId)}`)
-export const getReviewQueue = () => request<Out<typeof ReviewQueueResponseS>>('GET', '/review-queue')
-export const getDataPointSource = (studentId: string, dataPointId: string) =>
-  request<Out<typeof DataPointSourceResponseS>>('GET', `/data-points/${enc(dataPointId)}/source?studentId=${enc(studentId)}`)
+export const getReviewQueue = () => apiFetch<Out<typeof ReviewQueueResponseS>>('/review-queue')
+export const getCaptureConsent = (studentId: string) => apiFetch<{ voiceNote: boolean; video: boolean }>(`/students/${enc(studentId)}/capture-consent`)
 
 // ---------- photo capture ----------
 
-export const uploadPhotos = (pages: PhotoCaptureBody['pages']) => request<Out<typeof CaptureBatchResponseS>>('POST', '/captures/photos', { pages })
-export const getBatch = (batchId: string) => request<Out<typeof CaptureBatchResponseS>>('GET', `/captures/${enc(batchId)}`)
+export const uploadPhotos = (pages: PhotoCaptureBody['pages']) => apiFetch<Out<typeof CaptureBatchResponseS>>('/captures/photos', { body: { pages } })
+export const getBatch = (batchId: string) => apiFetch<Out<typeof CaptureBatchResponseS>>(`/captures/${enc(batchId)}`)
 
 /** Polls until the batch leaves "processing" (or attempts run out; the last batch is returned). */
 export async function pollBatch(
@@ -128,22 +66,22 @@ export async function pollBatch(
 
 /** Confirms the item; pass `value` to confirm with a corrected number. expectedVersion is the review item's version. */
 export const confirmReview = (studentId: string, reviewId: string, body: ReviewConfirmBody) =>
-  request<Out<typeof DataPointResponseS>>('POST', `/review-queue/${enc(reviewId)}/confirm?studentId=${enc(studentId)}`, body)
+  apiFetch<Out<typeof DataPointResponseS>>(`/review-queue/${enc(reviewId)}/confirm`, { body, query: { studentId } })
 
 /** expectedVersion is the data point's version. */
 export const correctDataPoint = (studentId: string, dataPointId: string, body: DataPointCorrectBody) =>
-  request<Out<typeof DataPointResponseS>>('POST', `/data-points/${enc(dataPointId)}/correct?studentId=${enc(studentId)}`, body)
+  apiFetch<Out<typeof DataPointResponseS>>(`/data-points/${enc(dataPointId)}/correct`, { body, query: { studentId } })
 
 // ---------- EA capture ----------
 
 export const recordEvent = (studentId: string, event: CaptureEventBody) =>
-  request<Out<typeof CaptureEventResponseS>>('POST', `/students/${enc(studentId)}/events`, event)
+  apiFetch<Out<typeof CaptureEventResponseS>>(`/students/${enc(studentId)}/events`, { body: event })
 
 /** Audio blob, or a text/plain blob for the typed-note fallback. */
 export async function sendVoiceNote(studentId: string, audio: Blob, classId: string | null = null, now = Date.now()) {
   const ext = audio.type.startsWith('text/') ? 'txt' : audio.type.includes('mp4') ? 'm4a' : 'webm'
   const media: MediaRef = { fileKey: `voice/${now}.${ext}`, contentType: audio.type || 'audio/webm', bytesBase64: await blobToBase64(audio) }
-  return request<Out<typeof VoiceNoteResponseS>>('POST', `/students/${enc(studentId)}/voice-notes`, { audio: media, classId })
+  return apiFetch<Out<typeof VoiceNoteResponseS>>(`/students/${enc(studentId)}/voice-notes`, { body: { audio: media, classId } })
 }
 
 // ---------- typed notes and videos ----------
@@ -152,9 +90,8 @@ export const MAX_VIDEO_BYTES = 25 * 1024 * 1024
 
 /** A typed observation, saved to today's record. objectiveId is optional. */
 export const sendNote = (studentId: string, text: string, objectiveId: string | null = null) =>
-  request<{ note: { id: string } }>('POST', `/students/${enc(studentId)}/notes`, {
-    text: text.trim(),
-    ...(objectiveId ? { objectiveId } : {}),
+  apiFetch<{ note: { id: string } }>(`/students/${enc(studentId)}/notes`, {
+    body: { text: text.trim(), ...(objectiveId ? { objectiveId } : {}) },
   })
 
 export function videoFileKey(now = Date.now(), contentType = 'video/mp4'): string {
@@ -166,11 +103,8 @@ export function videoFileKey(now = Date.now(), contentType = 'video/mp4'): strin
 export async function sendVideo(studentId: string, video: Blob, objectiveId: string | null = null, now = Date.now()) {
   const contentType = video.type || 'video/mp4'
   const media: MediaRef = { fileKey: videoFileKey(now, contentType), contentType, bytesBase64: await blobToBase64(video) }
-  return request<{ video: { id: string } }>('POST', `/students/${enc(studentId)}/videos`, {
-    contentType,
-    sizeBytes: video.size,
-    video: media,
-    ...(objectiveId ? { objectiveId } : {}),
+  return apiFetch<{ video: { id: string } }>(`/students/${enc(studentId)}/videos`, {
+    body: { contentType, sizeBytes: video.size, video: media, ...(objectiveId ? { objectiveId } : {}) },
   })
 }
 

@@ -1,6 +1,5 @@
-import { ApiError, apiFetch } from './students-api'
-
-const seg = encodeURIComponent
+import type { PlansTodayResponse } from '@/server/altamyra/contract/plans'
+import { ApiError, apiFetch, enc } from './api'
 
 export type PlanStatus = 'draft' | 'approved'
 export type ProposedChange = { id: string; text: string; label?: string; accepted: boolean }
@@ -17,11 +16,11 @@ export type LessonPlan = {
   approvedAt: string | null
   version: number
 }
-export type TodayPlans = { date: string; students: { studentId: string; label: string; plan: null | { id: string; title: string; status: PlanStatus } }[] }
+export type TodayPlans = PlansTodayResponse
 
 export const getTodayPlans = () => apiFetch<TodayPlans>('/lesson-plans/today')
 export const getStudentPlans = (studentId: string, date?: string) =>
-  apiFetch<{ plans: LessonPlan[] }>(`/students/${seg(studentId)}/lesson-plans`, { query: { date } })
+  apiFetch<{ plans: LessonPlan[] }>(`/students/${enc(studentId)}/lesson-plans`, { query: { date } })
 /** Create returned 409: the student already has a plan for that day. Show the existing one instead. */
 export class PlanConflictError extends ApiError {
   constructor(code: string, message: string) {
@@ -31,7 +30,7 @@ export class PlanConflictError extends ApiError {
 }
 export const createPlan = async (studentId: string, body: { title: string; text: string; date?: string }) => {
   try {
-    return await apiFetch<{ plan: LessonPlan }>(`/students/${seg(studentId)}/lesson-plans`, { method: 'POST', body })
+    return await apiFetch<{ plan: LessonPlan }>(`/students/${enc(studentId)}/lesson-plans`, { method: 'POST', body })
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) throw new PlanConflictError(e.code, e.message)
     throw e
@@ -39,15 +38,9 @@ export const createPlan = async (studentId: string, body: { title: string; text:
 }
 export type PlanPatch = { title?: string; originalText?: string; proposed?: ProposedChange[]; tailoredText?: string }
 export const updatePlan = (planId: string, studentId: string, version: number, patch: PlanPatch) =>
-  apiFetch<{ plan: LessonPlan }>(`/lesson-plans/${seg(planId)}`, { method: 'PATCH', body: { studentId, version, ...patch } })
+  apiFetch<{ plan: LessonPlan }>(`/lesson-plans/${enc(planId)}`, { method: 'PATCH', body: { studentId, version, ...patch } })
 export const approvePlan = (planId: string, studentId: string, version: number) =>
-  apiFetch<{ plan: LessonPlan }>(`/lesson-plans/${seg(planId)}/approve`, { method: 'POST', body: { studentId, version } })
-
-/** Local calendar date as YYYY-MM-DD (not UTC, so evenings stay on the school day). */
-export function todayIso(now: Date = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`
-}
+  apiFetch<{ plan: LessonPlan }>(`/lesson-plans/${enc(planId)}/approve`, { method: 'POST', body: { studentId, version } })
 
 /** The plan to show: the approved one if any, else the newest by version. */
 export function pickPlan(plans: LessonPlan[]): LessonPlan | null {

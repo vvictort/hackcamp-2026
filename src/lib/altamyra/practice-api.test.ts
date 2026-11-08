@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("deepspace", () => ({ getAuthToken: vi.fn(async () => "tok") }));
 
+import type { ApiError } from "./api";
 import {
   createSampleSheet,
   getCaptureObjectives,
-  PracticeApiError,
   sampleFileKey,
 } from "./practice-api";
 
@@ -39,7 +39,7 @@ describe("practice api", () => {
     await expect(createSampleSheet("s")).rejects.toMatchObject({
       status: 403,
       message: "no consent",
-    } satisfies Partial<PracticeApiError>);
+    } satisfies Partial<ApiError>);
   });
   it("names the sample file so the server reads the code", () => {
     expect(sampleFileKey("AL-X1", 7)).toBe(

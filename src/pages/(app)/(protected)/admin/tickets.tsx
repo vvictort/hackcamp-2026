@@ -1,5 +1,5 @@
 /** School administrator: review IEP change tickets from case managers, then apply or decline each one. */
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { TicketCheck } from 'lucide-react'
 import {
   Button,
@@ -20,17 +20,8 @@ import {
 } from '@/components/ui'
 import { useLang } from '@/i18n'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
-import {
-  applyTicket,
-  canDecline,
-  declineTicket,
-  listTickets,
-  type Ticket,
-  type TicketFilter,
-  type TicketStatus,
-} from '@/lib/altamyra/admin-tickets-api'
-
-const TONE: Record<TicketStatus, 'warning' | 'success' | 'destructive'> = { pending: 'warning', applied: 'success', declined: 'destructive' }
+import { useLoad } from '@/lib/useLoad'
+import { applyTicket, canDecline, declineTicket, listSchoolTickets, TICKET_TONE, type Ticket, type TicketFilter } from '@/lib/altamyra/tickets-api'
 
 export default function TicketsPage() {
   return (
@@ -44,32 +35,20 @@ function TicketsBody() {
   const { t } = useLang()
   const toast = useToast()
   const [filter, setFilter] = useState<TicketFilter>('pending')
-  const [tickets, setTickets] = useState<Ticket[] | null>(null)
-  const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [declining, setDeclining] = useState<Ticket | null>(null)
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState(false)
 
-  const load = useCallback(async () => {
-    setFailed(false)
-    try {
-      setTickets(await listTickets(filter))
-    } catch {
-      setFailed(true)
-    }
-  }, [filter])
-  useEffect(() => {
-    setTickets(null)
-    void load()
-  }, [load])
+  const list = useLoad(() => listSchoolTickets(filter), filter)
+  const tickets = list.data
 
   const apply = async (tk: Ticket) => {
     setBusy(tk.id)
     try {
       await applyTicket(tk.id)
       toast.success(t('app.tickets.appliedToast'))
-      await load()
+      list.reload()
     } catch {
       toast.error(t('app.tickets.failed'))
     } finally {
@@ -85,7 +64,7 @@ function TicketsBody() {
       toast.success(t('app.tickets.declinedToast'))
       setDeclining(null)
       setReason('')
-      await load()
+      list.reload()
     } catch {
       toast.error(t('app.tickets.failed'))
     } finally {
@@ -104,12 +83,12 @@ function TicketsBody() {
         ))}
       </div>
 
-      {failed ? (
+      {list.status === 'error' ? (
         <div className="flex flex-col items-start gap-3">
           <p role="alert" className="text-body text-destructive">
             {t('app.tickets.loadFailed')}
           </p>
-          <Button variant="outline" onClick={() => void load()}>
+          <Button variant="outline" onClick={list.reload}>
             {t('app.tickets.retry')}
           </Button>
         </div>
@@ -125,8 +104,8 @@ function TicketsBody() {
         <ul className="flex flex-col gap-6">
           {tickets.map((tk) => (
             <li key={tk.id}>
-              <Card title={tk.label || t('app.tickets.student')}>
-                <StatusBadge tone={TONE[tk.status] ?? 'info'}>{t(`app.tickets.status.${tk.status}`)}</StatusBadge>
+              <Card title={tk.studentLabel || t('app.tickets.student')}>
+                <StatusBadge tone={TICKET_TONE[tk.status]}>{t(`app.tickets.status.${tk.status}`)}</StatusBadge>
                 <dl className="grid gap-3 text-body">
                   <div>
                     <dt className="text-label font-semibold">{t('app.tickets.target')}</dt>
@@ -140,7 +119,7 @@ function TicketsBody() {
                     <dt className="text-label font-semibold">{t('app.tickets.reason')}</dt>
                     <dd className="whitespace-pre-line">{tk.reason}</dd>
                   </div>
-                  {tk.outcome && <dd className="text-small text-muted-foreground">{tk.outcome}</dd>}
+                  {tk.declineReason && <dd className="text-small text-muted-foreground">{tk.declineReason}</dd>}
                 </dl>
                 {tk.status === 'pending' && (
                   <div className="flex flex-wrap gap-3">

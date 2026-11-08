@@ -49,7 +49,7 @@ describe('proficiency', () => {
     const [url, init] = first(f)
     expect(url).toBe('/api/v1/goals/g%2F1/proficiency?studentId=s1')
     expect(JSON.parse(init.body as string)).toEqual({ narrative: null, level: 'Developing', period: '2026-11' })
-    expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
   })
 })
 
