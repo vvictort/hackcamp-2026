@@ -9,11 +9,13 @@
  * always mean a hook was placed after an early `return`.
  *
  * Self-contained on purpose: it renders as the root error boundary, replacing
- * the app shell, so it must not depend on app providers or any component
- * library. It reads its colours from the CSS variables in styles.css.
+ * the app shell, so it must not depend on app providers. It imports only
+ * buttonVariants (cva + cn, no context) straight from ui/Button, not the
+ * barrel, and reads its colours from the CSS variables in styles.css.
  */
 
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { buttonVariants } from './ui/Button'
 
 export interface DecodedReactError {
   code: number
@@ -109,46 +111,43 @@ export function ErrorScreen({ error, onReset }: ErrorScreenProps) {
     >
       <div className="w-full max-w-lg text-center">
         <div className="mb-4 flex justify-center">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
             <AlertTriangle className="h-6 w-6" aria-hidden />
           </span>
         </div>
 
-        <h1 className="text-lg font-semibold tracking-tight">
+        <h1 className="text-h1">
           {decoded?.title ?? 'Something went wrong'}
         </h1>
         {decoded?.explanation && (
-          <p className="mt-1.5 text-sm text-muted-foreground">{decoded.explanation}</p>
+          <p className="mt-1.5 text-body text-muted-foreground">{decoded.explanation}</p>
         )}
 
         {decoded?.hint && (
-          <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-left">
-            <p className="text-sm font-medium text-warning">How to fix</p>
-            <p className="mt-1 text-sm text-muted-foreground">{decoded.hint}</p>
+          <div className="mt-4 rounded-md border-2 border-warning bg-card px-4 py-3 text-left">
+            <p className="text-label font-semibold">How to fix</p>
+            <p className="mt-1 text-small text-muted-foreground">{decoded.hint}</p>
           </div>
         )}
 
         {rawMessage && (
-          <pre className="mt-4 overflow-x-auto rounded-lg border bg-muted/40 px-3 py-2 text-left text-xs text-muted-foreground">
+          <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-card px-3 py-2 text-left text-small text-muted-foreground">
             {rawMessage}
           </pre>
         )}
 
         {stack && (
           <details className="mt-2 text-left">
-            <summary className="cursor-pointer text-xs text-muted-foreground">Show stack trace</summary>
-            <pre className="mt-1 max-h-60 overflow-auto rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <summary className="inline-flex min-h-11 cursor-pointer items-center text-small text-muted-foreground">Show stack trace</summary>
+            <pre className="mt-1 max-h-60 overflow-auto rounded-md border border-border bg-card px-3 py-2 text-small text-muted-foreground">
               {stack}
             </pre>
           </details>
         )}
 
         <div className="mt-6 flex items-center justify-center gap-3">
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-opacity hover:opacity-90"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden />
+          <button type="button" onClick={reset} className={buttonVariants({ size: 'lg' })}>
+            <RefreshCw className="size-5" aria-hidden />
             Reload
           </button>
           {decoded && (
@@ -156,7 +155,7 @@ export function ErrorScreen({ error, onReset }: ErrorScreenProps) {
               href={decoded.docsUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              className="inline-flex min-h-11 items-center text-small text-muted-foreground underline-offset-4 hover:underline"
             >
               React error #{decoded.code} reference
             </a>

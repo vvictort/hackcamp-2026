@@ -10,7 +10,7 @@ interface SearchInputProps extends Omit<ComponentProps<'input'>, 'type'> {
 export function SearchInput({ className, onClear, value, ...props }: SearchInputProps) {
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       {/* Suppress the native WebKit cancel button — this component ships its
           own clear button below; without this, Chrome/Safari show both. */}
       <Input

@@ -23,6 +23,8 @@ import React, {
   useEffect,
   type ReactNode,
 } from 'react'
+import { cn } from '@/lib/utils'
+import { buttonVariants } from './Button'
 
 // ============================================================================
 // Types
@@ -256,17 +258,11 @@ function ToastItem({ toast, onDismiss }: ToastItemProps): React.ReactElement {
 
   return (
     <div
-      className={`
-        pointer-events-auto
-        relative flex items-start gap-2.5 min-w-[260px] max-w-[360px]
-        overflow-hidden rounded-lg border border-border bg-popover
-        text-popover-foreground pl-3 pr-1 py-2 shadow-raised
-        ${exiting
-          ? 'animate-out fade-out-0 slide-out-to-right-2'
-          : 'animate-in fade-in-0 slide-in-from-right-2'
-        }
-      `}
-      role="alert"
+      className={cn(
+        'pointer-events-auto relative flex min-w-65 max-w-90 items-start gap-2.5 overflow-hidden rounded-lg border border-border bg-popover py-2 pl-3 pr-1 text-popover-foreground shadow-raised',
+        exiting ? 'animate-out fade-out-0 slide-out-to-right-2' : 'animate-in fade-in-0 slide-in-from-right-2',
+      )}
+      role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
     >
       {/* The type shows as a filled icon chip; the title says it in words. */}
       <span className={`mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-full ${chip}`} aria-hidden>
@@ -281,8 +277,9 @@ function ToastItem({ toast, onDismiss }: ToastItemProps): React.ReactElement {
         )}
       </div>
       <button
+        type="button"
         onClick={() => setExiting(true)}
-        className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-muted-foreground')}
         aria-label="Dismiss"
       >
         <CloseIcon className="h-5 w-5" />
