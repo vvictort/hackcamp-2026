@@ -1,3 +1,4 @@
+import { RoleGate } from '@/lib/altamira/RoleGate'
 import { Link } from 'react-router-dom'
 import { UsersRound } from 'lucide-react'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
@@ -7,7 +8,7 @@ import { useLoad } from '@/components/students/useLoad'
 import { getMe } from '@/lib/altamira/students-api'
 import type { StudentSummary } from '@/server/altamira/contract/api'
 
-export default function StudentsPage() {
+function StudentsPageBody() {
   const me = useLoad(getMe, 'me')
   const list: StudentSummary[] = me.status === 'ready' ? [...new Map([...me.data.caseload, ...me.data.students].map((x) => [x.id, x])).values()] : []
   return (
@@ -36,5 +37,13 @@ export default function StudentsPage() {
         ))}
       </ul>
     </div>
+  )
+}
+
+export default function StudentsPage() {
+  return (
+    <RoleGate path="/students">
+      <StudentsPageBody />
+    </RoleGate>
   )
 }

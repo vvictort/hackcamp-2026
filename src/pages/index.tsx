@@ -21,7 +21,6 @@ import { Link } from 'react-router-dom'
 import {
   Activity,
   ArrowRight,
-  ArrowRightLeft,
   BookOpenCheck,
   ChartColumn,
   Check,
@@ -34,7 +33,6 @@ import {
   ScanSearch,
   ShieldCheck,
   UserRound,
-  Users,
 } from 'lucide-react'
 import { Logo } from '../components/LogoMark'
 import { Seo } from '../components/Seo'
@@ -74,12 +72,10 @@ const MODULES = [
   { Icon: UserRound, span: 1, key: 'landing.modules.profile' },
   { Icon: ScanSearch, span: 2, ink: true, key: 'landing.modules.lens' },
   { Icon: ShieldCheck, span: 1, key: 'landing.modules.guardrail' },
-  { Icon: Activity, span: 1, key: 'landing.modules.pulse' },
-  { Icon: FileText, span: 2, ink: true, key: 'landing.modules.drafts' },
-  { Icon: Users, span: 1, key: 'landing.modules.team' },
-  { Icon: ArrowRightLeft, span: 2, key: 'landing.modules.handoff' },
-  { Icon: Languages, span: 1, key: 'landing.modules.family' },
-  { Icon: ChartColumn, span: 1, key: 'landing.modules.district' },
+  { Icon: Activity, span: 2, key: 'landing.modules.pulse' },
+  { Icon: FileText, span: 2, ink: true, key: 'landing.modules.summaries' },
+  { Icon: Languages, span: 2, key: 'landing.modules.family' },
+  { Icon: ChartColumn, span: 2, key: 'landing.modules.district' },
 ] as const
 
 const STEPS = [

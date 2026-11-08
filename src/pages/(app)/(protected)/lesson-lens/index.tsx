@@ -1,4 +1,5 @@
 /** Lesson Lens (PRD 1A): upload a lesson, see per-student gaps, review adaptations, print sheets. */
+import { RoleGate } from '@/lib/altamira/RoleGate'
 import { useMemo, useState } from 'react'
 import { History } from 'lucide-react'
 import { Badge, PageHeader } from '@/components/ui'
@@ -7,7 +8,7 @@ import { LensStudentCard } from '@/components/lens/LensResults'
 import { LensSheet } from '@/components/lens/LensSheet'
 import { lensText, useLensAnalysis, useLensRoster } from '@/lib/lessonLens'
 
-export default function LessonLensPage() {
+function LessonLensPageBody() {
   const roster = useLensRoster()
   const lens = useLensAnalysis(roster.students)
   const [sheetId, setSheetId] = useState<string | null>(null)
@@ -44,5 +45,13 @@ export default function LessonLensPage() {
         />
       ))}
     </div>
+  )
+}
+
+export default function LessonLensPage() {
+  return (
+    <RoleGate path="/lesson-lens">
+      <LessonLensPageBody />
+    </RoleGate>
   )
 }

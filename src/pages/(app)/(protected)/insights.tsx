@@ -1,3 +1,4 @@
+import { RoleGate } from '@/lib/altamira/RoleGate'
 import { useMemo } from 'react'
 import { useAsyncResource, getAuthToken } from 'deepspace'
 import { CircleX, EyeOff, Lock, Users } from 'lucide-react'
@@ -25,7 +26,7 @@ async function fetchInsights(signal: AbortSignal): Promise<InsightsData> {
   return json
 }
 
-export default function InsightsPage() {
+function InsightsPageBody() {
   const { t } = useLang()
   const { role, loading } = useAltamiraMe()
   if (loading) {
@@ -122,5 +123,13 @@ function InsightsView() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function InsightsPage() {
+  return (
+    <RoleGate path="/insights">
+      <InsightsPageBody />
+    </RoleGate>
   )
 }

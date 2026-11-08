@@ -1,17 +1,14 @@
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, FileUp, Send } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, FileUp } from 'lucide-react'
 import { Badge, Button, Card, PageHeader } from '@/components/ui'
 import { GoalCard } from '@/components/students/GoalCard'
 import { IepImportDialog } from '@/components/students/IepImportDialog'
-import { HandoffDialog } from '@/components/students/HandoffDialog'
-import { ParentInputPanel } from '@/components/students/ParentInputPanel'
-import { ProposalForm } from '@/components/students/ProposalForm'
-import { ProposalsPanel } from '@/components/students/ProposalsPanel'
 import { Timeline } from '@/components/students/Timeline'
 import { WhatWorks } from '@/components/students/WhatWorks'
 import { fmtDate, s } from '@/components/students/text'
 import { useLoad } from '@/components/students/useLoad'
+import { RoleGate } from '@/lib/altamira/RoleGate'
 import { getMe, getObjectives, getProfile, getTimeline } from '@/lib/altamira/students-api'
 
 const List = ({ items }: { items: string[] }) =>
@@ -23,13 +20,10 @@ const List = ({ items }: { items: string[] }) =>
     </ul>
   )
 
-export default function StudentProfilePage() {
+function StudentProfileBody() {
   const { id = '' } = useParams()
   const [rev, setRev] = useState(0)
   const [importing, setImporting] = useState(false)
-  const [handoffOpen, setHandoffOpen] = useState(false)
-  const [params, setParams] = useSearchParams()
-  const handoffParam = params.get('handoff')
   const bump = () => setRev((n) => n + 1)
 
   const me = useLoad(getMe, 'me')
@@ -40,7 +34,7 @@ export default function StudentProfilePage() {
 
   const roles = me.status === 'ready' ? ([...me.data.caseload, ...me.data.students].find((x) => x.id === id)?.roles ?? []) : []
   const isCm = roles.includes('case_manager')
-  const canPropose = isCm || roles.includes('teacher')
+  const canRate = isCm || roles.includes('teacher') || roles.includes('ea')
 
   if (profile.status === 'loading') return <p role="status" className="text-muted-foreground">{s('students.loading')}</p>
   if (profile.status === 'error')
@@ -80,10 +74,7 @@ export default function StudentProfilePage() {
         description={s('students.profile.summary', { grade: p.grade, version: p.iepVersion ?? '-', review: fmtDate(sec?.reviewDate) || '-' })}
         actions={
           isCm && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setHandoffOpen(true)}><Send aria-hidden />{s('students.handoff.open')}</Button>
-              <Button onClick={() => setImporting(true)}><FileUp aria-hidden />{s('students.import.open')}</Button>
-            </div>
+            <Button onClick={() => setImporting(true)}><FileUp aria-hidden />{s('students.import.open')}</Button>
           )
         }
       />
@@ -115,7 +106,7 @@ export default function StudentProfilePage() {
           <h2 id="goals-h" className="text-h2 font-extrabold">{s('students.goals')}</h2>
           {objectives.status === 'error' && <p role="alert" className="text-small">{objectives.error.message}</p>}
           {p.goals.map((g) => (
-            <GoalCard key={g.id} studentId={id} goal={g} objectives={objs.filter((o) => o.goalId === g.id)} canConfirm={isCm} canRate={canPropose} onChanged={bump} />
+            <GoalCard key={g.id} studentId={id} goal={g} objectives={objs.filter((o) => o.goalId === g.id)} canConfirm={isCm} canRate={canRate} onChanged={bump} />
           ))}
         </section>
       )}
@@ -128,22 +119,15 @@ export default function StudentProfilePage() {
 
       <WhatWorks studentId={id} />
 
-      {canPropose && !isCm && (
-        <ProposalForm studentId={id} goals={p.goals} dataPoints={timeline.status === 'ready' ? timeline.data.dataPoints : []} onSent={bump} />
-      )}
-      {canPropose && <ProposalsPanel studentId={id} canResolve={isCm} refreshKey={rev} onResolved={bump} />}
-
-      {isCm && <ParentInputPanel studentId={id} />}
-
-      <HandoffDialog studentId={id} canCreate={isCm} open={handoffOpen} onOpenChange={setHandoffOpen} />
-      <HandoffDialog
-        studentId={id}
-        canCreate={false}
-        open={!!handoffParam}
-        handoffId={handoffParam}
-        onOpenChange={(o) => { if (!o) setParams((p) => { p.delete('handoff'); return p }, { replace: true }) }}
-      />
       <IepImportDialog studentId={id} open={importing} onOpenChange={setImporting} onConfirmed={bump} />
     </div>
+  )
+}
+
+export default function StudentProfilePage() {
+  return (
+    <RoleGate path="/students">
+      <StudentProfileBody />
+    </RoleGate>
   )
 }
