@@ -76,13 +76,8 @@ describe('DDL matches the contract schemas', () => {
     review_queue: student.ReviewItem,
     decisions: student.Decision,
     usage_events: student.UsageEvent,
-    proposals: student.Proposal,
-    parent_inputs: student.ParentInput,
     consents: student.Consent,
     proficiency_ratings: student.ProficiencyRating,
-    progress_drafts: student.ProgressDraft,
-    draft_citations: student.DraftCitation,
-    handoffs: student.Handoff,
     family_summaries: student.FamilySummary,
     audit_log: student.AuditEntry,
   }
@@ -99,7 +94,6 @@ describe('DDL matches the contract schemas', () => {
     lesson_files: school.LessonFile,
     lesson_analyses: school.LessonAnalysis,
     sheet_codes: school.SheetCode,
-    share_tokens: school.ShareToken,
     capture_batches: school.CaptureBatch,
   }
 
@@ -232,7 +226,7 @@ describe('constraints', () => {
     )
     expect(() =>
       db.run(
-        "INSERT INTO consents (id, kind, granted_by, recorded_by, granted_at) VALUES ('c', 'video', 'p', 'p', '2026-01-01')",
+        "INSERT INTO consents (id, kind, granted_by, recorded_by, granted_at) VALUES ('c', 'student_mode', 'p', 'p', '2026-01-01')",
       ),
     ).toThrow(/CHECK/)
   })
@@ -275,5 +269,30 @@ describe('mapping', () => {
 
   it('refuses boolean columns', () => {
     expect(() => toRow({ flag: true })).toThrow(/boolean/)
+  })
+})
+
+describe('v3 upgrade of an existing student room', () => {
+  it('keeps summaries, maps audio consent to voice_note, drops removed-feature tables', () => {
+    const db = freshDb()
+    // A room as it was before v3: DDL v1 with the old tables and consent kinds, then v2.
+    for (const stmt of [
+      'CREATE TABLE schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)',
+      'CREATE TABLE progress_drafts (id TEXT PRIMARY KEY)',
+      'CREATE TABLE proposals (id TEXT PRIMARY KEY)',
+      'CREATE TABLE parent_inputs (id TEXT PRIMARY KEY)',
+      'CREATE TABLE draft_citations (id TEXT PRIMARY KEY)',
+      'CREATE TABLE handoffs (id TEXT PRIMARY KEY)',
+      "CREATE TABLE consents (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('student_mode', 'audio')), granted_by TEXT NOT NULL, recorded_by TEXT NOT NULL, granted_at TEXT NOT NULL, revoked_at TEXT, version INTEGER NOT NULL DEFAULT 1)",
+      "CREATE TABLE family_summaries (id TEXT PRIMARY KEY, draft_id TEXT NOT NULL REFERENCES progress_drafts (id), language TEXT NOT NULL, text TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NOT NULL, approved_by TEXT, approved_at TEXT, version INTEGER NOT NULL DEFAULT 1)",
+    ]) db.run(stmt)
+    db.run('INSERT INTO schema_version (id, version) VALUES (1, 2)')
+    db.run("INSERT INTO consents VALUES ('c1', 'student_mode', 'p', 'p', '2026-10-01T00:00:00.000Z', NULL, 1), ('c2', 'audio', 'p', 'p', '2026-10-01T00:00:00.000Z', NULL, 1)")
+    db.run("INSERT INTO progress_drafts VALUES ('d1')")
+    db.run("INSERT INTO family_summaries VALUES ('f1', 'd1', 'en', 'Hello', 'approved', '2026-10-01T00:00:00.000Z', 'u', '2026-10-02T00:00:00.000Z', 2)")
+    expect(migrateStudent(db)).toBe(STUDENT_MIGRATIONS.length)
+    expect(db.all<{ id: string; kind: string }>('SELECT id, kind FROM consents')).toEqual([{ id: 'c2', kind: 'voice_note' }])
+    expect(db.get<{ text: string; version: number }>('SELECT text, version FROM family_summaries WHERE id = ?', 'f1')).toEqual({ text: 'Hello', version: 2 })
+    expect(db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('progress_drafts','proposals','parent_inputs','draft_citations','handoffs')")).toEqual([])
   })
 })

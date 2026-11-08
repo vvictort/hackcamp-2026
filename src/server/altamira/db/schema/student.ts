@@ -5,7 +5,6 @@ import {
   DATA_POINT_SOURCES,
   DATA_POINT_STATUSES,
   DECISION_RULES,
-  DRAFT_STATUSES,
   FAMILY_SUMMARY_STATUSES,
   GAP_TYPES,
   GOAL_STATUSES,
@@ -13,8 +12,6 @@ import {
   METRIC_TYPES,
   OBJECTIVE_STATUSES,
   PROFICIENCY_LEVELS,
-  PROPOSAL_STATUSES,
-  PROPOSAL_TARGETS,
   REVIEW_KINDS,
   REVIEW_STATUSES,
   SUGGESTION_KINDS,
@@ -156,27 +153,6 @@ export const STUDENT_DDL: string[] = [
     approved_by TEXT NOT NULL,
     at TEXT NOT NULL
   )`,
-  `CREATE TABLE IF NOT EXISTS proposals (
-    id TEXT PRIMARY KEY,
-    target TEXT NOT NULL CHECK (target IN (${l(PROPOSAL_TARGETS)})),
-    change_json TEXT NOT NULL,
-    evidence_ids_json TEXT NOT NULL DEFAULT '[]',
-    proposed_by TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN (${l(PROPOSAL_STATUSES)})),
-    resolved_by TEXT,
-    resolved_at TEXT,
-    resolution_note TEXT,
-    version INTEGER NOT NULL DEFAULT 1
-  )`,
-  `CREATE TABLE IF NOT EXISTS parent_inputs (
-    id TEXT PRIMARY KEY,
-    author_id TEXT NOT NULL,
-    text TEXT NOT NULL,
-    language TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1
-  )`,
   `CREATE TABLE IF NOT EXISTS consents (
     id TEXT PRIMARY KEY,
     kind TEXT NOT NULL CHECK (kind IN (${l(CONSENT_KINDS)})),
@@ -195,38 +171,8 @@ export const STUDENT_DDL: string[] = [
     set_by TEXT NOT NULL,
     set_at TEXT NOT NULL
   )`,
-  `CREATE TABLE IF NOT EXISTS progress_drafts (
-    id TEXT PRIMARY KEY,
-    goal_id TEXT NOT NULL REFERENCES goals (id),
-    period TEXT NOT NULL,
-    due_date TEXT,
-    sentences_json TEXT NOT NULL DEFAULT '[]',
-    proficiency_suggestion TEXT CHECK (proficiency_suggestion IN (${l(PROFICIENCY_LEVELS)})),
-    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN (${l(DRAFT_STATUSES)})),
-    created_by TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_by TEXT,
-    updated_at TEXT,
-    used_at TEXT,
-    version INTEGER NOT NULL DEFAULT 1
-  )`,
-  `CREATE TABLE IF NOT EXISTS draft_citations (
-    id TEXT PRIMARY KEY,
-    draft_id TEXT NOT NULL REFERENCES progress_drafts (id),
-    sentence_index INTEGER NOT NULL CHECK (sentence_index >= 0),
-    data_point_id TEXT NOT NULL REFERENCES data_points (id)
-  )`,
-  'CREATE INDEX IF NOT EXISTS draft_citations_draft ON draft_citations (draft_id)',
-  `CREATE TABLE IF NOT EXISTS handoffs (
-    id TEXT PRIMARY KEY,
-    created_by TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    to_school TEXT,
-    packet_json TEXT NOT NULL
-  )`,
   `CREATE TABLE IF NOT EXISTS family_summaries (
     id TEXT PRIMARY KEY,
-    draft_id TEXT NOT NULL REFERENCES progress_drafts (id),
     language TEXT NOT NULL,
     text TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN (${l(FAMILY_SUMMARY_STATUSES)})),
@@ -238,10 +184,50 @@ export const STUDENT_DDL: string[] = [
   ...AUDIT_LOG_DDL,
 ]
 
-/** v2: student-mode time on task and read-aloud use on each data point (PRD 1B "Capture sources"). */
+/** v2: time on task and read-aloud use on each data point. Kept for existing rows. */
 export const STUDENT_V2: string[] = ['ALTER TABLE data_points ADD COLUMN session_detail_json TEXT']
 
-export const STUDENT_MIGRATIONS: readonly Migration[] = [STUDENT_DDL, STUDENT_V2]
+/**
+ * v3: new role model. Drops the tables of removed features (teacher proposals,
+ * parent input, Progress Drafts, Transition Handoff), rebuilds family_summaries
+ * without its draft link, and rebuilds consents for the kinds voice_note and
+ * video (an old "audio" consent becomes voice_note; student_mode is dropped).
+ * Written to run on a fresh database too, where the tables already have the new shape.
+ */
+export const STUDENT_V3: string[] = [
+  `CREATE TABLE family_summaries_v3 (
+    id TEXT PRIMARY KEY,
+    language TEXT NOT NULL,
+    text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN (${l(FAMILY_SUMMARY_STATUSES)})),
+    created_at TEXT NOT NULL,
+    approved_by TEXT,
+    approved_at TEXT,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  'INSERT INTO family_summaries_v3 (id, language, text, status, created_at, approved_by, approved_at, version) SELECT id, language, text, status, created_at, approved_by, approved_at, version FROM family_summaries',
+  'DROP TABLE family_summaries',
+  'ALTER TABLE family_summaries_v3 RENAME TO family_summaries',
+  'DROP TABLE IF EXISTS draft_citations',
+  'DROP TABLE IF EXISTS progress_drafts',
+  'DROP TABLE IF EXISTS handoffs',
+  'DROP TABLE IF EXISTS proposals',
+  'DROP TABLE IF EXISTS parent_inputs',
+  `CREATE TABLE consents_v3 (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN (${l(CONSENT_KINDS)})),
+    granted_by TEXT NOT NULL,
+    recorded_by TEXT NOT NULL,
+    granted_at TEXT NOT NULL,
+    revoked_at TEXT,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  "INSERT INTO consents_v3 (id, kind, granted_by, recorded_by, granted_at, revoked_at, version) SELECT id, CASE kind WHEN 'audio' THEN 'voice_note' ELSE kind END, granted_by, recorded_by, granted_at, revoked_at, version FROM consents WHERE kind IN ('audio', 'voice_note', 'video')",
+  'DROP TABLE consents',
+  'ALTER TABLE consents_v3 RENAME TO consents',
+]
+
+export const STUDENT_MIGRATIONS: readonly Migration[] = [STUDENT_DDL, STUDENT_V2, STUDENT_V3]
 
 export const migrateStudent = (sql: SqlExecutor): number => runMigrations(sql, STUDENT_MIGRATIONS)
 

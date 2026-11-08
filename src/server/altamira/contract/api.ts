@@ -10,7 +10,6 @@ import {
   MetricType,
   PromptLevel,
   Proficiency,
-  ProposalTarget,
 } from './enums'
 import { InsightDimension } from './insights'
 import { CaptureBatch, Lesson, LessonAnalysis, Membership, ParentLink } from './school'
@@ -21,18 +20,13 @@ import {
   Consent,
   DataPoint,
   Decision,
-  DraftSentence,
   FamilySummary,
   Goal,
-  Handoff,
   IepSections,
   IepVersion,
   LensRun,
   Objective,
-  ParentInput,
   ProficiencyRating,
-  ProgressDraft,
-  Proposal,
   ReviewItem,
   Suggestion,
 } from './student'
@@ -44,8 +38,8 @@ import { ProposeObjectivesOutput } from './ai'
  * responses, ...Query for query strings. Errors use ErrorBody (errors.ts).
  *
  * Routes whose path has no student id (/objectives/:oid, /suggestions/:sgid,
- * /data-points/:dpid, /review-queue/:rid, /drafts/:did, /family-summaries/:fsid,
- * /goals/:gid, /proposals/:pid) take ?studentId= (StudentRefQuery) so the
+ * /data-points/:dpid, /review-queue/:rid, /family-summaries/:fsid,
+ * /goals/:gid) take ?studentId= (StudentRefQuery) so the
  * router can check scope and reach the right student room.
  */
 
@@ -105,6 +99,20 @@ export const AdminMembershipBody = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('parent_link'), userId: Id, displayName: z.string().min(1), studentId: Id }),
 ])
 export type AdminMembershipBody = z.infer<typeof AdminMembershipBody>
+
+/** GET /admin/schools/:id/memberships: who holds which role, for the school administrator's Roles page. */
+export const AdminMembershipsListResponse = z.object({
+  memberships: z.array(
+    z.object({
+      userId: Id,
+      displayName: z.string(),
+      role: z.enum(['case_manager', 'teacher', 'ea', 'parent', 'school_admin', 'district_lead']),
+      studentId: Id.nullable(),
+      classId: Id.nullable(),
+    }),
+  ),
+})
+export type AdminMembershipsListResponse = z.infer<typeof AdminMembershipsListResponse>
 
 export const AdminMembershipResponse = z.object({
   membership: Membership.nullable(),
@@ -194,24 +202,6 @@ export const ObjectiveFlagBody = ExpectedVersion.extend({ reason: z.string().min
 export type ObjectiveFlagBody = z.infer<typeof ObjectiveFlagBody>
 
 export const ObjectiveResponse = z.object({ objective: Objective })
-
-// ---------- Proposals (M2) ----------
-
-export const ProposalCreateBody = z.object({
-  target: ProposalTarget,
-  change: z.record(z.string(), z.unknown()),
-  evidenceIds: z.array(Id).default([]),
-})
-export type ProposalCreateBody = z.infer<typeof ProposalCreateBody>
-
-export const ProposalResolveBody = ExpectedVersion.extend({
-  decision: z.enum(['accepted', 'declined']),
-  note: z.string().nullable().default(null),
-})
-export type ProposalResolveBody = z.infer<typeof ProposalResolveBody>
-
-export const ProposalResponse = z.object({ proposal: Proposal })
-export const ProposalsResponse = z.object({ proposals: z.array(Proposal.extend({ studentId: Id })) })
 
 // ---------- Lessons (M1) ----------
 
@@ -383,48 +373,12 @@ export const DataPointSourceResponse = z.object({
   dataPoint: DataPoint,
   source: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('photo'), fileKey: z.string(), itemId: z.string().nullable() }),
+    /** @deprecated removed feature (student mode); never produced. Kept so the frontend keeps compiling. */
     z.object({ kind: z.literal('student_response'), sessionId: Id, itemId: z.string() }),
     z.object({ kind: z.literal('ea_event'), eventKind: EventKind }),
     z.object({ kind: z.literal('usage'), suggestionId: Id }),
     z.object({ kind: z.literal('teacher'), note: z.string().nullable() }),
   ]),
-})
-
-// ---------- Student mode (M3) ----------
-
-export const SessionCreateResponse = z.object({ sessionId: Id, token: z.string(), expiresAt: Timestamp })
-
-export const SessionSupports = z.object({
-  readAloud: z.boolean(),
-  largerText: z.boolean(),
-  fewerItems: z.boolean(),
-  visualSupports: z.boolean(),
-  breakTimerMinutes: z.number().int().positive().nullable(),
-})
-export type SessionSupports = z.infer<typeof SessionSupports>
-
-/** Student mode never carries IEP text, other students or adult notes. */
-export const SessionNextResponse = z.object({
-  item: z.object({ itemId: z.string(), prompt: z.string(), format: CheckItem.shape.format, options: z.array(z.string()).nullable() }).nullable(),
-  supports: SessionSupports,
-  /** Where this item sits in the practice list (1-based position of the next item, total items). */
-  progress: z.object({ position: z.number().int().min(0), total: z.number().int().min(0) }).optional(),
-})
-export type SessionNextResponse = z.infer<typeof SessionNextResponse>
-
-export const SessionResponseBody = z.object({
-  itemId: z.string().min(1),
-  response: z.string(),
-  durationMs: z.number().int().min(0).optional(),
-  /** Whether the student used read-aloud on this item (PRD 1B: student mode records read-aloud use). */
-  readAloudUsed: z.boolean().default(false),
-})
-export type SessionResponseBody = z.infer<typeof SessionResponseBody>
-
-export const SessionResponseResult = z.object({ correct: z.boolean() })
-
-export const SessionProgressResponse = z.object({
-  goals: z.array(z.object({ label: z.string(), completed: z.number().int().min(0), streak: z.number().int().min(0) })),
 })
 
 // ---------- Insight (M3) ----------
@@ -447,11 +401,7 @@ export const WhatWorksResponse = z.object({
   ),
 })
 
-export const DigestResponse = z.object({
-  items: z.array(z.object({ studentId: Id, decision: Decision })),
-})
-
-// ---------- Proficiency and drafts (M3) ----------
+// ---------- Proficiency (M3) ----------
 
 export const ProficiencySetBody = z.object({
   level: Proficiency,
@@ -461,21 +411,9 @@ export const ProficiencySetBody = z.object({
 export type ProficiencySetBody = z.infer<typeof ProficiencySetBody>
 export const ProficiencyResponse = z.object({ rating: ProficiencyRating })
 
-export const DraftCreateBody = z.object({
-  goalId: Id,
-  period: z.string().min(1),
-  dueDate: DateString.nullable().default(null),
-})
-export type DraftCreateBody = z.infer<typeof DraftCreateBody>
+// ---------- Families and summaries ----------
 
-export const DraftPatchBody = ExpectedVersion.extend({ sentences: z.array(DraftSentence) })
-export type DraftPatchBody = z.infer<typeof DraftPatchBody>
-
-export const DraftMarkUsedBody = ExpectedVersion
-export const DraftResponse = z.object({ draft: ProgressDraft })
-
-// ---------- Families (M4) ----------
-
+/** @deprecated removed feature (GET /family/:id/progress has no route; parents read FamilySummariesResponse). Kept so the frontend keeps compiling. */
 export const FamilyProgressResponse = z.object({
   goals: z.array(
     z.object({
@@ -488,41 +426,14 @@ export const FamilyProgressResponse = z.object({
   lessons: z.array(z.object({ lessonId: Id, title: z.string(), adaptations: z.array(z.object({ title: z.string(), text: z.string() })) })),
 })
 
-export const FamilyInputBody = z.object({ text: z.string().min(1), language: z.string().min(2) })
-export type FamilyInputBody = z.infer<typeof FamilyInputBody>
-export const FamilyInputResponse = z.object({ input: ParentInput })
-/** GET /students/:id/parent-input: what parents sent to the case manager. */
-export const ParentInputsResponse = z.object({ inputs: z.array(ParentInput) })
-
 export const FamilyConsentBody = z.object({ kind: ConsentKind, granted: z.boolean() })
 export type FamilyConsentBody = z.infer<typeof FamilyConsentBody>
 export const FamilyConsentsResponse = z.object({ consents: z.array(Consent) })
 
-export const FamilySummaryCreateBody = z.object({ language: z.string().min(2) })
 export const FamilySummaryApproveBody = ExpectedVersion.extend({ text: z.string().min(1).optional() })
 export const FamilySummaryResponse = z.object({ summary: FamilySummary })
-
-// ---------- Today View (M4) ----------
-
-export const TodayLinkBody = z.object({ ttlHours: z.number().positive().max(24).default(12) })
-export type TodayLinkBody = z.infer<typeof TodayLinkBody>
-export const TodayLinkResponse = z.object({ token: z.string(), expiresAt: Timestamp })
-
-/** GET /today/:token: supports and approved adaptations only, no IEP text. */
-export const TodayViewResponse = z.object({
-  firstName: z.string().nullable(),
-  expiresAt: Timestamp,
-  supports: z.array(z.string()),
-  approvedAdaptations: z.array(z.object({ title: z.string(), text: z.string(), lessonTitle: z.string().nullable() })),
-  whatWorks: z.array(z.object({ adaptationType: AdaptationType, n: z.number().int() })),
-  schedule: z.array(ScheduleItem.pick({ className: true, startsAt: true, endsAt: true })),
-})
-export type TodayViewResponse = z.infer<typeof TodayViewResponse>
-
-// ---------- Handoff (M4) ----------
-
-export const HandoffCreateBody = z.object({ toSchool: z.string().nullable().default(null) })
-export const HandoffResponse = z.object({ handoff: Handoff })
+/** GET /family/:id/summaries and GET /students/:id/summaries. Parents and case managers get approved ones only. */
+export const FamilySummariesResponse = z.object({ summaries: z.array(FamilySummary) })
 
 // ---------- Insights (M5) ----------
 

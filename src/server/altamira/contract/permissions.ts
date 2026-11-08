@@ -4,194 +4,129 @@
  * Every route calls can() before it touches a room.
  */
 
-export const ACTOR_ROLES = [
-  'case_manager',
-  'teacher',
-  'ea',
-  'student_session',
-  'parent',
-  'substitute_link',
-  'district_lead',
-  'school_admin',
-] as const
+export const ACTOR_ROLES = ['case_manager', 'teacher', 'ea', 'parent', 'district_lead', 'school_admin'] as const
 export type ActorRole = (typeof ACTOR_ROLES)[number]
 
 /** Roles a staff user holds per student (teacher is derived from class rosters). */
 export const STAFF_ROLES = ['case_manager', 'teacher', 'ea'] as const
 export type StaffRole = (typeof STAFF_ROLES)[number]
 
-/** One capability per PRD matrix row (design doc), plus the two non-student ones. */
+/** One capability per row of the role model (design doc), student-scoped. */
 export const STUDENT_CAPABILITIES = [
-  'iep.write',
-  'iep.propose',
+  // IEP: the case manager imports (and confirms measurable objectives at upload); changes go through tickets.
+  'iep.import',
   'objective.confirm',
-  'objective.propose',
   'iep.view',
-  'lesson.augment',
+  'ticket.submit',
+  // Lesson plans: original, proposed changes and tailored (Lesson Lens).
+  'lesson_plan.view',
+  'lesson_plan.edit',
   'adaptation.approve',
   'modification.apply',
+  // Capture and review.
   'evidence.capture',
   'review.confirm',
   'proficiency.set',
-  'draft.edit',
-  'family_summary.approve',
+  // Daily / weekly / monthly summaries. Only the EA and the teacher edit or approve them.
+  'summary.view',
+  'summary.edit',
+  'summary.approve',
   'progress.view',
   'consent.manage',
-  'consent.record',
-  'today_link.create',
-  'parent_input.send',
 ] as const
 
-/** Not student-scoped: district aggregates and role assignment by a school administrator. */
-export const NON_STUDENT_CAPABILITIES = ['insights.view', 'membership.manage'] as const
+/** Not student-scoped: district aggregates, role assignment and IEP change tickets (school administrator). */
+export const NON_STUDENT_CAPABILITIES = ['insights.view', 'membership.manage', 'ticket.review'] as const
 
 export const CAPABILITIES = [...STUDENT_CAPABILITIES, ...NON_STUDENT_CAPABILITIES] as const
 export type Capability = (typeof CAPABILITIES)[number]
 export type StudentCapability = (typeof STUDENT_CAPABILITIES)[number]
 
 /** Capabilities that only read; a "read" grant satisfies them without opts.access. */
-export const READ_CAPABILITIES: readonly Capability[] = ['iep.view', 'progress.view', 'insights.view']
+export const READ_CAPABILITIES: readonly Capability[] = ['iep.view', 'progress.view', 'insights.view', 'lesson_plan.view', 'summary.view']
 
 /**
  * What a matrix cell grants.
  * - full: read and write, within the actor's scope
  * - read: read only (writes refused with reason "read_only")
- * - redirect: refused; the actor must use `via` instead (e.g. teacher proposes)
  * - iep_authorized: only where the student's IEP authorizes modification for the subject
  * - own_entries: only rows the actor recorded
  */
-export type Grant = 'full' | 'read' | 'redirect' | 'iep_authorized' | 'own_entries'
+export type Grant = 'full' | 'read' | 'iep_authorized' | 'own_entries'
 
 /** How the repository layer must filter what an allowed actor sees. */
 export type DataFilter =
   | 'all'
-  | 'supports_only' // EA: supports and what works, no IEP text
-  | 'supports_applied' // student mode: supports applied, never shown; no IEP text
-  | 'confirmed_only' // parent: status IN ('confirmed', 'auto_confirmed')
-  | 'today' // EA: assigned students, today
-  | 'self_simplified' // student mode: own progress, strengths-based
-  | 'today_view' // substitute link: Today View fields only
-  | 'approved_only' // viewers of 1A output: approved adaptations only
+  | 'confirmed_only' // status IN ('confirmed', 'auto_confirmed')
+  | 'approved_only' // AI content that an EA or the teacher approved; drafts stay hidden
 
 export type Cell = {
   grant: Grant
   filter: DataFilter
-  /** The PRD matrix wording for this cell. */
+  /** The matrix wording for this cell. */
   prd: string
-  via?: Capability
 }
 
 const full = (prd: string, filter: DataFilter = 'all'): Cell => ({ grant: 'full', filter, prd })
-const read = (prd: string, filter: DataFilter): Cell => ({ grant: 'read', filter, prd })
-const redirect = (prd: string, via: Capability): Cell => ({ grant: 'redirect', filter: 'all', prd, via })
+const read = (prd: string, filter: DataFilter = 'all'): Cell => ({ grant: 'read', filter, prd })
+const own = (prd: string): Cell => ({ grant: 'own_entries', filter: 'all', prd })
 
-const lessonRow: Partial<Record<ActorRole, Cell>> = {
-  case_manager: full('Yes'),
-  teacher: full('Yes'),
-  ea: read('View', 'approved_only'),
-  student_session: read('Receives', 'supports_applied'),
-  parent: read('View', 'approved_only'),
-}
-
-/** Missing cell = "—" in the PRD = refused. */
+/** Missing cell = refused (403). */
 export const PERMISSION_MATRIX: Record<Capability, Partial<Record<ActorRole, Cell>>> = {
-  // PRD row "Create, upload or edit the IEP and profile"
-  'iep.write': {
-    case_manager: full('Yes'),
-    teacher: redirect('Propose only', 'iep.propose'),
-    parent: redirect('Send input', 'parent_input.send'),
-  },
-  'iep.propose': { teacher: full('Propose only') },
-  'parent_input.send': { parent: full('Send input') },
+  // Case manager imports the IEP. No direct edits: later changes are tickets.
+  'iep.import': { case_manager: full('Import and view') },
+  'objective.confirm': { case_manager: full('Confirms at upload') },
+  'ticket.submit': { case_manager: full('Submits change tickets') },
 
-  // PRD row "Confirm measurable objectives, baselines, targets"
-  'objective.confirm': {
-    case_manager: full('Yes'),
-    teacher: redirect('Propose only', 'objective.propose'),
-  },
-  'objective.propose': { teacher: full('Propose only') },
-
-  // PRD row "View IEP goals and accommodations"
   'iep.view': {
-    case_manager: full('Yes'),
-    teacher: full('Own students'),
-    ea: read('Supports and what works only', 'supports_only'),
-    student_session: read('Supports applied, not shown', 'supports_applied'),
-    parent: read('Own child', 'all'),
-    substitute_link: read('Today View fields only', 'today_view'),
-  },
-
-  // PRD row "Augment lessons and approve adaptations (1A)"
-  'lesson.augment': lessonRow,
-  'adaptation.approve': lessonRow,
-
-  // PRD row "Apply a modification" (PRD 1A-5)
-  'modification.apply': {
-    case_manager: { grant: 'iep_authorized', filter: 'all', prd: 'Authorizes in the IEP' },
-    teacher: { grant: 'iep_authorized', filter: 'all', prd: 'Only where the IEP authorizes' },
-  },
-
-  // PRD row "Capture evidence (photos, counters, prompt levels)"
-  'evidence.capture': {
-    case_manager: full('Yes'),
-    teacher: full('Yes'),
-    ea: full('Yes'),
-    student_session: full('Automatic from own activities'),
-  },
-
-  // PRD row "Confirm review queue and correct data points"
-  'review.confirm': {
-    case_manager: full('Yes'),
-    teacher: full('Own students'),
-    ea: { grant: 'own_entries', filter: 'all', prd: 'Own entries' },
-  },
-
-  // PRD row "Set proficiency level and edit progress drafts"
-  'proficiency.set': { case_manager: full('Yes'), teacher: full('Yes') },
-  'draft.edit': { case_manager: full('Yes'), teacher: full('Yes') },
-
-  // PRD row "Approve family summaries"
-  'family_summary.approve': { case_manager: full('Yes'), teacher: full('Yes') },
-
-  // PRD row "View progress and timeline"
-  'progress.view': {
     case_manager: full('Caseload'),
-    teacher: full('Own students'),
-    ea: read('Assigned students, today', 'today'),
-    student_session: read('Self, simplified', 'self_simplified'),
-    parent: read('Own child, confirmed data only', 'confirmed_only'),
+    teacher: read('Class students'),
+    ea: read('Assigned students'),
   },
 
-  // PRD row "Manage consent (audio, student mode)"
-  'consent.manage': {
-    case_manager: redirect('Records it', 'consent.record'),
-    parent: full('Yes'),
+  // Original lesson plan, proposed changes, tailored plan. The teacher edits and approves; others read approved plans.
+  'lesson_plan.view': {
+    case_manager: read('Approved plans', 'approved_only'),
+    teacher: full('Class students'),
+    ea: read('Approved plans', 'approved_only'),
   },
-  'consent.record': { case_manager: full('Records it') },
+  'lesson_plan.edit': {
+    teacher: full('Class students'),
+    ea: read('Approved plans', 'approved_only'),
+    case_manager: read('Approved plans', 'approved_only'),
+  },
+  'adaptation.approve': { teacher: full('Approves tailored plans') },
+  'modification.apply': { teacher: { grant: 'iep_authorized', filter: 'all', prd: 'Only where the IEP authorizes' } },
 
-  // PRD row "Create Today View links"
-  'today_link.create': { case_manager: full('Yes'), teacher: full('Yes') },
+  'evidence.capture': { teacher: full('Class students'), ea: full('Assigned students') },
+  'review.confirm': { teacher: own('Own captures'), ea: own('Own captures') },
+  'proficiency.set': { teacher: full('Class students') },
 
-  // District leads see only anonymized aggregates (PRD "Roles and modes").
-  'insights.view': { district_lead: read('Anonymized aggregates only', 'all') },
-  // "Role assignment is done by a school administrator outside these roles."
+  'summary.view': {
+    teacher: full('Class students'),
+    ea: full('Assigned students'),
+    case_manager: read('Approved summaries', 'approved_only'),
+    parent: read('Own child, approved only', 'approved_only'),
+  },
+  'summary.edit': { teacher: full('Class students'), ea: full('Assigned students') },
+  'summary.approve': { teacher: full('Class students'), ea: full('Assigned students') },
+
+  'progress.view': {
+    case_manager: read('Caseload'),
+    teacher: read('Class students'),
+    ea: read('Assigned students'),
+  },
+
+  'consent.manage': { parent: full('Own child') },
+
+  // District leads see only anonymized aggregates.
+  'insights.view': { district_lead: read('Anonymized aggregates only') },
+  // Role assignment and IEP change tickets: school administrator, no student-level data.
   'membership.manage': { school_admin: full('Assigns roles') },
+  'ticket.review': { school_admin: full('Applies or declines tickets') },
 }
 
-/** A session principal: a student-mode device session or a substitute's Today View link. */
-export type ActorSession = {
-  kind: 'student_session' | 'substitute_link'
-  studentId: string
-  tokenId: string
-  expiresAt: string
-  /** The teacher or EA who started a student session; null for a substitute link. */
-  startedBy: string | null
-}
-
-/**
- * The caller, as built by the altamiraAuth middleware from the school room.
- * When `session` is set, only the session's role applies, whatever else is filled in.
- */
+/** The caller, as built by the altamiraAuth middleware from the school room. */
 export type Actor = {
   userId: string
   /** studentId -> staff roles held for that student. */
@@ -202,27 +137,15 @@ export type Actor = {
   classIds: string[]
   schoolAdminOf: string[]
   districtLeadOf: string[]
-  session: ActorSession | null
 }
 
-export const userActor = (userId: string, parts: Partial<Omit<Actor, 'userId' | 'session'>> = {}): Actor => ({
+export const userActor = (userId: string, parts: Partial<Omit<Actor, 'userId'>> = {}): Actor => ({
   userId,
   studentRoles: parts.studentRoles ?? {},
   parentOf: parts.parentOf ?? [],
   classIds: parts.classIds ?? [],
   schoolAdminOf: parts.schoolAdminOf ?? [],
   districtLeadOf: parts.districtLeadOf ?? [],
-  session: null,
-})
-
-export const sessionActor = (session: ActorSession): Actor => ({
-  userId: session.kind === 'substitute_link' ? `link:${session.tokenId}` : `session:${session.tokenId}`,
-  studentRoles: {},
-  parentOf: [],
-  classIds: [],
-  schoolAdminOf: [],
-  districtLeadOf: [],
-  session,
 })
 
 export type CanOptions = {
@@ -236,36 +159,22 @@ export type CanOptions = {
   recordedBy?: string
   /** insights.view */
   districtId?: string
-  /** membership.manage */
+  /** membership.manage, ticket.review */
   schoolId?: string
   /** Epoch ms; defaults to Date.now(). */
   now?: number
 }
 
-export type DenyReason =
-  | 'student_required'
-  | 'not_in_scope'
-  | 'not_permitted'
-  | 'propose_only'
-  | 'read_only'
-  | 'not_iep_authorized'
-  | 'not_own_entry'
-  | 'expired'
+export type DenyReason = 'student_required' | 'not_in_scope' | 'not_permitted' | 'read_only' | 'not_iep_authorized' | 'not_own_entry'
 
 export type CanResult =
   | { allowed: true; reason: 'ok'; role: ActorRole; filter: DataFilter }
-  | { allowed: false; reason: DenyReason; role?: ActorRole; via?: Capability }
+  | { allowed: false; reason: DenyReason; role?: ActorRole }
 
-const ROLE_ORDER: readonly ActorRole[] = ['case_manager', 'teacher', 'ea', 'parent', 'student_session', 'substitute_link']
+const ROLE_ORDER: readonly ActorRole[] = ['case_manager', 'teacher', 'ea', 'parent']
 
 /** Roles the actor holds for this student, most powerful first. */
-export function rolesFor(actor: Actor, studentId: string, now: number = Date.now()): ActorRole[] | 'expired' {
-  if (actor.session) {
-    // Student session: only its student. Substitute link: only its student until expiry.
-    if (actor.session.studentId !== studentId) return []
-    if (Date.parse(actor.session.expiresAt) <= now) return 'expired'
-    return [actor.session.kind]
-  }
+export function rolesFor(actor: Actor, studentId: string): ActorRole[] {
   const held = new Set<ActorRole>(actor.studentRoles[studentId] ?? [])
   // Parent: own child only.
   if (actor.parentOf.includes(studentId)) held.add('parent')
@@ -281,9 +190,6 @@ function checkCell(cell: Cell, capability: Capability, actor: Actor, opts: CanOp
     case 'read':
       if (READ_CAPABILITIES.includes(capability) || opts.access === 'read') return null
       return { allowed: false, reason: 'read_only' }
-    case 'redirect':
-      // PRD: teachers may only propose IEP or objective changes; parents send input.
-      return { allowed: false, reason: 'propose_only', via: cell.via }
     case 'iep_authorized': {
       // PRD 1A-5: a modification passes only for a subject the current IEP authorizes.
       const subject = opts.subject ? norm(opts.subject) : ''
@@ -292,20 +198,20 @@ function checkCell(cell: Cell, capability: Capability, actor: Actor, opts: CanOp
       return { allowed: false, reason: 'not_iep_authorized' }
     }
     case 'own_entries':
-      // PRD matrix: EAs confirm or correct only their own entries.
+      // EAs and teachers confirm or correct only their own captures.
       if (opts.recordedBy !== undefined && opts.recordedBy === actor.userId) return null
       return { allowed: false, reason: 'not_own_entry' }
   }
 }
 
 function canNonStudent(actor: Actor, capability: Capability, opts: CanOptions): CanResult {
-  if (actor.session) return { allowed: false, reason: 'not_permitted' }
   if (capability === 'insights.view') {
     if (opts.districtId && actor.districtLeadOf.includes(opts.districtId)) {
       return { allowed: true, reason: 'ok', role: 'district_lead', filter: 'all' }
     }
     return { allowed: false, reason: 'not_in_scope' }
   }
+  // membership.manage and ticket.review: school administrator of that school.
   if (opts.schoolId && actor.schoolAdminOf.includes(opts.schoolId)) {
     return { allowed: true, reason: 'ok', role: 'school_admin', filter: 'all' }
   }
@@ -322,8 +228,7 @@ export function can(actor: Actor, capability: Capability, studentId?: string | n
   }
   if (!studentId) return { allowed: false, reason: 'student_required' }
 
-  const roles = rolesFor(actor, studentId, opts.now ?? Date.now())
-  if (roles === 'expired') return { allowed: false, reason: 'expired' }
+  const roles = rolesFor(actor, studentId)
   if (roles.length === 0) return { allowed: false, reason: 'not_in_scope' }
 
   const row = PERMISSION_MATRIX[capability]
