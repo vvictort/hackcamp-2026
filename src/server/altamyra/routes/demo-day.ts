@@ -122,10 +122,8 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
         monthly?: any
         ticketIep?: number
       } = {}
-      const objectiveFor = (metrics: string[]) => {
-        const list = need(ctx.objectives, 'Confirming the objectives')
-        return list.find((o) => metrics.includes(o.metricType)) ?? list[0]
-      }
+      /** The first confirmed objective of one of these metric types, or undefined. Live AI may propose other types than the fixture. */
+      const objectiveFor = (metrics: string[]): any | undefined => need(ctx.objectives, 'Confirming the objectives').find((o) => metrics.includes(o.metricType))
       const eventBase = { classId: null, lessonId: null }
 
       // ---------- setup: the school and the new student ----------
@@ -200,13 +198,24 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
         return 'Typed note saved to today.'
       })
       await step('ea', 'Log a prompt level, a count and a timed break', '/capture', async () => {
-        const events = [
-          { kind: 'prompt_level', objectiveId: objectiveFor(['prompt_level']).id, promptLevel: 'gesture', ...eventBase },
-          { kind: 'counter', objectiveId: objectiveFor(['frequency', 'rate']).id, count: 5, ...eventBase },
-          { kind: 'timer', objectiveId: objectiveFor(['duration', 'latency']).id, durationSeconds: 240, ...eventBase },
+        // Each event kind only feeds objectives of matching metric types (services/measurement.ts EVENT_METRICS).
+        const planned = [
+          { what: 'a gesture prompt', objective: objectiveFor(['prompt_level']), event: { kind: 'prompt_level', promptLevel: 'gesture' } },
+          { what: 'a count of 5', objective: objectiveFor(['frequency', 'rate']), event: { kind: 'counter', count: 5 } },
+          { what: 'a 4 minute return to task', objective: objectiveFor(['duration', 'latency']), event: { kind: 'timer', durationSeconds: 240 } },
         ]
-        for (const event of events) ok(await call('ea', 'POST', `/students/${studentId}/events`, event), `${event.kind} event`)
-        return 'Saved a gesture prompt, a count of 5 and a 4 minute return to task.'
+        const saved: string[] = []
+        const skipped: string[] = []
+        for (const p of planned) {
+          if (!p.objective) {
+            skipped.push(p.what)
+            continue
+          }
+          ok(await call('ea', 'POST', `/students/${studentId}/events`, { ...p.event, objectiveId: p.objective.id, ...eventBase }), `${p.event.kind} event`)
+          saved.push(p.what)
+        }
+        if (!saved.length) throw new Error('No confirmed objective takes a prompt level, a count or a timer.')
+        return `Saved ${saved.join(', ')}.${skipped.length ? ` Skipped ${skipped.join(', ')}: no confirmed objective of that type.` : ''}`
       })
       await step('ea', 'Send a voice note', '/capture', async () => {
         // Real recordings go to the AI; with Gemini on there is no audio to send, so only the fixture provider runs this step.
