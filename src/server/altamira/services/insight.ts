@@ -5,18 +5,19 @@ import { Proficiency } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
-import { DraftSentence, type Decision, type DraftCitation, type Objective, type ProficiencyRating, type ProgressDraft } from '../contract/student'
+import { DraftSentence, type Decision, type DraftCitation, type Objective, type Probe, type ProficiencyRating, type ProgressDraft } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
 import { assertVersion, audit, insertEntity, json, newId, nowIso, updateVersioned } from '../repos/base'
 import * as ev from '../repos/evidence'
 import { confirmedObjectiveForGoal, currentConfirmedObjectives, goalById } from '../repos/iep'
+import { latestKeyedCheck } from '../repos/lens'
 import { draftById } from '../repos/records'
 import { FAMILY_VISIBLE_STATUSES } from '../contract/enums'
 import { aimline, dataNeeded, suggestProficiency, type DecisionOutcome, type ProficiencySuggestion, type WhatWorksRow } from './analytics'
 import { Now, StudentArgs, authorize } from './authz'
 import { evaluateObjective } from './measurement'
-import { whatWorksFor } from './student-common'
-import { DIGEST_WINDOW_DAYS, daysToMs } from './thresholds'
+import { dayStart, whatWorksFor } from './student-common'
+import { DATA_NEEDED_ATTEMPT_DAYS, DIGEST_WINDOW_DAYS, RATE_PROBE_SECONDS, daysToMs } from './thresholds'
 
 /** M3 insight ops: aimline, what works, decision rules and digest, data needed, proficiency, Progress Drafts. */
 
@@ -43,12 +44,19 @@ export const aimlineGet = defineOp({
   name: 'aimline.get',
   room: 'student',
   capability: 'progress.view',
-  args: StudentArgs.extend({ goalId: Id }),
+  args: StudentArgs.extend({ goalId: Id }).extend(Now.shape),
   run(sql, args, actor) {
-    forbidSelfView(authorize(actor, 'progress.view', args.studentId).filter)
+    const { filter } = authorize(actor, 'progress.view', args.studentId)
+    forbidSelfView(filter)
     const objective = confirmedObjectiveForGoal(sql, requireGoal(sql, args.goalId).id)
     if (!objective) return { start: null, end: null, points: [] }
     const confirmed = ev.headDataPoints(sql, { objectiveId: objective.id, confirmedOnly: true })
+    // PRD matrix: EAs see assigned students, today: today's points and no goal line built from history.
+    if (filter === 'today') {
+      const today = dayStart(nowIso(args.now))
+      const points = confirmed.filter((p) => p.source !== 'teacher' && p.recordedAt >= today)
+      return { start: null, end: null, points: points.map((p) => ({ id: p.id, date: p.recordedAt, value: p.value })) }
+    }
     const line = aimline(ev.toPoints(confirmed), objective, objective.confirmedAt ?? undefined)
     return {
       start: line?.start ?? null,
@@ -121,31 +129,59 @@ export const digestWeekly = defineOp({
 const DATA_NEEDED_ACTION = 'dataNeeded.schedule'
 
 /**
- * Job op (daily cron). Fewer than 2 points in 2 weeks: record a scheduling
- * attempt and return the objective so the next lesson gets a check or probe.
- * After 2 failed attempts a data_needed decision reaches the case manager's digest.
+ * Places an equivalent probe form for the objective (PRD 1B "Scheduled
+ * probes"), copied from its latest keyed check. Student mode delivers probes
+ * before other items. Null when the objective has no keyed check to copy.
+ */
+function scheduleProbe(sql: SqlExecutor, actor: Actor, objective: Objective, at: string): Probe | null {
+  const check = latestKeyedCheck(sql, objective.id)
+  if (!check?.answerKey) return null
+  const probe: Probe = {
+    id: newId(),
+    objectiveId: objective.id,
+    skill: goalById(sql, objective.goalId)?.area ?? objective.unit,
+    level: 'current',
+    form: { items: check.items, answerKey: check.answerKey, timeLimitSeconds: objective.metricType === 'rate' ? RATE_PROBE_SECONDS : null },
+  }
+  insertEntity(sql, 'probes', probe)
+  audit(sql, actor, 'probes.create', 'probes', probe.id, undefined, probe, at)
+  return probe
+}
+
+/**
+ * Job op (daily cron), PRD 1B "Data needed" / principle 6. Fewer than 2 points
+ * in 2 weeks: schedule a check (a probe for student mode). An attempt fails
+ * when it brings no data within DATA_NEEDED_ATTEMPT_DAYS; while one is open no
+ * other is scheduled. After 2 failed attempts a data_needed decision reaches
+ * the case manager's digest.
  */
 export const dataNeededScan = defineOp({
   name: 'dataNeeded.scan',
   room: 'student',
   args: StudentArgs.extend(Now.shape),
-  run(sql, args, actor): { scheduled: string[]; alerted: string[] } {
+  run(sql, args, actor): { scheduled: string[]; probes: string[]; alerted: string[] } {
     const at = nowIso(args.now)
     const scheduled: string[] = []
+    const probes: string[] = []
     const alerted: string[] = []
     for (const objective of currentConfirmedObjectives(sql)) {
       const points = ev.toPoints(ev.headDataPoints(sql, { objectiveId: objective.id }))
       const lastAt = points.length > 0 ? points[points.length - 1].at : ''
-      const attempts = sql.get<{ n: number }>(
-        'SELECT COUNT(*) AS n FROM audit_log WHERE action = ? AND row_id = ? AND at > ?',
+      // Attempts since the last data point: none of them has brought data yet.
+      const attempts = sql.all<{ at: string }>(
+        'SELECT at FROM audit_log WHERE action = ? AND row_id = ? AND at > ? ORDER BY at',
         DATA_NEEDED_ACTION,
         objective.id,
         lastAt,
-      )?.n ?? 0
-      const need = dataNeeded(points, at, attempts)
-      if (need === 'schedule_check') {
-        audit(sql, actor, DATA_NEEDED_ACTION, 'objectives', objective.id, undefined, { attempt: attempts + 1 }, at)
+      )
+      const failed = attempts.filter((a) => Date.parse(at) - Date.parse(a.at) >= daysToMs(DATA_NEEDED_ATTEMPT_DAYS)).length
+      const open = attempts.length > failed
+      const need = dataNeeded(points, at, failed)
+      if (need === 'schedule_check' && !open) {
+        const probe = scheduleProbe(sql, actor, objective, at)
+        audit(sql, actor, DATA_NEEDED_ACTION, 'objectives', objective.id, undefined, { attempt: attempts.length + 1, probeId: probe?.id ?? null }, at)
         scheduled.push(objective.id)
+        if (probe) probes.push(probe.id)
       } else if (need === 'alert') {
         const already = ev.decisions(sql, { objectiveIds: [objective.id], since: lastAt || undefined }).some((d) => d.rule === 'data_needed')
         if (!already) {
@@ -154,7 +190,7 @@ export const dataNeededScan = defineOp({
         }
       }
     }
-    return { scheduled, alerted }
+    return { scheduled, probes, alerted }
   },
 })
 

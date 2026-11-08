@@ -41,6 +41,13 @@ export const DATA_NEEDED_MIN_POINTS = 2
 export const DATA_NEEDED_WINDOW_DAYS = 14
 /** Alert the case manager only after 2 failed attempts. */
 export const DATA_NEEDED_MAX_ATTEMPTS = 2
+/**
+ * Assumption: a scheduled check or probe that brings no data within one school
+ * week counts as a failed attempt. The PRD does not say how long to wait.
+ */
+export const DATA_NEEDED_ATTEMPT_DAYS = 7
+/** Assumption: timed probes for rate objectives run for one minute (rate = correct items per minute). */
+export const RATE_PROBE_SECONDS = 60
 
 // ---------- what works (PRD 1B, 1A-9) ----------
 
@@ -60,6 +67,9 @@ export const PROFICIENCY_BASIS = 'in relation to IEP goals' as const
 export const DIGEST_WINDOW_DAYS = 7
 
 // ---------- student mode ----------
+
+/** BC schools: "today" (EA scope, Today View) is the school's calendar day. */
+export const SCHOOL_TIME_ZONE = 'America/Vancouver'
 
 /** Assumption: student-mode sessions time out after 30 minutes (PRD: "time out automatically"). */
 export const STUDENT_SESSION_MINUTES = 30

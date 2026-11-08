@@ -64,8 +64,23 @@ describe('objectives', () => {
     const res = runStudent<{ objectives: Objective[]; unmeasurable: unknown[] }>(sql, 'objectives.propose', { studentId: kai, proposals }, ACTORS.caseManager)
     expect(res.objectives[0]).toMatchObject({ status: 'proposed', reviewDate: '2027-06-15' })
     expect(res.unmeasurable).toEqual([{ goalId: goals[1].id, reason: 'No observable behaviour named' }])
+    // PRD 1B: the unmeasurable goal is flagged for the IEP team as a stored row, listed with the objectives.
+    expect(res.objectives[1]).toMatchObject({ goalId: goals[1].id, status: 'flagged_unmeasurable', flagReason: 'No observable behaviour named' })
     runStudent(sql, 'objectives.propose', { studentId: kai, proposals }, ACTORS.caseManager)
-    expect(countRows(sql, 'objectives')).toBe(1)
+    expect(countRows(sql, 'objectives')).toBe(2)
+    runStudent(sql, 'iep.confirm', { studentId: kai, version: 1, expectedVersion: 1 }, ACTORS.caseManager)
+    const listed = runStudent<{ objectives: Objective[] }>(sql, 'objectives.list', { studentId: kai }, ACTORS.caseManager).objectives
+    expect(listed.map((o) => o.status)).toEqual(['proposed', 'flagged_unmeasurable'])
+    // Confirming it needs a real measure first.
+    const flagged = res.objectives[1]
+    expect(() => runStudent(sql, 'objectives.confirm', { studentId: kai, objectiveId: flagged.id, expectedVersion: 1 }, ACTORS.caseManager)).toThrow(/unit and mastery rule/)
+    const ok = runStudent<{ objective: Objective }>(
+      sql,
+      'objectives.confirm',
+      { studentId: kai, objectiveId: flagged.id, expectedVersion: 1, edits: { metricType: 'frequency', unit: 'times per day', masteryRule: '3 per day for 2 weeks', target: 3 } },
+      ACTORS.caseManager,
+    )
+    expect(ok.objective.status).toBe('confirmed')
   })
 })
 
