@@ -40,6 +40,15 @@ import {
   resolveAuth,
 } from './src/server/http-routes.js'
 import { registerRealtimeRoutes } from './src/server/realtime-routes.js'
+import { registerAltamiraRoutes } from './src/server/altamira/routes/index.js'
+import {
+  AltamiraInsightsRoom,
+  AltamiraSchoolRoom,
+  AltamiraStudentRoom,
+} from './src/server/altamira/rooms/index.js'
+
+// Altamira Durable Objects (SQLite, ctx.storage.sql). Reached only via /api/v1.
+export { AltamiraInsightsRoom, AltamiraSchoolRoom, AltamiraStudentRoom }
 
 // Dynamic deploy reads this manifest to create the app's DO bindings.
 export const __DO_MANIFEST__ = [
@@ -49,6 +58,9 @@ export const __DO_MANIFEST__ = [
   { binding: 'PRESENCE_ROOMS', className: 'AppPresenceRoom', sqlite: true },
   { binding: 'CRON_ROOMS', className: 'AppCronRoom', sqlite: true },
   { binding: 'JOB_ROOMS', className: 'AppJobRoom', sqlite: true },
+  { binding: 'STUDENT_ROOMS', className: 'AltamiraStudentRoom', sqlite: true },
+  { binding: 'SCHOOL_ROOMS', className: 'AltamiraSchoolRoom', sqlite: true },
+  { binding: 'INSIGHTS_ROOMS', className: 'AltamiraInsightsRoom', sqlite: true },
 ] as const satisfies DOManifest
 
 export class AppRecordRoom extends RecordRoom<Env> {
@@ -125,6 +137,12 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
    * an authenticated app owner/admin. deepspace dev/test set it locally.
    */
   ALLOW_DEBUG_ROUTES?: string
+  /** Altamira: the single school room this deployment serves (defaults to the fictional fixture school). */
+  ALTAMIRA_SCHOOL_ID?: string
+  /** Altamira: the district insights room (defaults to the fictional fixture district). */
+  ALTAMIRA_DISTRICT_ID?: string
+  /** Altamira AI provider: "fixture" (default) or "vertex" (stub until approved). */
+  ALTAMIRA_AI_PROVIDER?: string
 }
 
 export type AppContext = { Bindings: Env }
@@ -152,6 +170,8 @@ registerAgent(app, {
   inApp: schemas.some((schema) => schema.name === AI_CHATS_SCHEMA.name),
 })
 registerPlatformProxyRoutes(app)
+// Altamira /api/v1 routes, before the SPA fallback in registerStaticRoutes.
+registerAltamiraRoutes(app)
 registerStaticRoutes(app)
 
 // Hono registers ONE error handler (last onError wins), and its default is

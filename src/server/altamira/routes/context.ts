@@ -1,0 +1,152 @@
+import type { MiddlewareHandler } from 'hono'
+import type { z } from 'zod'
+import type { Env } from '../../../../worker'
+import { createAi, type AiFunctions } from '../ai/functions'
+import type { RosterStudent } from '../ai/deidentify'
+import type { AltamiraRoomRpc, RoomOp } from '../contract/ops'
+import { can, type Actor, type CanOptions, type Capability } from '../contract/permissions'
+import { createAltamiraMiddleware, type AltamiraContext, type AltamiraEnv } from '../middleware/auth'
+import { errorResponse, HttpError, httpErrorFromDeny, unwrapOp } from '../middleware/errors'
+import type { SessionDeps } from '../middleware/session'
+import type { AltamiraRouteDeps } from './deps'
+
+/** Shared plumbing for every route module: middleware, room calls, validation. */
+export type Kit = ReturnType<typeof createKit>
+
+const SCHOOL_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+const issues = (error: z.ZodError) =>
+  error.issues.map((i) => `${i.path.map(String).join('.') || 'body'}: ${i.message}`).join('; ')
+
+export function createKit(deps: AltamiraRouteDeps) {
+  const mw = createAltamiraMiddleware({
+    resolveUserId: deps.resolveUserId,
+    schoolRoom: (env) => deps.rooms.school(env),
+    studentRoom: (env, studentId) => deps.rooms.student(env, studentId),
+    schoolId: deps.schoolId,
+    now: deps.now,
+  })
+  const sessionDeps: SessionDeps = {
+    schoolRoom: (env) => deps.rooms.school(env),
+    studentRoom: (env, studentId) => deps.rooms.student(env, studentId),
+    now: deps.now,
+  }
+  /** Routes whose path has no student id take ?studentId= (contract StudentRefQuery). 400 without it. */
+  const studentRef: MiddlewareHandler<AltamiraEnv> = async (c, next) => {
+    if (!c.req.query('studentId')) return errorResponse(new HttpError('bad_request', 'studentId query parameter is required')) ?? undefined
+    await next()
+  }
+  return { deps, mw, sessionDeps, signedIn: mw.altamiraAuth(), studentRef, req: (c: AltamiraContext) => new Req(deps, c) }
+}
+
+/** One request: the caller, its clock, typed room calls and contract validation. */
+export class Req {
+  constructor(
+    readonly deps: AltamiraRouteDeps,
+    readonly c: AltamiraContext,
+  ) {}
+
+  get env(): Env {
+    return this.c.env
+  }
+
+  get actor(): Actor {
+    return this.c.get('actor')
+  }
+
+  now(): number {
+    return this.deps.now()
+  }
+
+  nowIso(): string {
+    return new Date(this.deps.now()).toISOString()
+  }
+
+  /** Today's date at the school (BC schools: America/Vancouver), YYYY-MM-DD. */
+  today(): string {
+    return SCHOOL_DATE.format(new Date(this.deps.now()))
+  }
+
+  param(name: string): string {
+    const v = this.c.req.param(name)
+    if (!v) throw new HttpError('bad_request', `missing path parameter ${name}`)
+    return v
+  }
+
+  /** The student a route without :id acts on, from ?studentId= (checked by requireCapability). */
+  studentRef(): string {
+    const id = this.c.req.query('studentId')
+    if (!id) throw new HttpError('bad_request', 'studentId query parameter is required')
+    return id
+  }
+
+  async body<S extends z.ZodType>(schema: S): Promise<z.output<S>> {
+    // An empty body counts as {} so routes whose fields are all optional accept a bare POST.
+    let raw: unknown = {}
+    const text = await this.c.req.text()
+    if (text.trim()) {
+      try {
+        raw = JSON.parse(text)
+      } catch {
+        throw new HttpError('bad_request', 'request body must be JSON')
+      }
+    }
+    const parsed = schema.safeParse(raw)
+    if (!parsed.success) throw new HttpError('bad_request', issues(parsed.error))
+    return parsed.data
+  }
+
+  query<S extends z.ZodType>(schema: S, raw: Record<string, unknown> = this.c.req.query()): z.output<S> {
+    const parsed = schema.safeParse(raw)
+    if (!parsed.success) throw new HttpError('bad_request', issues(parsed.error))
+    return parsed.data
+  }
+
+  /** NFR Security: the permission matrix, checked server-side. 403, or 410 for an expired link. */
+  allow(capability: Capability, studentId: string | null, opts: CanOptions = {}): void {
+    const result = can(this.actor, capability, studentId, { now: this.now(), ...opts })
+    if (!result.allowed) throw httpErrorFromDeny(result)
+  }
+
+  can(capability: Capability, studentId: string | null, opts: CanOptions = {}): boolean {
+    return can(this.actor, capability, studentId, { now: this.now(), ...opts }).allowed
+  }
+
+  /** Student ids the caller holds any staff role for (parents and links excluded). */
+  staffStudentIds(): string[] {
+    return this.actor.session ? [] : Object.keys(this.actor.studentRoles)
+  }
+
+  private async run<A, R>(room: AltamiraRoomRpc, op: RoomOp<A, R>, args: Record<string, unknown>): Promise<R> {
+    // Every op takes an optional `now`; ops that do not declare it drop the key when parsing args.
+    return unwrapOp(await room.run(op.name, { now: this.nowIso(), ...args }, this.actor)) as R
+  }
+
+  student<A, R>(studentId: string, op: RoomOp<A, R>, args: Record<string, unknown> = {}): Promise<R> {
+    return this.run(this.deps.rooms.student(this.env, studentId), op, { ...args, studentId })
+  }
+
+  school<A, R>(op: RoomOp<A, R>, args: Record<string, unknown> = {}): Promise<R> {
+    return this.run(this.deps.rooms.school(this.env), op, args)
+  }
+
+  insights<A, R>(op: RoomOp<A, R>, args: Record<string, unknown> = {}): Promise<R> {
+    return this.run(this.deps.rooms.insights(this.env), op, args)
+  }
+
+  /** AI functions on de-identified input (design doc "AI module"). Called outside any room transaction. */
+  async ai(extraStudents: RosterStudent[] = []): Promise<AiFunctions> {
+    const roster = await this.deps.roster(this.env)
+    return createAi({
+      provider: this.deps.aiProvider(this.env),
+      roster: { ...roster, students: [...roster.students, ...extraStudents] },
+    })
+  }
+
+  /** Validates the response against the contract before it leaves the server. */
+  json<S extends z.ZodType>(schema: S, value: z.input<S>, status = 200): Response {
+    const parsed = schema.safeParse(value)
+    if (!parsed.success) throw new Error(`response does not match the contract: ${parsed.error.issues.map((i) => i.path.join('.')).join(', ')}`)
+    return this.c.newResponse(JSON.stringify(parsed.data), status as 200, { 'Content-Type': 'application/json' })
+  }
+}
