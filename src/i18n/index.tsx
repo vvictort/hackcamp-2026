@@ -36,12 +36,33 @@ function initialLang(): string {
   return DEFAULT_LANG
 }
 
+const savedKey = (lang: string) => `${STORAGE_KEY}.messages.${lang}`
+
+function readSaved(lang: string): Messages | null {
+  try {
+    const raw = localStorage.getItem(savedKey(lang))
+    return raw ? (JSON.parse(raw) as Messages) : null
+  } catch {
+    return null
+  }
+}
+
+function writeSaved(lang: string, messages: Messages) {
+  try {
+    localStorage.setItem(savedKey(lang), JSON.stringify(messages))
+  } catch {
+    /* storage full or unavailable: the server copy still works */
+  }
+}
+
 interface LangContextValue {
   lang: string
   languages: Language[]
   setLang: (code: string) => void
   /** True while a language is being fetched (English shows meanwhile). */
   loading: boolean
+  /** True when the chosen language could not be loaded and English is showing. */
+  failed: boolean
   t: (key: MessageKey, vars?: Vars) => string
 }
 
@@ -51,6 +72,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState(DEFAULT_LANG)
   const [messages, setMessages] = useState<Messages>({})
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => setLangState(initialLang()), [])
 
@@ -58,18 +80,35 @@ export function LangProvider({ children }: { children: ReactNode }) {
     const language = findLanguage(lang)
     document.documentElement.lang = lang
     document.documentElement.dir = language?.rtl ? 'rtl' : 'ltr'
+    setFailed(false)
     if (lang === DEFAULT_LANG) {
       setMessages({})
+      setLoading(false)
       return
     }
+    // Show the last good copy at once so a returning visitor never sees English flash, then refresh it.
+    const saved = readSaved(lang)
+    setMessages(saved ?? {})
     const ctrl = new AbortController()
-    setLoading(true)
-    fetch(`/api/i18n/${lang}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? (r.json() as Promise<{ messages: Messages }>) : Promise.reject(new Error(String(r.status)))))
-      .then((body) => setMessages(body.messages))
-      .catch(() => setMessages({}))
-      .finally(() => !ctrl.signal.aborted && setLoading(false))
-    return () => ctrl.abort()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = (attempt: number) => {
+      setLoading(true)
+      fetch(`/api/i18n/${lang}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? (r.json() as Promise<{ messages: Messages; complete?: boolean }>) : Promise.reject(new Error(String(r.status)))))
+        .then((body) => {
+          setMessages(body.messages)
+          if (body.complete) writeSaved(lang, body.messages)
+          // A partial result means the server is still filling gaps: ask again a few times.
+          else if (attempt < 3) timer = setTimeout(() => load(attempt + 1), 8000)
+        })
+        .catch(() => !ctrl.signal.aborted && !saved && setFailed(true))
+        .finally(() => !ctrl.signal.aborted && setLoading(false))
+    }
+    load(0)
+    return () => {
+      ctrl.abort()
+      clearTimeout(timer)
+    }
   }, [lang])
 
   const setLang = useCallback((code: string) => {
@@ -83,8 +122,8 @@ export function LangProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<LangContextValue>(
-    () => ({ lang, languages: LANGUAGES, setLang, loading, t: (key, vars) => translate(messages, key, vars) }),
-    [lang, messages, loading, setLang],
+    () => ({ lang, languages: LANGUAGES, setLang, loading, failed, t: (key, vars) => translate(messages, key, vars) }),
+    [lang, messages, loading, failed, setLang],
   )
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>
 }

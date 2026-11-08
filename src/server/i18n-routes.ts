@@ -10,7 +10,10 @@
  * English catalogue, and only for language codes in src/i18n/languages.ts, so
  * no user or record data can reach the model and total spend is bounded by
  * (languages x catalogue size). The app owner pays for the calls.
- * ponytail: whole-catalogue regeneration when en.ts changes; translate only
+ * Resilience: chunks run in parallel, a failed or truncated chunk is split and
+ * retried, keys that still fail fall back to English, and a partial result is
+ * saved and completed on the next request instead of being thrown away.
+ * ponytail: a changed catalogue regenerates the whole language; translate only
  * the changed keys if the catalogue grows large.
  */
 
@@ -21,7 +24,10 @@ import { findLanguage } from '../i18n/languages.js'
 import type { AppContext, Env } from '../../worker.js'
 
 const MODEL = 'claude-haiku-5-5'
-const CHUNK = 40
+/** Small chunks keep each reply well inside the output limit, even for scripts that tokenise heavily (Tamil, Thai, Amharic). */
+const CHUNK = 20
+const CONCURRENCY = 6
+const MAX_TOKENS = 8192
 const KEEP = 'Altamyra, MyEd, MyEducation BC, IEP, FESL, Pulse, Lesson Lens, Progress Drafts, Today View, Family Bridge, District Insights, QR'
 
 type Catalogue = Record<string, string>
@@ -68,7 +74,7 @@ async function translateChunk(env: Env, language: string, chunk: Catalogue): Pro
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.APP_OWNER_JWT}` },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: MAX_TOKENS,
       temperature: 0,
       system:
         `You translate user-interface text for a school app used by teachers and families. Translate the JSON values from English into ${language}. ` +
@@ -90,20 +96,53 @@ async function translateChunk(env: Env, language: string, chunk: Catalogue): Pro
   return out
 }
 
+const pick = (from: Catalogue, keys: string[]): Catalogue => Object.fromEntries(keys.map((k) => [k, from[k]]))
+
+/** Translate a chunk; on a bad reply, retry what is missing, or split the chunk and retry the halves. */
+async function translateSafe(env: Env, language: string, chunk: Catalogue, depth = 0): Promise<Catalogue> {
+  const keys = Object.keys(chunk)
+  let out: Catalogue = {}
+  try {
+    out = await translateChunk(env, language, chunk)
+  } catch (err) {
+    console.error('[i18n] chunk failed', keys.length, err instanceof Error ? err.message : err)
+  }
+  const missing = keys.filter((k) => !(k in out))
+  if (!missing.length || depth >= 3) return out
+  if (missing.length > 1 && Object.keys(out).length === 0) {
+    const mid = missing.length >> 1
+    const [a, b] = await Promise.all([
+      translateSafe(env, language, pick(chunk, missing.slice(0, mid)), depth + 1),
+      translateSafe(env, language, pick(chunk, missing.slice(mid)), depth + 1),
+    ])
+    return { ...out, ...a, ...b }
+  }
+  return { ...out, ...(await translateSafe(env, language, pick(chunk, missing), depth + 1)) }
+}
+
 const inFlight = new Map<string, Promise<Catalogue>>()
 
-async function build(env: Env, lang: string, name: string): Promise<Catalogue> {
-  const entries = Object.entries(en) as [string, string][]
-  const out: Catalogue = {}
-  for (let i = 0; i < entries.length; i += CHUNK) {
-    Object.assign(out, await translateChunk(env, name, Object.fromEntries(entries.slice(i, i + CHUNK))))
+/** Translate the keys in `existing`'s blind spot, save, and return everything translated so far. */
+async function build(env: Env, lang: string, name: string, existing: Catalogue, recordId?: string): Promise<Catalogue> {
+  const todo = (Object.entries(en) as [string, string][]).filter(([k]) => !existing[k])
+  const chunks: Catalogue[] = []
+  for (let i = 0; i < todo.length; i += CHUNK) chunks.push(Object.fromEntries(todo.slice(i, i + CHUNK)))
+  const out: Catalogue = { ...existing }
+  let next = 0
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, async () => {
+      while (next < chunks.length) Object.assign(out, await translateSafe(env, name, chunks[next++]))
+    }),
+  )
+  if (Object.keys(out).length > Object.keys(existing).length) {
+    const value = JSON.stringify({ v: catalogueVersion(), messages: out })
+    if (recordId) await room(env, 'records.update', { collection: 'settings', recordId, data: { value } })
+    else await room(env, 'records.create', { collection: 'settings', data: { key: `i18n:${lang}`, value } })
   }
-  const cached = await readCache(env, lang)
-  const value = JSON.stringify({ v: catalogueVersion(), messages: out })
-  if (cached.recordId) await room(env, 'records.update', { collection: 'settings', recordId: cached.recordId, data: { value } })
-  else await room(env, 'records.create', { collection: 'settings', data: { key: `i18n:${lang}`, value } })
   return out
 }
+
+const total = Object.keys(en).length
 
 export function registerI18nRoutes(app: Hono<AppContext>): void {
   app.get('/api/i18n/:lang', async (c) => {
@@ -112,17 +151,22 @@ export function registerI18nRoutes(app: Hono<AppContext>): void {
     const { code, name } = language
     try {
       const cached = await readCache(c.env, code)
-      let messages = cached.value?.v === catalogueVersion() ? cached.value.messages : undefined
-      if (!messages) {
+      const current = cached.value?.v === catalogueVersion() ? cached.value.messages : {}
+      const have = (m: Catalogue) => Object.keys(en).filter((k) => m[k]).length
+      let messages = current
+      if (have(current) < total) {
         let job = inFlight.get(code)
         if (!job) {
-          job = build(c.env, code, name).finally(() => inFlight.delete(code))
+          job = build(c.env, code, name, current, cached.recordId).finally(() => inFlight.delete(code))
           inFlight.set(code, job)
         }
         messages = await job
       }
-      c.header('Cache-Control', 'public, max-age=3600')
-      return c.json({ lang: code, v: catalogueVersion(), messages })
+      const done = have(messages)
+      if (done === 0) throw new Error('nothing translated')
+      // A partial result is served (English fills the gaps) but not cached by browsers, so the next request completes it.
+      c.header('Cache-Control', done === total ? 'public, max-age=3600' : 'no-store')
+      return c.json({ lang: code, v: catalogueVersion(), complete: done === total, messages })
     } catch (err) {
       console.error('[i18n]', code, err instanceof Error ? err.message : err)
       return c.json({ error: 'Translation unavailable' }, 503)
