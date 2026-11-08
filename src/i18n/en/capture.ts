@@ -38,7 +38,7 @@ export const capture = {
   'capture.photo.sampleLoading': 'Preparing the sample sheet…',
   'capture.photo.sampleReady': 'Sample sheet ready. Code {code}. Press Score this sheet.',
   'capture.photo.sampleNeedsStudent': 'Choose a student first.',
-  'capture.photo.sampleFailed': 'The sample sheet could not be prepared. Use a case manager or teacher role, and make sure the student has a confirmed goal.',
+  'capture.photo.sampleFailed': 'The sample sheet could not be prepared. Use the teacher or EA role for this student, and make sure the student has a confirmed goal.',
   'capture.photo.sampleUnavailable': 'The sample sheet is only available in the local demo.',
   'capture.photo.samplePreview': 'Fictional sample sheet with the sheet code filled in',
 
