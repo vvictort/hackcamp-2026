@@ -86,9 +86,28 @@ type ResolvedPage = {
   sheet: { studentId: string; lessonId: string; checkId: string; classId: string | null } | null
 }
 
-async function resolvePages(r: Req, pages: MediaRef[]): Promise<ResolvedPage[]> {
+const PHOTO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'])
+/** Decoded size cap per photographed page (inline base64 travels in the JSON body and in the Gemini request). */
+export const MAX_PHOTO_BYTES = 7 * 1024 * 1024
+
+/**
+ * Normalises one photographed page for the model: base MIME type (no
+ * parameters, jpg alias), no data: URL prefix or whitespace in the base64,
+ * and a type and size check so a bad upload is a clear 400, not a model error.
+ */
+export function normalizePhotoPage(page: MediaRef): MediaRef {
+  const contentType = (page.contentType.split(';')[0] ?? '').trim().toLowerCase().replace('image/jpg', 'image/jpeg')
+  if (!PHOTO_TYPES.has(contentType)) throw new HttpError('bad_request', 'Photos must be PNG, JPEG, WebP or HEIC images.')
+  if (page.bytesBase64 === undefined) return { ...page, contentType }
+  const bytesBase64 = page.bytesBase64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '')
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(bytesBase64)) throw new HttpError('bad_request', 'The photo is not valid base64.')
+  if ((bytesBase64.length * 3) / 4 > MAX_PHOTO_BYTES) throw new HttpError('bad_request', 'A photo must be 7 MB or smaller.')
+  return { ...page, contentType, bytesBase64 }
+}
+
+async function resolvePages(r: Req, rawPages: MediaRef[]): Promise<ResolvedPage[]> {
   const out: ResolvedPage[] = []
-  for (const page of pages) {
+  for (const page of rawPages.map(normalizePhotoPage)) {
     const code = r.deps.readSheetCode(page)
     if (!code) {
       out.push({ page, code: null, sheet: null })
