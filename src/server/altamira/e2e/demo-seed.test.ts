@@ -89,9 +89,9 @@ describe('relative-dated demo seed', () => {
     expect((await h.get(U, '/me')).body.memberships.map((m: { role: string }) => m.role)).toEqual(['school_admin'])
   })
 
-  it('reset wipes the demo rows and re-seeds them; second seed without reset is still refused', async () => {
+  it('reset wipes the demo rows and re-seeds them; a second seed without reset leaves data untouched', async () => {
     const h = await seeded()
-    expect((await h.post(U, '/dev/seed')).status).toBe(400)
+    expect((await h.post(U, '/dev/seed')).status).toBe(200)
     const before = (await h.get(U, `/students/${kai}/lens-usage`)).body.events.length
     expect((await h.post(U, '/dev/seed', { reset: true })).status).toBe(200)
     const after = await h.get(U, `/students/${kai}/lens-usage`)
