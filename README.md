@@ -115,6 +115,8 @@ Demo data is dated relative to the moment you press the button, so Home shows a 
 
 The demo controls and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`. They answer 404 otherwise, and the flag must never be set in a deploy.
 
+On Home, "Reset demo data" (with a confirm dialog) wipes the demo rows and loads them again dated from today, so Pulse shows Fresh, Stale and Data needed goals again. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
+
 Accessibility check (axe-core on Home, Students, a student profile, Lesson Lens, Capture, Review, EA, Drafts, Family and Insights; fails on serious or critical issues). It needs one test account (`npx deepspace test accounts list`; create one with `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`) and the `avi-local` secrets config so the demo seed is available:
 
 ```sh
