@@ -2,7 +2,8 @@ import type { MiddlewareHandler } from 'hono'
 import type { z } from 'zod'
 import type { Env } from '../../../../worker'
 import { createAi, type AiFunctions } from '../ai/functions'
-import type { RosterStudent } from '../ai/deidentify'
+import type { Roster, RosterStudent } from '../ai/deidentify'
+import { createFixtureSummaryProvider, createSummaryAi, summaryProviderFromEnv, type SummaryAi } from '../ai/summaries'
 import type { AltamiraRoomRpc, RoomOp } from '../contract/ops'
 import { can, type Actor, type CanOptions, type Capability } from '../contract/permissions'
 import { createAltamiraMiddleware, type AltamiraContext, type AltamiraEnv } from '../middleware/auth'
@@ -136,6 +137,19 @@ export class Req {
    * token appears in an input but who is not listed here makes the call fail closed.
    */
   async ai(studentIds: readonly string[]): Promise<AiFunctions> {
+    return createAi({ provider: this.deps.aiProvider(this.env), roster: await this.deidRoster(studentIds) })
+  }
+
+  /**
+   * The summary drafting AI (Gemini via AI Studio, fixture without a key), on the
+   * same de-identification roster. `fixture` forces the deterministic provider (the fallback when Gemini fails).
+   */
+  async summaryAi(studentIds: readonly string[], fixture = false): Promise<SummaryAi> {
+    const provider = fixture ? createFixtureSummaryProvider() : summaryProviderFromEnv(this.env as unknown as Parameters<typeof summaryProviderFromEnv>[0])
+    return createSummaryAi({ provider, roster: await this.deidRoster(studentIds) })
+  }
+
+  private async deidRoster(studentIds: readonly string[]): Promise<Roster> {
     const base = await this.deps.roster(this.env)
     const ids = [...new Set(studentIds)]
     const school = await this.school(deidSchoolRoster, { studentIds: ids })
@@ -146,10 +160,7 @@ export class Req {
       const { names } = await this.student(id, deidStudentNames)
       students.push(...names.map((n) => ({ token, ...n })))
     }
-    return createAi({
-      provider: this.deps.aiProvider(this.env),
-      roster: { students, people: [...base.people, ...school.people.map((displayName) => ({ displayName }))], schools: base.schools },
-    })
+    return { students, people: [...base.people, ...school.people.map((displayName) => ({ displayName }))], schools: base.schools }
   }
 
   /** Seed for the random review sample: server-generated, never request input (PRD 1B "Confidence"). */

@@ -29,8 +29,8 @@ export function insightsRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
         period: c.req.query('period'),
         groupBy,
       })
-      const { groups } = await r.insights(insightsGet, { districtId, ...parsed })
-      return r.json(InsightsTrendsResponse, { groups, districtId, minGroupSize: MIN_GROUP_SIZE, groupBy: INSIGHT_DIMENSIONS.filter((d) => parsed.groupBy.includes(d)) })
+      const { groups, monthlyNarrative } = await r.insights(insightsGet, { districtId, ...parsed })
+      return r.json(InsightsTrendsResponse, { groups, monthlyNarrative, districtId, minGroupSize: MIN_GROUP_SIZE, groupBy: INSIGHT_DIMENSIONS.filter((d) => parsed.groupBy.includes(d)) })
     },
   )
 }
