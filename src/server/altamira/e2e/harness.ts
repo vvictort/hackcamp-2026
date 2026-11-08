@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from '../../../../worker'
 import { fixtureRoster } from '../ai/fixture-data'
+import { unitInterval } from '../ai/hash'
 import { createFixtureProvider } from '../ai/providers/fixture'
 import type { AiFunctionName, AiProvider } from '../contract/ai'
 import type { AltamiraRoomRpc, OpRegistry, RoomName } from '../contract/ops'
@@ -16,6 +17,7 @@ import { hasActiveConsent } from '../rooms/student-core'
 import { insightsOps, schoolOps, studentOps } from '../services/registry'
 import { insightsRoom, schoolRoom, studentRoom } from '../services/testing'
 import { createAltamiraApi } from '../routes/app'
+import { AI_REVIEW_SAMPLE_RATE } from '../routes/capture'
 import { sheetCodeFromFileKey, type AltamiraRouteDeps } from '../routes/deps'
 
 /**
@@ -45,6 +47,8 @@ export type HarnessOptions = {
   /** Seed the fixtures into the rooms (default true). False leaves them empty for POST /dev/seed. */
   seed?: boolean
   devSeed?: boolean
+  /** Every confident AI score falls in the random review sample (default false: none does). */
+  sampleEverything?: boolean
   /** Replace single AI functions; the rest come from the fixture provider. */
   ai?: Partial<Omit<AiProvider, 'name'>>
 }
@@ -58,6 +62,7 @@ export function createHarness(options: HarnessOptions = {}) {
   const insights = insightsRoom()
   const students = new Map<string, SqlExecutor>()
   const deletedFiles: string[] = []
+  let seeds = 0
   const errors: unknown[] = []
 
   const studentSql = (id: string): SqlExecutor => {
@@ -108,6 +113,12 @@ export function createHarness(options: HarnessOptions = {}) {
     resolveUserId: async (req) => req.headers.get('x-test-user'),
     aiProvider: () => provider,
     roster: () => fixtureRoster(),
+    // Reproducible server-side seeds that never fall in the random review sample, unless a test asks for one.
+    sampleSeed: () => {
+      let s = `harness-seed-${++seeds}`
+      while ((unitInterval(s, 'sample') < AI_REVIEW_SAMPLE_RATE) !== (options.sampleEverything ?? false)) s = `harness-seed-${++seeds}`
+      return s
+    },
     schoolId: () => SCHOOL.id,
     districtId: () => DISTRICT.id,
     devSeedEnabled: () => options.devSeed ?? false,

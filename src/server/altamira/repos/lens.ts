@@ -36,6 +36,12 @@ export function checksForSuggestions(sql: SqlExecutor, suggestionIds: readonly s
   )
 }
 
+/** The most recent check with an answer key for an objective: the source of an equivalent probe form. */
+export function latestKeyedCheck(sql: SqlExecutor, objectiveId: string): Check | undefined {
+  const row = sql.get<Row>('SELECT * FROM checks WHERE objective_id = ? AND answer_key_json IS NOT NULL ORDER BY rowid DESC LIMIT 1', objectiveId)
+  return row ? parseRow(Check, row) : undefined
+}
+
 /** Approved adaptations, optionally limited to one lesson's lens runs. */
 export function approvedAdaptations(sql: SqlExecutor, lessonId?: string): (AdaptationSuggestion & { lessonId: string })[] {
   const rows = sql.all<Row>(

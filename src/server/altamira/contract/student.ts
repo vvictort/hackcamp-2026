@@ -242,6 +242,8 @@ export const DataPoint = z.object({
   /** A correction is a new row pointing at the row it replaces. */
   supersedesId: Id.nullable(),
   reason: z.string().nullable(),
+  /** Student mode only: time on task and read-aloud use (PRD 1B "Capture sources"); null for other sources. */
+  sessionDetail: z.object({ timeOnTaskMs: z.number().int().min(0).nullable(), readAloud: z.boolean() }).nullable(),
 })
 export type DataPoint = z.infer<typeof DataPoint>
 

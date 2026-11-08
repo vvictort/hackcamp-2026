@@ -30,6 +30,26 @@ describe('M1 lesson augmentation through /api/v1', () => {
     }
   })
 
+  it('one analysis call across 4 lens runs, and the teacher can remove a check (PRD 1A-2, 1A-6)', async () => {
+    const h = createHarness()
+    const lesson = await createLesson(h, 'literacy')
+    const first = await runLens(h, lesson.id)
+    const again = await h.post(U.teacher, `/lessons/${lesson.id}/lens`, { studentIds: [kai] })
+    expect(again.status).toBe(200)
+    expect(h.aiCalls.lensForStudent).toBe(4)
+    expect(h.aiCalls.analyseLesson).toBe(1)
+
+    const check = again.body.results[0].checks[0]
+    expect(check).toBeDefined()
+    const removed = await h.post(U.teacher, `/checks/${check.id}/remove?studentId=${kai}`, { expectedVersion: check.version })
+    expect(removed.status).toBe(200)
+    expect(removed.body.check.status).toBe('removed')
+    const view = await h.get(U.teacher, `/lessons/${lesson.id}/lens/${kai}`)
+    expect(view.body.checks.map((c: { id: string }) => c.id)).not.toContain(check.id)
+    expect((await h.post(U.ea, `/checks/${check.id}/remove?studentId=${kai}`, { expectedVersion: 2 })).status).toBe(403)
+    expect(first.results).toHaveLength(3)
+  })
+
   it('blocks a modification the IEP does not authorize and allows Sofia’s authorized math modification', async () => {
     const h = createHarness()
     const lesson = await createLesson(h, 'numeracy')

@@ -10,6 +10,7 @@ import {
   FamilySummaryResponse,
   HandoffCreateBody,
   HandoffResponse,
+  ParentInputsResponse,
   TodayLinkBody,
   TodayLinkResponse,
   TodayViewResponse,
@@ -24,6 +25,7 @@ import {
   handoffsCreate,
   handoffsGet,
   parentInputCreate,
+  parentInputList,
   todayViewGet,
 } from '../services/family'
 import { draftsGet } from '../services/insight'
@@ -59,6 +61,12 @@ export function familyRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     return r.json(FamilyInputResponse, await r.student(r.param('id'), parentInputCreate, body), 201)
   })
 
+  /** PRD Roles: parents send input to the case manager, who reads it here (same iep.write row as the IEP itself). */
+  app.get('/students/:id/parent-input', signedIn, mw.requireCapability('iep.write'), async (c) => {
+    const r = req(c)
+    return r.json(ParentInputsResponse, await r.student(r.param('id'), parentInputList))
+  })
+
   /** Parents manage consent; a case manager may record it (the room enforces which). */
   app.put('/family/:id/consents', signedIn, async (c) => {
     const r = req(c)
@@ -76,7 +84,7 @@ export function familyRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const body = await r.body(FamilySummaryCreateBody)
     const { draft } = await r.student(studentId, draftsGet, { draftId })
     const { token } = await studentToken(r, studentId)
-    const ai = await r.ai()
+    const ai = await r.ai([studentId])
     const out = await ai.summariseForFamily({ studentToken: token, language: body.language, draft: { sentences: draft.sentences } })
     return r.json(FamilySummaryResponse, await r.student(studentId, familySummariesSave, { draftId, language: out.language, text: out.text }), 201)
   })

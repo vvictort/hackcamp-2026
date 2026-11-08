@@ -6,7 +6,9 @@ import { migrateStudent } from '../db/schema/student'
 import { AMARA, KAI, seedStudent } from '../fixtures'
 import { USER_IDS } from '../fixtures/school'
 import { auditMark } from './core'
-import { confirmedDataPointsSince, counterDimensions, hasActiveConsent, liveMessage } from './student-core'
+import { CBIEP_SAMPLE_EXPECTED } from '../fixtures'
+import { ACTORS, runStudent } from '../services/testing'
+import { confirmedDataPointsSince, counterDimensions, hasActiveConsent, insightIncrements, liveMessage, reviewTimelinessSince } from './student-core'
 
 type Sql = ReturnType<typeof createNodeSqlExecutor>
 
@@ -82,6 +84,7 @@ describe('student room core', () => {
       goalArea: goal.area,
       proficiencyLevel: rating?.level ?? null,
       label: null,
+      goalProgress: objective.status === 'confirmed' ? expect.any(String) : null,
       period: confirmed.recordedAt.slice(0, 7),
     })
     const text = JSON.stringify(dims)
@@ -119,6 +122,24 @@ describe('student room core', () => {
     expect(hasActiveConsent(other, 'student_mode')).toBe(false)
     expect(hasActiveConsent(other, 'audio')).toBe(false)
     other.close()
+  })
+
+  it('records review timeliness when a new IEP version is confirmed (PRD District Insights)', () => {
+    const due = KAI.iep.sections.reviewDate
+    const reimport = (now: string) => {
+      const { iep } = runStudent<{ iep: { version: number; rowVersion: number } }>(sql, 'iep.import', { studentId: KAI.studentId, sections: CBIEP_SAMPLE_EXPECTED, now }, ACTORS.caseManager)
+      const mark = auditMark(sql)
+      runStudent(sql, 'iep.confirm', { studentId: KAI.studentId, version: iep.version, expectedVersion: iep.rowVersion, now }, ACTORS.caseManager)
+      return mark
+    }
+    expect(due).not.toBeNull()
+    const onTime = reimport(`${due}T12:00:00.000Z`)
+    expect(reviewTimelinessSince(sql, onTime)).toEqual([{ period: due!.slice(0, 7), reviewTimeliness: 'on_time' }])
+    // The sample's own review date has passed by 2028: late.
+    const late = reimport('2028-01-10T12:00:00.000Z')
+    expect(insightIncrements(sql, late, [])).toEqual([
+      { period: '2028-01', goalArea: null, proficiencyLevel: null, label: null, goalProgress: null, reviewTimeliness: 'late', by: 1 },
+    ])
   })
 
   it('live messages carry ids only', () => {

@@ -6,6 +6,7 @@ import type { DataPoint } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
 import { KAI, STUDENT_IDS, USER_IDS } from '../fixtures'
 import { scoreItem } from './scoring'
+import { itemValue } from './student-mode'
 import { ACTORS, closeAll, runStudent, studentRoom } from './testing'
 
 afterEach(closeAll)
@@ -97,9 +98,32 @@ describe('student-mode sessions', () => {
     )
     expect(dp).toMatchObject({ value: 100, status: 'auto_confirmed', source: 'student', recorder_id: USER_IDS.ea })
     expect(dp?.source_ref.startsWith('student_response:sess-1:')).toBe(true)
+    // PRD 1B timeline persistence: lesson and active adaptations; time on task and read-aloud use recorded.
+    const row = sql.get<{ lesson_id: string; active_adaptations_json: string; session_detail_json: string }>(
+      "SELECT lesson_id, active_adaptations_json, session_detail_json FROM data_points WHERE source = 'student'",
+    )
+    expect(row?.lesson_id).toBe('lesson-1')
+    expect(JSON.parse(row!.active_adaptations_json)).toHaveLength(1)
+    expect(JSON.parse(row!.session_detail_json)).toEqual({ timeOnTaskMs: null, readAloud: false })
     // Work samples are never scored in code, so the session is done.
     expect(runStudent<SessionNextResponse>(sql, 'sessions.next', { studentId: kai, now: NOW }, session()).item).toBeNull()
     expect(() => runStudent(sql, 'sessions.respond', { studentId: kai, itemId: next.item?.itemId, response: '12', now: NOW }, session())).toThrow(/already answered/)
+  })
+
+  it('records time on task and read-aloud use on the point', () => {
+    const sql = kaiWithApprovedCheck()
+    const next = runStudent<SessionNextResponse>(sql, 'sessions.next', { studentId: kai, now: NOW }, session())
+    runStudent(sql, 'sessions.respond', { studentId: kai, itemId: next.item?.itemId, response: '12', durationMs: 9000, readAloudUsed: true, now: NOW }, session())
+    const row = sql.get<{ session_detail_json: string }>("SELECT session_detail_json FROM data_points WHERE source = 'student'")
+    expect(JSON.parse(row!.session_detail_json)).toEqual({ timeOnTaskMs: 9000, readAloud: true })
+  })
+
+  it('rate objectives store correct items per minute from the time on task', () => {
+    expect(itemValue('rate', true, 3000)).toBe(20)
+    expect(itemValue('rate', false, 3000)).toBe(0)
+    expect(() => itemValue('rate', true, undefined)).toThrow(/durationMs/)
+    expect(itemValue('accuracy', true, undefined)).toBe(100)
+    expect(itemValue('frequency', true, undefined)).toBe(1)
   })
 
   it('shows strengths-based self progress without IEP wording', () => {

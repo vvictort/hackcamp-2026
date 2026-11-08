@@ -40,21 +40,11 @@
  */
 
 import type { Job, JobContext } from 'deepspace/worker'
-import type { Env } from '../../worker.js'
-import { runVoiceNoteJob, VOICE_NOTE_JOB } from './altamira/rooms/jobs-core.js'
-import { voiceNoteDeps } from './altamira/rooms/job-deps.js'
 
 export async function runJob(
-  job: Job,
+  _job: Job,
   _ctx: JobContext,
-  env: Env,
-): Promise<unknown> {
-  switch (job.type) {
-    // Altamira: EA voice note -> structured events, then the audio is deleted.
-    // TODO(Integrator): pass `parse` (AiProvider.parseVoiceNote on de-identified input) once ai/ exports a provider factory.
-    case VOICE_NOTE_JOB:
-      return await runVoiceNoteJob(job.payload, voiceNoteDeps(env))
-    default:
-      return undefined
-  }
+  _env: unknown,
+): Promise<void> {
+  // No-op — implement your job handlers here. Dispatch on `_job.type`.
 }

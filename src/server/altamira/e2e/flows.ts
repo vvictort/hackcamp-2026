@@ -42,3 +42,29 @@ export async function approvedMathSheets(h: Harness, studentId: string) {
   if (sheets.status !== 200) throw new Error(`sheets ${sheets.status}: ${JSON.stringify(sheets.body)}`)
   return { lesson, result, sheets: sheets.body as { pages: any[]; answerKey: { sheetCode: string; entries: { itemId: string; accepted: string[] }[] }[] } }
 }
+
+/** A minimal one-page PDF whose content stream shows each line with Tj and a line move. FICTIONAL text only. */
+export async function fictionalPdf(lines: string[], compress = false): Promise<Uint8Array> {
+  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+  const latin1 = (s: string) => Uint8Array.from(s, (ch) => ch.charCodeAt(0))
+  const content = latin1(`BT /F1 10 Tf 72 760 Td 12 TL\n${lines.map((l) => `(${esc(l)}) Tj T*`).join('\n')}\nET`)
+  const body = compress
+    ? new Uint8Array(await new Response(new Blob([content]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer())
+    : content
+  const filter = compress ? ' /Filter /FlateDecode' : ''
+  const head = latin1(
+    '%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n' +
+      '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n' +
+      '3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj\n' +
+      `4 0 obj << /Length ${body.length}${filter} >>\nstream\n`,
+  )
+  const tail = latin1('\nendstream\nendobj\ntrailer << /Root 1 0 R >>\n%%EOF\n')
+  const out = new Uint8Array(head.length + body.length + tail.length)
+  out.set(head, 0)
+  out.set(body, head.length)
+  out.set(tail, head.length + body.length)
+  return out
+}
+
+/** Base64 of bytes, for inline uploads. */
+export const toBase64 = (bytes: Uint8Array): string => btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''))

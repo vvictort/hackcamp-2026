@@ -15,34 +15,38 @@ const DIMENSION_COLUMNS: Record<InsightDimension, string> = {
   proficiencyLevel: 'proficiency_level',
   label: 'label',
   reviewTimeliness: 'review_timeliness',
+  goalProgress: 'goal_progress',
   period: 'period',
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function applyIncrement(sql: SqlExecutor, districtId: string, inc: CounterIncrement): void {
-  const key: SqlParam[] = [districtId, inc.schoolId, inc.period, inc.studentKey, inc.goalArea ?? '', inc.proficiencyLevel ?? '', inc.label ?? '', inc.reviewTimeliness ?? '']
+/** Adds one increment: one row per student key and dimension combination. */
+export function applyIncrement(sql: SqlExecutor, districtId: string, inc: CounterIncrement): void {
+  const dims = [inc.goalArea, inc.proficiencyLevel, inc.label, inc.reviewTimeliness, inc.goalProgress]
   const existing = sql.get<{ id: string }>(
     `SELECT id FROM counters WHERE district_id = ? AND school_id = ? AND period = ? AND student_key = ?
-     AND IFNULL(goal_area, '') = ? AND IFNULL(proficiency_level, '') = ? AND IFNULL(label, '') = ? AND IFNULL(review_timeliness, '') = ?`,
-    ...key,
+     AND IFNULL(goal_area, '') = ? AND IFNULL(proficiency_level, '') = ? AND IFNULL(label, '') = ?
+     AND IFNULL(review_timeliness, '') = ? AND IFNULL(goal_progress, '') = ?`,
+    districtId,
+    inc.schoolId,
+    inc.period,
+    inc.studentKey,
+    ...dims.map((d) => d ?? ''),
   )
   if (existing) {
     sql.run('UPDATE counters SET count = count + ?, version = version + 1 WHERE id = ?', inc.by, existing.id)
     return
   }
   sql.run(
-    `INSERT INTO counters (id, district_id, school_id, period, student_key, goal_area, proficiency_level, label, review_timeliness, count, version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    `INSERT INTO counters (id, district_id, school_id, period, student_key, goal_area, proficiency_level, label, review_timeliness, goal_progress, count, version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
     newId(),
     districtId,
     inc.schoolId,
     inc.period,
     inc.studentKey,
-    inc.goalArea,
-    inc.proficiencyLevel,
-    inc.label,
-    inc.reviewTimeliness,
+    ...dims,
     inc.by,
   )
 }
@@ -64,12 +68,36 @@ export const countersPush = defineOp({
 
 export type InsightGroup = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
 
-/** PRD District Insights: no group under 10 students is ever displayed. */
-export function suppressSmallGroups(rows: { dims: Record<string, string | null>; students: number; count: number }[]): InsightGroup[] {
-  return rows.map((r) =>
-    r.students < MIN_GROUP_SIZE
-      ? { dims: r.dims, students: null, count: null, suppressed: true }
-      : { dims: r.dims, students: r.students, count: r.count, suppressed: false },
+type Row = { dims: Record<string, string | null>; students: number; count: number }
+
+/**
+ * PRD District Insights: no group under 10 students is ever displayed. A
+ * small group is hidden, and so is enough of its context that it cannot be
+ * recovered by subtraction: within every parent group (a row's dimensions
+ * minus one, the total included), a lone hidden cell would equal the parent
+ * (shown by a coarser query) minus its shown siblings, so the smallest shown
+ * sibling is hidden too. Repeats until no parent has exactly one hidden cell.
+ */
+export function suppressSmallGroups(rows: Row[], dims: readonly string[] = rows[0] ? Object.keys(rows[0].dims) : []): InsightGroup[] {
+  const hidden = rows.map((r) => r.students < MIN_GROUP_SIZE)
+  for (let changed = true; changed; ) {
+    changed = false
+    for (const dropped of dims) {
+      const parents = new Map<string, number[]>()
+      rows.forEach((r, i) => {
+        const key = JSON.stringify(dims.filter((d) => d !== dropped).map((d) => r.dims[d] ?? null))
+        parents.set(key, [...(parents.get(key) ?? []), i])
+      })
+      for (const members of parents.values()) {
+        if (members.filter((i) => hidden[i]).length !== 1 || members.length < 2) continue
+        const next = members.filter((i) => !hidden[i]).sort((a, b) => rows[a].students - rows[b].students)[0]
+        hidden[next] = true
+        changed = true
+      }
+    }
+  }
+  return rows.map((r, i) =>
+    hidden[i] ? { dims: r.dims, students: null, count: null, suppressed: true } : { dims: r.dims, students: r.students, count: r.count, suppressed: false },
   )
 }
 
@@ -100,6 +128,7 @@ export const insightsGet = defineOp({
           students: Number(r.students),
           count: Number(r.total),
         })),
+        dims,
       ),
     }
   },

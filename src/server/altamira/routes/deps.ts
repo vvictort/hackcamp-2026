@@ -20,8 +20,14 @@ export type AltamiraRouteDeps = {
   resolveUserId(req: Request, env: Env): Promise<string | null>
   /** AI provider (env ALTAMIRA_AI_PROVIDER; fixture by default). */
   aiProvider(env: Env): AiProvider
-  /** Names and identifiers the AI module must strip before any call. */
+  /**
+   * Base de-identification roster: names no room stores (the school and
+   * district names). Req.ai() adds every user's name and the IEP names of the
+   * students in the call. Tests may add the fictional fixture roster.
+   */
   roster(env: Env): Roster | Promise<Roster>
+  /** Seed for the random review sample; defaults to crypto.randomUUID(). Tests pass a fixed sequence. */
+  sampleSeed?(): string
   /** The single school and district this deployment serves. */
   schoolId(env: Env): string
   districtId(env: Env): string

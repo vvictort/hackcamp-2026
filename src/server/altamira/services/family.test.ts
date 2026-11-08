@@ -49,19 +49,32 @@ describe('voice notes (PRD NFR Consent)', () => {
     expect(countRows(sql, 'data_points')).toBe(KAI.dataPoints.length)
   })
 
-  it('become events and the audio deletion is recorded', () => {
+  it('become events on confirmed objectives only; the op never claims the audio is deleted', () => {
     const sql = studentRoom('sofia')
-    const res = runStudent<{ dataPoints: DataPoint[]; audioDeleted: boolean }>(
-      sql,
-      'voiceNote.process',
-      { studentId: STUDENT_IDS.sofia, audioFileKey: 'audio/2.webm', events: [event(SOFIA.objectives[1].id)] },
-      ACTORS.ea,
-    )
-    expect(res.audioDeleted).toBe(true)
+    const sofia = STUDENT_IDS.sofia
+    const counter = SOFIA.objectives[1]
+    const args = { studentId: sofia, audioFileKey: 'audio/2.webm', events: [event(counter.id)] }
+    // Still proposed: the AI event is skipped, nothing is stored against it.
+    const before = runStudent<{ dataPoints: DataPoint[]; skipped: number }>(sql, 'voiceNote.process', args, ACTORS.ea)
+    expect(before).toEqual({ dataPoints: [], skipped: 1 })
+
+    runStudent(sql, 'objectives.confirm', { studentId: sofia, objectiveId: counter.id, expectedVersion: counter.version }, ACTORS.caseManager)
+    const res = runStudent<{ dataPoints: DataPoint[]; skipped: number }>(sql, 'voiceNote.process', args, ACTORS.ea)
+    expect(res.skipped).toBe(0)
     expect(res.dataPoints[0]).toMatchObject({ value: 2, status: 'pending_review', recorderId: USER_IDS.ea })
     expect(res.dataPoints[0].sourceRef?.startsWith('ea_event:counter:voice-')).toBe(true)
-    expect(sql.get("SELECT row_id FROM audit_log WHERE action = 'voice_notes.audio_deleted'")).toEqual({ row_id: 'audio/2.webm' })
+    expect(sql.get("SELECT row_id FROM audit_log WHERE action = 'voice_notes.audio_deleted'")).toBeUndefined()
     expect(countRows(sql, 'review_queue')).toBe(1)
+
+    // An event whose kind does not fit the metric is skipped, not a failure of the whole note.
+    const timer = { ...event(counter.id), event: { ...event(counter.id).event, kind: 'timer', count: null, durationSeconds: 30 } }
+    expect(runStudent<{ skipped: number }>(sql, 'voiceNote.process', { ...args, events: [timer] }, ACTORS.ea).skipped).toBe(1)
+  })
+
+  it('the deletion is audited by its own op, after the route deleted the file', () => {
+    const sql = studentRoom('sofia')
+    runStudent(sql, 'voiceNote.audioDeleted', { studentId: STUDENT_IDS.sofia, audioFileKey: 'audio/3.webm', processed: false }, ACTORS.ea)
+    expect(sql.get("SELECT row_id FROM audit_log WHERE action = 'voice_notes.audio_deleted'")).toEqual({ row_id: 'audio/3.webm' })
   })
 })
 
@@ -146,6 +159,10 @@ describe('Transition Handoff', () => {
     const selfReg = handoff.packet.goals.find((g) => g.goalId === KAI.goals[1].id)
     expect(selfReg?.trend).toMatch(/^improving/)
     expect(selfReg?.proficiency).toBe('Emerging')
+    // PRD: suggested next goals, one per current goal, from a rule on the confirmed data.
+    expect(handoff.packet.suggestedNextGoals).toHaveLength(handoff.packet.goals.length)
+    const selfRegArea = KAI.goals[1].area
+    expect(handoff.packet.suggestedNextGoals.find((g) => g.startsWith(`${selfRegArea}:`))).toMatch(/raise the goal/)
     expect(runStudent<{ handoff: Handoff }>(sql, 'handoffs.get', { studentId: kai, handoffId: handoff.id }, ACTORS.teacher).handoff.id).toBe(handoff.id)
     expect(() => runStudent(sql, 'handoffs.create', { studentId: kai }, ACTORS.ea)).toThrow(AltamiraError)
   })

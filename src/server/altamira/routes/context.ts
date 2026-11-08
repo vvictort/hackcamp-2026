@@ -7,13 +7,13 @@ import type { AltamiraRoomRpc, RoomOp } from '../contract/ops'
 import { can, type Actor, type CanOptions, type Capability } from '../contract/permissions'
 import { createAltamiraMiddleware, type AltamiraContext, type AltamiraEnv } from '../middleware/auth'
 import { errorResponse, HttpError, httpErrorFromDeny, unwrapOp } from '../middleware/errors'
+import { deidSchoolRoster, deidStudentNames } from '../services/deid'
 import type { SessionDeps } from '../middleware/session'
+import { schoolDate } from '../services/student-common'
 import type { AltamiraRouteDeps } from './deps'
 
 /** Shared plumbing for every route module: middleware, room calls, validation. */
 export type Kit = ReturnType<typeof createKit>
-
-const SCHOOL_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' })
 
 const issues = (error: z.ZodError) =>
   error.issues.map((i) => `${i.path.map(String).join('.') || 'body'}: ${i.message}`).join('; ')
@@ -64,7 +64,7 @@ export class Req {
 
   /** Today's date at the school (BC schools: America/Vancouver), YYYY-MM-DD. */
   today(): string {
-    return SCHOOL_DATE.format(new Date(this.deps.now()))
+    return schoolDate(this.nowIso())
   }
 
   param(name: string): string {
@@ -134,13 +134,33 @@ export class Req {
     return this.run(this.deps.rooms.insights(this.env), op, args)
   }
 
-  /** AI functions on de-identified input (design doc "AI module"). Called outside any room transaction. */
-  async ai(extraStudents: RosterStudent[] = []): Promise<AiFunctions> {
-    const roster = await this.deps.roster(this.env)
+  /**
+   * AI functions on de-identified input (design doc "AI module"; PRD NFR
+   * Privacy). Called outside any room transaction. The roster is built for
+   * this request from real data: every staff and family name in the school
+   * room, and the names in each listed student's IEP versions. A student whose
+   * token appears in an input but who is not listed here makes the call fail closed.
+   */
+  async ai(studentIds: readonly string[]): Promise<AiFunctions> {
+    const base = await this.deps.roster(this.env)
+    const ids = [...new Set(studentIds)]
+    const school = await this.school(deidSchoolRoster, { studentIds: ids })
+    const students: RosterStudent[] = [...base.students]
+    for (const id of ids) {
+      const token = school.tokens[id]
+      if (!token) continue
+      const { names } = await this.student(id, deidStudentNames)
+      students.push(...names.map((n) => ({ token, ...n })))
+    }
     return createAi({
       provider: this.deps.aiProvider(this.env),
-      roster: { ...roster, students: [...roster.students, ...extraStudents] },
+      roster: { students, people: [...base.people, ...school.people.map((displayName) => ({ displayName }))], schools: base.schools },
     })
+  }
+
+  /** Seed for the random review sample: server-generated, never request input (PRD 1B "Confidence"). */
+  sampleSeed(): string {
+    return this.deps.sampleSeed?.() ?? crypto.randomUUID()
   }
 
   /** Validates the response against the contract before it leaves the server. */
