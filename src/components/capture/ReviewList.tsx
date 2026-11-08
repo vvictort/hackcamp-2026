@@ -12,7 +12,7 @@ import { studentLabel } from './StudentSelect'
 
 type Entry = z.output<typeof ReviewQueueResponse>['items'][number]
 
-export function ReviewList() {
+export function ReviewList({ studentId, onChanged }: { studentId?: string; onChanged?: () => void } = {}) {
   const ct = useCt()
   const toast = useToast()
   const { students } = useStudents()
@@ -23,15 +23,16 @@ export function ReviewList() {
   const load = useCallback(() => {
     setFailed(false)
     getReviewQueue()
-      .then((r) => setItems(r.items))
+      .then((r) => setItems(studentId ? r.items.filter((x) => x.studentId === studentId) : r.items))
       .catch(() => setFailed(true))
-  }, [])
+  }, [studentId])
   useEffect(load, [load])
 
   const remove = (e: Entry, msg: string) => {
     setItems((cur) => (cur ?? []).filter((x) => x.item.id !== e.item.id))
     setDone((d) => [...d, { studentId: e.studentId }])
     toast.success(msg)
+    onChanged?.()
   }
   const onError = (err: unknown) => {
     if (err instanceof ApiError && err.status === 409) {

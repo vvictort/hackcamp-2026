@@ -13,12 +13,10 @@ import {
   PROMPT_LEVELS,
   type PromptLevel,
 } from "@/server/altamira/contract/enums";
-import { recordEvent, sendVoiceNote } from "@/lib/altamira/capture-api";
+import { ApiError, recordEvent, sendVoiceNote } from "@/lib/altamira/capture-api";
 import { getCaptureObjectives } from "@/lib/altamira/practice-api";
 import { capture } from "@/i18n/en/capture";
-import { StudentSelect } from "./StudentSelect";
 import { useCt, type CaptureKey } from "./useCt";
-import { useStudents } from "./useStudents";
 
 type Goal = { objective: { id: string }; label: string; metricType: string };
 type Kind = "prompt_level" | "counter" | "timer";
@@ -41,19 +39,15 @@ export function formatClock(totalSeconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function EaPanel() {
+export function EaPanel({ studentId }: { studentId: string }) {
   const ct = useCt();
-  const { students, state, reload } = useStudents();
-  const [studentId, setStudentId] = useState("");
   const [goals, setGoals] = useState<Goal[] | null>(null);
   const [failed, setFailed] = useState(false);
-
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     setGoals(null);
     setFailed(false);
-    if (!studentId) return;
     let live = true;
     // The capture list works for EAs (goal ids, metric and unit, no IEP wording). Nothing else is read here.
     getCaptureObjectives(studentId)
@@ -84,17 +78,12 @@ export function EaPanel() {
     };
   }, [studentId, attempt, ct]);
 
-  if (state === "error" || failed)
+  if (failed)
     return (
       <Card>
         <p role="alert">{ct("capture.common.loadFailed")}</p>
         <div>
-          <Button
-            size="lg"
-            onClick={
-              state === "error" ? reload : () => setAttempt((n) => n + 1)
-            }
-          >
+          <Button size="lg" onClick={() => setAttempt((n) => n + 1)}>
             {ct("capture.common.retry")}
           </Button>
         </div>
@@ -103,24 +92,12 @@ export function EaPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        {state === "ready" && students.length === 0 && (
-          <p>{ct("capture.common.noStudents")}</p>
-        )}
-        <StudentSelect
-          students={students}
-          value={studentId}
-          onChange={setStudentId}
-        />
-      </Card>
-      {studentId && goals === null && (
-        <p role="status">{ct("capture.common.loading")}</p>
-      )}
+      {goals === null && <p role="status">{ct("capture.common.loading")}</p>}
       {goals?.length === 0 && <p>{ct("capture.ea.noGoals")}</p>}
       {goals?.map((g) => (
         <GoalCard key={g.objective.id} studentId={studentId} goal={g} />
       ))}
-      {studentId && <VoiceNote studentId={studentId} />}
+      <VoiceNote studentId={studentId} />
     </div>
   );
 }
@@ -346,8 +323,12 @@ function VoiceNote({ studentId }: { studentId: string }) {
       setStatus({ ok: true, text: msg });
       toast.success(msg);
       setText("");
-    } catch {
-      setStatus({ ok: false, text: ct("capture.ea.voiceFailed") });
+    } catch (err) {
+      const noConsent = err instanceof ApiError && err.code === "consent_required";
+      setStatus({
+        ok: false,
+        text: ct(noConsent ? "capture.ea.voiceNoConsent" : "capture.ea.voiceFailed"),
+      });
     } finally {
       setBusy(false);
     }
