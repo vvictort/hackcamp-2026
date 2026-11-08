@@ -36,7 +36,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
-import { LogoMark } from '../components/LogoMark'
+import { Logo } from '../components/LogoMark'
 import { Seo } from '../components/Seo'
 import { StatusBadge, buttonVariants } from '../components/ui'
 import { APP_NAME } from '../constants'
@@ -44,10 +44,6 @@ import { seo } from '../seo'
 
 /** Stagger an entrance by `step` steps of --stagger (styles.css). */
 const delay = (step: number): CSSProperties => ({ animationDelay: `calc(var(--stagger) * ${step})` })
-
-/** Primary action on an ink surface: inverted so it does not vanish. */
-const lightButton =
-  'inline-flex h-12 items-center justify-center gap-2 rounded-full bg-card px-6 text-body font-semibold text-foreground transition-colors hover:bg-secondary'
 
 const NAV = [
   ['#modules', 'Modules'],
@@ -107,42 +103,33 @@ const FAQ = [
 
 /** Pill with a detached round arrow. One link, one focus stop. */
 function ArrowPill({ to, href, outline = false, children }: { to?: string; href?: string; outline?: boolean; children: ReactNode }) {
-  const cls = 'group inline-flex items-center gap-1 rounded-full'
+  const cls = 'group inline-flex items-center gap-1 rounded-full active:translate-y-px transition-[translate]'
   const body = (
     <>
       <span
-        className={`inline-flex h-12 items-center rounded-full px-6 text-body font-semibold uppercase tracking-wide ${
-          outline ? 'border border-foreground bg-transparent' : 'bg-primary text-primary-foreground shadow-ink'
+        className={`inline-flex h-12 items-center rounded-full px-6 text-body font-semibold uppercase tracking-wide transition-[background-color,box-shadow] ${
+          outline ? 'border border-foreground bg-transparent group-hover:shadow-lift' : 'bg-primary text-primary-foreground shadow-ink group-hover:bg-primary-soft'
         }`}
       >
         {children}
       </span>
       <span
         aria-hidden
-        className={`inline-flex size-12 items-center justify-center rounded-full transition-transform group-hover:translate-x-0.5 ${
-          outline ? 'border border-foreground' : 'bg-primary text-primary-foreground shadow-ink'
+        className={`inline-flex size-12 items-center justify-center rounded-full transition-[background-color,box-shadow] ${
+          outline ? 'border border-foreground group-hover:shadow-lift' : 'bg-primary text-primary-foreground shadow-ink group-hover:bg-primary-soft'
         }`}
       >
-        <ArrowRight className="size-5 -rotate-45" />
+        <ArrowRight className="size-5 -rotate-45 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
       </span>
     </>
   )
   return to ? <Link to={to} className={cls}>{body}</Link> : <a href={href} className={cls}>{body}</a>
 }
 
-function Logo({ inverted = false }: { inverted?: boolean }) {
-  return (
-    <span className="flex items-center gap-2.5 text-h3 font-bold">
-      <LogoMark inverted={inverted} />
-      {APP_NAME}
-    </span>
-  )
-}
-
 function SectionHeader({ id, title, intro }: { id: string; title: string; intro: string }) {
   return (
     <div className="reveal flex max-w-2xl flex-col gap-4">
-      <h2 id={id} className="text-[2rem] leading-[1.05] tracking-[-0.035em] sm:text-display">
+      <h2 id={id} className="text-display-sm sm:text-display">
         {title}
       </h2>
       <p className="text-body-lg text-muted-foreground">{intro}</p>
@@ -166,16 +153,16 @@ function Preview() {
     { who: 'J', text: 'Offer a voice note instead of a written answer', tone: 'success', tag: 'Adaptation' },
   ] as const
   return (
-    <div aria-hidden className="animate-rise relative overflow-hidden rounded-[2rem] bg-ink p-3 shadow-ink sm:p-4" style={delay(3)}>
+    <div aria-hidden className="animate-rise relative overflow-hidden rounded-panel bg-ink p-3 shadow-ink sm:p-4" style={delay(3)}>
       <div className="relative grid gap-3 lg:grid-cols-[1.6fr_1fr]">
-        <div className="flex flex-col gap-4 rounded-3xl bg-card p-5 text-left text-foreground sm:p-6">
+        <div className="flex flex-col gap-4 rounded-xl bg-card p-5 text-left text-foreground sm:p-6">
           <div>
             <p className="text-small font-semibold text-muted-foreground">Lesson Lens</p>
             <p className="text-h2 font-bold">Fractions, grade 4</p>
           </div>
           <ul className="flex flex-col gap-2">
             {rows.map((r, i) => (
-              <li key={r.text} className="animate-rise flex items-center gap-3 rounded-2xl border border-border p-3" style={delay(4 + i)}>
+              <li key={r.text} className="animate-rise flex items-center gap-3 rounded-md border border-border p-3" style={delay(4 + i)}>
                 <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-label font-bold text-primary-foreground">
                   {r.who}
                 </span>
@@ -187,7 +174,7 @@ function Preview() {
             ))}
           </ul>
         </div>
-        <div className="flex flex-col justify-between gap-6 rounded-3xl bg-ink-raised p-5 text-left text-ink-foreground sm:p-6">
+        <div className="flex flex-col justify-between gap-6 rounded-xl bg-ink-raised p-5 text-left text-ink-foreground sm:p-6">
           <div>
             <p className="text-small font-semibold text-ink-muted">Goal progress this term</p>
             <p className="mt-1 text-display font-bold tabular-nums">68%</p>
@@ -234,7 +221,7 @@ function SiteNav() {
         <Link
           to="/"
           aria-label={`${APP_NAME} home`}
-          className="rounded-2xl bg-ink px-4 py-2.5 text-ink-foreground shadow-ink transition-colors hover:bg-ink-raised"
+          className="rounded-2xl bg-ink px-4 py-2.5 text-ink-foreground shadow-ink transition-colors hover:bg-primary-soft"
         >
           <Logo inverted />
         </Link>
@@ -280,20 +267,14 @@ export default function Landing() {
             {/* Soft grid and a pale signal orb behind the headline (decorative; ink text stays 10:1+ on it). */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[40rem] [mask-image:radial-gradient(ellipse_at_center,#000_30%,transparent_70%)]"
-              style={{
-                backgroundImage:
-                  'linear-gradient(rgb(17 17 17 / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(17 17 17 / 0.06) 1px, transparent 1px)',
-                backgroundSize: '56px 56px',
-              }}
+              className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[40rem] bg-grid"
             />
             <div
               aria-hidden
-              className="pointer-events-none absolute left-1/2 top-24 -z-10 size-[34rem] -translate-x-1/2 rounded-full opacity-70 blur-3xl sm:size-[44rem]"
-              style={{ background: 'radial-gradient(circle, #CFC4FF 0%, #E4DDFF 45%, transparent 70%)' }}
+              className="pointer-events-none absolute left-1/2 top-24 -z-10 size-[34rem] -translate-x-1/2 rounded-full opacity-70 blur-3xl sm:size-[44rem] bg-signal-orb"
             />
             <div className="flex max-w-5xl flex-col items-center gap-6">
-              <h1 id="hero-title" className="animate-rise text-[2.75rem] font-medium leading-[1.02] tracking-[-0.045em] sm:text-hero lg:text-[5.5rem]">
+              <h1 id="hero-title" className="animate-rise text-hero-sm font-medium sm:text-hero lg:text-mega">
                 Make the IEP part of every lesson.
               </h1>
               <p className="animate-rise max-w-[52ch] text-body-lg text-foreground/80" style={delay(1)}>
@@ -330,12 +311,12 @@ export default function Landing() {
                 return (
                   <li
                     key={title}
-                    className={`reveal group relative flex flex-col justify-between gap-5 overflow-hidden md:min-h-56 rounded-3xl p-6 transition-shadow ${
+                    className={`reveal relative flex flex-col justify-between gap-5 overflow-hidden md:min-h-56 rounded-xl p-6 ${
                       span === 2 ? 'md:col-span-2' : ''
-                    } ${ink ? 'bg-ink text-ink-foreground shadow-ink' : 'bg-card shadow-raised hover:shadow-lift'}`}
+                    } ${ink ? 'bg-ink text-ink-foreground shadow-ink' : 'bg-card shadow-raised'}`}
                   >
                     <span
-                      className={`relative inline-flex size-11 items-center justify-center rounded-full ${
+                      className={`relative inline-flex size-11 items-center justify-center rounded-md ${
                         ink ? 'bg-ink-foreground text-ink' : 'bg-secondary'
                       }`}
                     >
@@ -360,14 +341,14 @@ export default function Landing() {
             <ol className="grid gap-10 md:grid-cols-3 md:gap-5">
               {STEPS.map((step, i) => (
                 <li key={step.title} className="reveal group flex flex-col gap-5">
-                  <div className="overflow-hidden rounded-3xl shadow-raised">
+                  <div className="overflow-hidden rounded-xl shadow-raised">
                     <img
                       src={step.img}
                       alt={step.alt}
                       loading="lazy"
                       width={1024}
                       height={683}
-                      className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-[1.03]"
+                      className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-103"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -381,9 +362,9 @@ export default function Landing() {
           </Section>
 
           <section id="control" aria-labelledby="control-title" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-8 sm:px-6">
-            <div className="reveal relative grid items-center gap-12 overflow-hidden rounded-[2rem] bg-ink p-8 text-ink-foreground shadow-ink sm:p-12 lg:grid-cols-[1.2fr_1fr] lg:p-16">
+            <div className="reveal relative grid items-center gap-12 overflow-hidden rounded-panel bg-ink p-8 text-ink-foreground shadow-ink sm:p-12 lg:grid-cols-[1.2fr_1fr] lg:p-16">
               <div className="relative flex flex-col gap-8">
-                <h2 id="control-title" className="max-w-[14ch] text-[2.25rem] leading-[1.05] tracking-[-0.035em] sm:text-hero">
+                <h2 id="control-title" className="max-w-[14ch] text-display-sm sm:text-hero">
                   The AI suggests. You decide.
                 </h2>
                 <ul className="flex flex-col gap-3">
@@ -397,13 +378,13 @@ export default function Landing() {
                   ))}
                 </ul>
               </div>
-              <div aria-hidden className="relative flex flex-col gap-4 rounded-3xl bg-card p-6 text-foreground">
+              <div aria-hidden className="relative flex flex-col gap-4 rounded-xl bg-card p-6 text-foreground">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-small font-semibold text-muted-foreground">Suggestion for Sof&iacute;a, math goal</p>
                   <StatusBadge tone="warning">Modification</StatusBadge>
                 </div>
                 <p className="text-body">Use numbers to 20 instead of fractions, with the same hands-on materials as the class.</p>
-                <p className="rounded-2xl bg-muted px-4 py-3 text-small text-muted-foreground">
+                <p className="rounded-md bg-muted px-4 py-3 text-small text-muted-foreground">
                   This changes the learning outcome. Check it against the IEP before approving.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -445,9 +426,9 @@ export default function Landing() {
             <div className="reveal divide-y divide-border border-y border-border">
               {FAQ.map((item) => (
                 <details key={item.q} name="faq" className="group">
-                  <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-5 text-body-lg font-semibold [&::-webkit-details-marker]:hidden">
+                  <summary className="group/faq flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-5 text-body-lg font-semibold [&::-webkit-details-marker]:hidden">
                     {item.q}
-                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-card shadow-raised">
+                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-card shadow-raised transition-shadow group-hover/faq:shadow-lift">
                       <Plus className="size-5 transition-transform group-open:rotate-45" aria-hidden />
                     </span>
                   </summary>
@@ -459,12 +440,12 @@ export default function Landing() {
         </main>
 
         <footer className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
-          <div className="reveal relative flex flex-col items-center gap-8 overflow-hidden rounded-[2rem] bg-ink px-6 py-16 text-center text-ink-foreground shadow-ink">
-            <h2 className="relative max-w-[16ch] text-[2.25rem] leading-[1.05] tracking-[-0.035em] sm:text-hero">
+          <div className="reveal relative flex flex-col items-center gap-8 overflow-hidden rounded-panel bg-ink px-6 py-16 text-center text-ink-foreground shadow-ink">
+            <h2 className="relative max-w-[16ch] text-display-sm sm:text-hero">
               Less paperwork. More teaching.
             </h2>
             <div className="relative flex flex-wrap justify-center gap-3">
-              <Link to="/home" className={lightButton}>
+              <Link to="/home" className={buttonVariants({ variant: 'raised', size: 'lg' })}>
                 Get started
                 <ArrowRight className="size-5" aria-hidden />
               </Link>
