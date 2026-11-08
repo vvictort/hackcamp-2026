@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { altamiraOnError, type AltamiraEnv } from '../middleware/auth'
 import { captureRoutes } from './capture'
 import { createKit } from './context'
+import { demoDayRoutes } from './demo-day'
 import type { AltamiraRouteDeps } from './deps'
 import { familyRoutes } from './family'
 import { lensUsageRoutes } from './lens-usage'
@@ -21,10 +22,12 @@ const genericError = () => new Response(JSON.stringify({ error: { code: 'interna
  * The /api/v1 sub-app (design doc "API routes"). It has no Workers imports,
  * so tests build it with in-memory rooms; routes/index.ts adds the production deps.
  */
-export function createAltamiraApi(deps: AltamiraRouteDeps): Hono<AltamiraEnv> {
+export function createAltamiraApi(deps: AltamiraRouteDeps, options: { internal?: boolean } = {}): Hono<AltamiraEnv> {
   const api = new Hono<AltamiraEnv>()
   const kit = createKit(deps)
   meRoutes(api, kit)
+  // The demo day drives a second copy of this app (without this route) as each role in turn.
+  if (!options.internal) demoDayRoutes(api, kit, (innerDeps) => createAltamiraApi(innerDeps, { internal: true }))
   studentRoutes(api, kit)
   lensUsageRoutes(api, kit)
   lessonPlanRoutes(api, kit)

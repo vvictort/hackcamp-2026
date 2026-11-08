@@ -5,7 +5,9 @@ import type { Actor } from '../contract/permissions'
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
 import type { SqlExecutor } from '../db/sql'
+import { DEMO_PARENT } from '../fixtures/demo-iep-sd23'
 import { MEMBERSHIPS, PARENT_LINKS, USERS, USER_IDS } from '../fixtures/school'
+import { membershipsOf, parentLinksOf } from '../repos/school'
 
 /**
  * Room core: the part of every Altamira Durable Object that does not need the
@@ -40,14 +42,17 @@ export function auditMark(sql: SqlExecutor): number {
 export const DEV_ROLES = ['case_manager', 'teacher', 'ea', 'parent', 'district_lead', 'school_admin'] as const
 export type DevRole = (typeof DEV_ROLES)[number]
 
-/** Fixture user whose access each demo role copies. */
-const DEV_ROLE_USER: Record<DevRole, string> = {
-  case_manager: USER_IDS.caseManager,
-  teacher: USER_IDS.teacher,
-  ea: USER_IDS.ea,
-  parent: USER_IDS.parentKai,
-  district_lead: USER_IDS.districtLead,
-  school_admin: USER_IDS.schoolAdmin,
+/**
+ * Fixture users whose access each demo role copies. The parent role also copies the fictional parent of the
+ * "Run full demo day" student, who exists only after that button ran.
+ */
+const DEV_ROLE_USERS: Record<DevRole, string[]> = {
+  case_manager: [USER_IDS.caseManager],
+  teacher: [USER_IDS.teacher],
+  ea: [USER_IDS.ea],
+  parent: [USER_IDS.parentKai, DEMO_PARENT.id],
+  district_lead: [USER_IDS.districtLead],
+  school_admin: [USER_IDS.schoolAdmin],
 }
 
 const ROLE_TABLE = 'CREATE TABLE IF NOT EXISTS dev_role (user_id TEXT PRIMARY KEY, role TEXT NOT NULL)'
@@ -71,20 +76,22 @@ export const devRoleSwitch = defineOp({
   run(sql, args, actor) {
     const uid = actor.userId
     if (args.role) {
-      const source = DEV_ROLE_USER[args.role]
+      const sources = DEV_ROLE_USERS[args.role]
+      const source = sources[0]
       const at = new Date().toISOString()
       if (!sql.get('SELECT 1 FROM users WHERE id = ?', uid)) {
         const name = USERS.find((u) => u.id === source)?.displayName ?? 'Demo user'
         insertRow(sql, 'users', toRow({ id: uid, displayName: name, createdAt: at }))
       }
+      // Copy the live rows of the fixture users (they include students added by the demo day); the constants cover a room that was never seeded.
+      const liveMemberships = sources.flatMap((s) => membershipsOf(sql, s))
+      const liveLinks = sources.flatMap((s) => parentLinksOf(sql, s))
+      const memberships = liveMemberships.length ? liveMemberships : MEMBERSHIPS.filter((x) => x.userId === source)
+      const links = liveLinks.length || liveMemberships.length ? liveLinks : PARENT_LINKS.filter((x) => x.parentUserId === source)
       sql.run('DELETE FROM memberships WHERE user_id = ?', uid)
       sql.run('DELETE FROM parent_links WHERE parent_user_id = ?', uid)
-      for (const m of MEMBERSHIPS.filter((x) => x.userId === source)) {
-        insertRow(sql, 'memberships', toRow({ ...m, id: crypto.randomUUID(), userId: uid, createdAt: at }))
-      }
-      for (const p of PARENT_LINKS.filter((x) => x.parentUserId === source)) {
-        insertRow(sql, 'parent_links', toRow({ ...p, id: crypto.randomUUID(), parentUserId: uid, createdAt: at }))
-      }
+      for (const m of memberships) insertRow(sql, 'memberships', toRow({ ...m, id: crypto.randomUUID(), userId: uid, createdAt: at }))
+      for (const p of links) insertRow(sql, 'parent_links', toRow({ ...p, id: crypto.randomUUID(), parentUserId: uid, createdAt: at }))
       sql.run(ROLE_TABLE)
       sql.run('INSERT INTO dev_role (user_id, role) VALUES (?, ?) ON CONFLICT (user_id) DO UPDATE SET role = excluded.role', uid, args.role)
       appendAudit(sql, { actorId: uid, action: 'dev.role', tableName: 'memberships', rowId: uid, after: { role: args.role }, at })

@@ -37,7 +37,7 @@ Six roles: `case_manager`, `teacher`, `ea`, `parent`, `district_lead`, `school_a
 
 ## Routes
 
-Role set: `ea`, `teacher`, `case_manager`, `parent`, `district_lead`, `school_admin`. Dev routes (`POST /dev/seed`, `GET /dev/roles`, `POST /dev/role`) exist only when `ALTAMIRA_DEV_SEED === 'true'`, otherwise 404.
+Role set: `ea`, `teacher`, `case_manager`, `parent`, `district_lead`, `school_admin`. Dev routes (`POST /dev/seed`, `POST /dev/demo-day`, `GET /dev/roles`, `POST /dev/role`) exist only when `ALTAMIRA_DEV_SEED === 'true'`, otherwise 404.
 
 Me and admin: `GET /me`, `/me/day-review`, `/me/summaries/pending`, `/me/weekly` (case manager weekly summary), `/admin/schools/:sid/memberships` (school administrator), `/districts/:id/insights` (district lead, anonymized).
 

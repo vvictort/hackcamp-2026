@@ -53,19 +53,26 @@ const trendWord = (values: number[]) => {
   return ratio > 0.05 ? 'up' : ratio < -0.05 ? 'down' : 'steady'
 }
 
+/** A goal's wording is long ("By June 2027, the student will ..."): keep its first few words so the draft stays inside the word limits. */
+const label = (objective: string) => {
+  const core = objective.replace(/^by \w+ \d{4},?\s*/i, '').replace(/^(after [^,]*, )?the student will /i, '')
+  const words = core.split(/\s+/).filter(Boolean)
+  return words.length > 7 ? `${words.slice(0, 7).join(' ')}...` : core
+}
+
 function fixtureDaily(i: z.output<typeof DraftDailyInput>) {
   const who = i.studentToken
   if (i.dataPoints.length === 0) {
     return { text: `No confirmed data was logged for ${who} on ${i.date}.`, highlights: [], citations: [...i.events.map((e) => e.id), ...i.notes.map((n) => n.id)] }
   }
   const shown = i.dataPoints.slice(0, SHOWN)
-  const lines = shown.map((d) => `${d.objective}: ${d.value}${d.promptLevel ? ` (${d.promptLevel})` : ''}`)
+  const lines = shown.map((d) => `${label(d.objective)}: ${d.value}${d.promptLevel ? ` (${d.promptLevel})` : ''}`)
   const more = i.dataPoints.length > shown.length ? ` ${i.dataPoints.length - shown.length} more entries are in the log.` : ''
   const ev = i.events.length ? ` ${i.events.length} event${i.events.length === 1 ? ' was' : 's were'} logged.` : ''
   const text = `On ${i.date}, ${who} had ${i.dataPoints.length} confirmed entr${i.dataPoints.length === 1 ? 'y' : 'ies'}. ${lines.join('; ')}.${ev}${more}`
   return {
     text,
-    highlights: shown.slice(0, 3).map((d) => `${d.objective}: ${d.value}${d.promptLevel ? ` with ${d.promptLevel}` : ''}`),
+    highlights: shown.slice(0, 3).map((d) => `${label(d.objective)}: ${d.value}${d.promptLevel ? ` with ${d.promptLevel}` : ''}`),
     citations: [...i.dataPoints.map((d) => d.id), ...i.events.map((e) => e.id), ...i.notes.map((n) => n.id)],
   }
 }
@@ -78,7 +85,7 @@ function fixtureWeekly(i: z.output<typeof DraftWeeklyInput>) {
     const big = drops.some((p) => p.vals[0] !== 0 && (p.vals[0] - p.vals[p.vals.length - 1]) / Math.abs(p.vals[0]) >= 0.2)
     const flag = withData.length === 0 ? ('watch' as const) : big ? ('needs_attention' as const) : drops.length ? ('watch' as const) : ('on_track' as const)
     const text = withData.length
-      ? `${withData.slice(0, 3).map((p) => `${p.o.objective} ${p.w} (${num(p.vals[0])} to ${num(p.vals[p.vals.length - 1])})`).join('; ')}.${s.notableEvents.length ? ` ${s.notableEvents.length} notable event${s.notableEvents.length === 1 ? '' : 's'}.` : ''}`
+      ? `${withData.slice(0, 3).map((p) => `${label(p.o.objective)} ${p.w} (${num(p.vals[0])} to ${num(p.vals[p.vals.length - 1])})`).join('; ')}.${s.notableEvents.length ? ` ${s.notableEvents.length} notable event${s.notableEvents.length === 1 ? '' : 's'}.` : ''}`
       : 'No confirmed data this week.'
     return { studentRef: s.studentRef, text, flag }
   })
@@ -94,7 +101,8 @@ function fixtureMonthly(i: z.output<typeof DraftMonthlyFamilyInput>) {
     .slice(0, 3)
     .map((o) => {
       const w = trendWord(o.points.map((p) => p.value))
-      return w === 'up' ? `${o.objective} is growing` : w === 'down' ? `${o.objective} had some harder days, and the team is helping` : `${o.objective} is steady`
+      const name = label(o.objective)
+      return w === 'up' ? `${name} is growing` : w === 'down' ? `${name} had some harder days, and the team is helping` : `${name} is steady`
     })
   const body = lines.length ? `This month, ${lines.join('. ')}.` : 'There was not enough new information to report progress this month.'
   const hi = i.highlights.length ? ` Highlights: ${i.highlights.slice(0, 3).join('; ')}.` : ''

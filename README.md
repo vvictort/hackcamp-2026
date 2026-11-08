@@ -118,7 +118,9 @@ Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fi
 
 Demo data is dated relative to the moment you press the button, so the demo has a current day's plans, captures and progress on any day. Pressing **Load demo data** a second time answers "already seeded". To start over, use **Reset demo data** on Home (with a confirm dialog): it wipes the demo rows and loads them again dated from today. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
 
-The demo controls (Load and Reset demo data, **Act as**) and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true` in the secrets config. They answer 404 otherwise, and the flag must never be set in a deploy.
+**Run full demo day** (same panel) adds one new fictional student (grade 3, autism, full-time EA, Punjabi-speaking family; the IEP is `docs/demo/sample-iep-sd23.txt`) and runs a whole school day through the real `/api/v1` routes, acting as the parent, case manager, teacher, EA, school administrator and district lead in turn: consent, IEP import and objective confirmation, a tailored lesson plan, EA capture and end of day review, daily, weekly and monthly summaries with the approval rule checked, an IEP change ticket, and the district view. It uses live Gemini when `GEMINI_API_KEY` is set and the fixture provider otherwise, takes up to a minute with live AI, and lists each step with a link to the page that shows its result. A failed step is shown and the rest still run. Each press adds another student. The API call is `POST /api/v1/dev/demo-day`.
+
+The demo controls (Load and Reset demo data, Run full demo day, **Act as**) and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true` in the secrets config. They answer 404 otherwise, and the flag must never be set in a deploy.
 
 ### Daily demo flow
 
