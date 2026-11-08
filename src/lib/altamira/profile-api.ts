@@ -54,9 +54,19 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown, tim
   return data as T
 }
 
-export const IMPORT_TIMEOUT_MS = 45_000
+/** Above the server's 35 s model-chain budget, plus PDF reading and storing. */
+export const IMPORT_TIMEOUT_MS = 60_000
 
-/** IEP import with a 45 s client timeout so a stuck model call shows an error. */
+/** PDF text layer as plain text, so it can sit beside the parsed result. */
+export const extractIepText = (id: string, input: Extract<IepImportInput, { sourceKind: 'pdf' }>) =>
+  call<{ text: string }>(
+    'POST',
+    `/students/${seg(id)}/iep/source-text`,
+    { sourceKind: 'pdf', file: { fileKey: input.fileName, contentType: input.contentType, bytesBase64: input.bytesBase64 } },
+    20_000,
+  )
+
+/** IEP import with a 60 s client timeout so a stuck model call shows an error. */
 export const importIepTimed = (id: string, input: IepImportInput) =>
   call<IepImportResponse>(
     'POST',
