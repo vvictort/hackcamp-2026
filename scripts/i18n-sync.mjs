@@ -6,7 +6,8 @@
  * instantly with no AI call.
  *
  *   npm run dev            (in another terminal; you must be signed in to DeepSpace)
- *   node scripts/i18n-sync.mjs [--base http://localhost:5173] [--all | --stale] [es fr pa ...]
+ *   node scripts/i18n-sync.mjs [--base http://localhost:5173] [--all | --stale | --rebuild] [es fr pa ...]
+ *   --rebuild  ignore the stored copy and translate every string again (local dev server only)
  *
  * Default is --stale: only languages whose file is missing or behind the
  * English text. Re-run it after changing src/i18n/en/*.ts, then commit.
@@ -47,7 +48,7 @@ async function current(code) {
 let expected = null
 async function sync(code) {
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const res = await fetch(`${base}/api/i18n/${code}`, { signal: AbortSignal.timeout(280_000) }).catch(() => null)
+    const res = await fetch(`${base}/api/i18n/${code}${flag('--rebuild') ? '?rebuild=1' : ''}`, { signal: AbortSignal.timeout(280_000) }).catch(() => null)
     if (res?.ok) {
       const body = await res.json()
       expected = body.v

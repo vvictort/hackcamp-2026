@@ -131,8 +131,9 @@ async function build(env: Env, lang: string, name: string, existing: Catalogue, 
   )
   if (Object.keys(out).length > Object.keys(existing).length) {
     const now = sourceHashes()
-    const src = Object.fromEntries(Object.keys(out).filter((k) => k in now).map((k) => [k, now[k]]))
-    const value = JSON.stringify({ v: catalogueVersion(), keep: hashText(KEEP), src, messages: out })
+    const live = Object.fromEntries(Object.entries(out).filter(([k]) => k in now)) // drop strings that left the catalogue
+    const src = Object.fromEntries(Object.keys(live).map((k) => [k, now[k]]))
+    const value = JSON.stringify({ v: catalogueVersion(), keep: hashText(KEEP), src, messages: live })
     if (recordId) await room(env, 'records.update', { collection: 'settings', recordId, data: { value } })
     else await room(env, 'records.create', { collection: 'settings', data: { key: `i18n:${lang}`, value } })
   }
@@ -149,7 +150,9 @@ export function registerI18nRoutes(app: Hono<AppContext>): void {
     try {
       const cached = await readCache(c.env, code)
       // Reuse every stored translation whose English did not change; only the rest is translated.
-      const current = cached.value ? freshMessages(cached.value) : {}
+      // ?rebuild=1 (local dev only) ignores the stored copy and translates everything again.
+      const local = ['localhost', '127.0.0.1'].includes(new URL(c.req.url).hostname)
+      const current = cached.value && !(local && c.req.query('rebuild') === '1') ? freshMessages(cached.value) : {}
       const have = (m: Catalogue) => Object.keys(en).filter((k) => m[k]).length
       let messages = current
       if (have(current) < total) {
@@ -165,8 +168,9 @@ export function registerI18nRoutes(app: Hono<AppContext>): void {
       // A partial result is served (English fills the gaps) but not cached by browsers, so the next request completes it.
       c.header('Cache-Control', done === total ? 'public, max-age=3600' : 'no-store')
       const now = sourceHashes()
-      const src = Object.fromEntries(Object.keys(messages).filter((k) => k in now).map((k) => [k, now[k]]))
-      return c.json({ lang: code, v: catalogueVersion(), keep: hashText(KEEP), src, complete: done === total, messages })
+      const live = Object.fromEntries(Object.entries(messages).filter(([k]) => k in now))
+      const src = Object.fromEntries(Object.keys(live).map((k) => [k, now[k]]))
+      return c.json({ lang: code, v: catalogueVersion(), keep: hashText(KEEP), src, complete: done === total, messages: live })
     } catch (err) {
       console.error('[i18n]', code, err instanceof Error ? err.message : err)
       return c.json({ error: 'Translation unavailable' }, 503)
