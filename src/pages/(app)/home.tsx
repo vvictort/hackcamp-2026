@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
-import { ArrowUpRight, CircleCheck, FileText, FlaskConical, MoonStar, UsersRound } from 'lucide-react'
+import { ArrowUpRight, CircleCheck, CircleX, FileText, FlaskConical, MoonStar, UsersRound } from 'lucide-react'
 import {
   Button,
   Card,
@@ -38,6 +38,7 @@ import { useLang } from '@/i18n'
 import { T } from '@/i18n/rich'
 import type { MessageKey } from '@/i18n/en'
 import { apiPost } from '@/lib/altamira/api'
+import { runDemoDay, type DemoDayResult } from '@/lib/altamira/demo-day-api'
 import { START_PATH } from '@/lib/altamira/RoleGate'
 import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
 import {
@@ -227,14 +228,47 @@ function CaseManagerHome() {
   )
 }
 
+/** Result of "Run full demo day": one row per step with an icon and a word, so colour is never the only signal. */
+function DemoDayResults({ result }: { result: DemoDayResult }) {
+  const { t } = useLang()
+  const okCount = result.steps.filter((s) => s.ok).length
+  return (
+    <div className="flex flex-col gap-2" data-testid="demo-day-results">
+      <p role="status" className="text-label font-semibold">
+        {t('app.demoDay.title')}: {t('app.demoDay.summary', { ok: okCount, total: result.steps.length })}
+      </p>
+      <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+        {result.steps.map((s, i) => (
+          <li key={i} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-body">
+            <span className={`flex w-20 shrink-0 items-center gap-1 font-semibold ${s.ok ? '' : 'text-destructive-strong'}`}>
+              {s.ok ? <CircleCheck className="size-4" aria-hidden /> : <CircleX className="size-4" aria-hidden />}
+              {s.ok ? t('app.demoDay.done') : t('app.demoDay.failed')}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="font-semibold">{s.role === 'system' ? t('app.demoDay.system') : t(ROLE_LABEL[s.role])}</span>
+              {': '}
+              {s.action}
+              <span className="block text-muted-foreground">{s.detail}</span>
+            </span>
+            <Link to={s.page} className={linkClass}>
+              {t('app.demoDay.open')}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export default function HomePage() {
   const { user } = useAuthProfileReady({ requireUser: true })
   const { error: toastError, success } = useToast()
   const { t } = useLang()
-  const { role, devEnabled, me, loading, seed, switchRole } = useAltamiraMe()
+  const { role, devEnabled, me, loading, seed, switchRole, refresh } = useAltamiraMe()
   const firstName = user?.name?.split(' ')[0] ?? ''
   const [busy, setBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [demoDay, setDemoDay] = useState<DemoDayResult | null>(null)
   const seeded = !!me && me.memberships.length + me.parentOf.length > 0
   const staffRole = role === 'ea' || role === 'teacher'
   const today = useToday(!!me && seeded && staffRole, role)
@@ -272,6 +306,19 @@ export default function HomePage() {
             <Button disabled={busy} onClick={() => void run(seed, t('app.home.seeded'))}>
               {t('app.home.loadDemo')}
             </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  setDemoDay(null)
+                  setDemoDay(await runDemoDay())
+                  await refresh()
+                })
+              }
+            >
+              {t('app.demoDay.run')}
+            </Button>
             <Button variant="outline" disabled={busy || !seeded} onClick={() => setConfirmReset(true)}>
               {t('app.home.resetDemo')}
             </Button>
@@ -293,6 +340,13 @@ export default function HomePage() {
               </Select>
             </div>
           </div>
+          <p className="text-body text-muted-foreground">{t('app.demoDay.hint')}</p>
+          {busy && !demoDay && (
+            <p role="status" className="flex items-center gap-3 text-body text-muted-foreground">
+              <Spinner /> {t('app.demoDay.running')}
+            </p>
+          )}
+          {demoDay && <DemoDayResults result={demoDay} />}
         </Card>
       )}
 
