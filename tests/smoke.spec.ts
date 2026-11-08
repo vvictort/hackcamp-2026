@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { test as authed, expect as authedExpect, loadAllTestAccounts } from 'deepspace/testing'
+import { actAs, ensureSeed, navHrefs, NAV_BY_ROLE, REMOVED_PATHS, type DemoRole } from './helpers/roles'
 import { captureConsoleErrors } from './helpers/errors'
 
 /**
@@ -68,4 +70,22 @@ test.describe('Smoke tests', () => {
     await waitForApp(page)
     await expect(page.locator('text=404')).toBeVisible()
   })
+})
+
+authed.describe('Navigation per role', () => {
+  authed.skip(loadAllTestAccounts().length < 1, 'Needs 1 usable test account')
+
+  for (const role of Object.keys(NAV_BY_ROLE) as DemoRole[]) {
+    authed(`${role} sees only its own nav links`, async ({ users }) => {
+      const [u] = await users(1)
+      await u.page.goto('/home')
+      await authedExpect(u.page.getByTestId('app-navigation')).toBeVisible({ timeout: 15000 })
+      await ensureSeed(u.page)
+      await actAs(u.page, role, role === 'parent' ? '/family' : '/home')
+      const expected = [...NAV_BY_ROLE[role]].sort()
+      await authedExpect.poll(() => navHrefs(u.page), { timeout: 15000 }).toEqual(expected)
+      const hrefs = await navHrefs(u.page)
+      for (const gone of REMOVED_PATHS) authedExpect(hrefs).not.toContain(gone)
+    })
+  }
 })

@@ -1,32 +1,46 @@
 # Altamyra
 
-A living IEP for BC grade-school teachers.
+A living IEP for designated students in BC public schools, who always have an education assistant (EA).
 
-In British Columbia, every student with an Individual Education Plan (IEP) needs adapted lessons, ongoing evidence of progress, and goal-based progress reports. Teachers do this by hand, after hours. Altamyra links each lesson to every student's IEP goals, collects progress evidence as teachers teach, and drafts the reports for the teacher to review.
+Teachers and EAs adapt every lesson to each student's IEP goals and keep a daily record of progress, mostly after hours. Altamyra turns that into one short daily loop and drafts the summaries, so people only review and approve.
 
 Built at HackCamp 2026.
 
-## What it does
+## The daily loop
 
-Nine modules connect the plan, the teaching, the evidence and the report:
+1. The **teacher** uploads the lesson plan, reviews the proposed changes per student (Lesson Lens) and approves the tailored lesson plan.
+2. The **EA** sees the approved plan for each assigned child on opening the app.
+3. The EA teaches. During the day the EA (and the teacher if needed) captures observations: photographed coded sheets, video, typed notes and events (prompt levels, counters, timers, voice notes). Each AI-scored capture is confirmed or corrected by whoever made it.
+4. At the end of the day the EA goes through each child they helped, one by one, in a short **End of day review** that completes that day's record.
 
-| Module | Purpose |
+### Summaries
+
+| Summary | Audience |
 | --- | --- |
-| Student Profile | Each IEP structured like the BC Competency-Based IEP; never overwritten |
-| Lesson Lens | Suggested adaptations per student for a lesson, tagged to the IEP goal they serve |
-| Adapt/Modify Guardrail | Labels every suggestion as an adaptation or a modification, with a warning on modifications |
-| Pulse | A tap or voice note after class, tagged to IEP goals |
-| Progress Drafts | Goal-by-goal reports drafted from evidence, every sentence linked to its source |
-| Team and Today View | A shared timeline, and a one-page plan for EAs and substitutes (QR code, no login) |
-| Transition Handoff | An end-of-term summary for the next classroom |
-| Family Bridge | Plain-language summaries in the family's home language, sent only after approval |
-| District Insights | Anonymized goal-progress trends; small groups are never shown |
+| Daily | EA and teacher |
+| Weekly | Case manager (whole caseload) |
+| Monthly | Parent or guardian (in the family's language, with audio) and district lead (anonymized aggregates, groups under 10 hidden) |
 
-Who uses it: classroom teachers (primary), resource/case-manager teachers, education assistants, substitutes, families (read-only) and district inclusive-education leads. Students have no screen in v1.
+Only the EA and the teacher can view drafts, edit and approve summaries. The EA or the teacher approves the monthly summary. No other role edits any summary.
+
+**AI approval rule:** anything written or edited by AI (proposed lesson changes, tailored plans, AI-scored captures, summaries, translations, audio scripts) is a draft that only the EA or teacher sees until one of them approves it. The backend enforces this, not just the screens.
+
+### IEP change tickets
+
+The case manager imports an IEP and confirms its measurable objectives. Later changes go through a change ticket the case manager submits. The school administrator reviews it and applies or declines it.
+
+### Roles
+
+- **EA** (assigned students): full IEP, original / proposed / tailored lesson plans, capture, end-of-day review, progress timeline, monthly approval.
+- **Teacher** (own classes): the same, plus add and edit lesson plans, and a flag for students without a plan today.
+- **Case manager** (caseload): import and view IEPs, submit change tickets, view lesson plans and progress, weekly summary.
+- **Parent or guardian** (own child): the monthly summary, and consent for voice notes and videos.
+- **District lead**: the monthly anonymized district summary only.
+- **School administrator**: reviews IEP change tickets and assigns roles.
 
 ### Principles the product holds to
 
-- The AI suggests; a person approves every change, family message and report.
+- The AI suggests; an EA or teacher approves before anyone else sees it.
 - MyEducation BC stays the legal IEP record. Altamyra is the working layer around it.
 - Student names are removed before anything reaches an AI model.
 - Data is stored in Canada. No real student data before district privacy approval.
@@ -34,16 +48,7 @@ Who uses it: classroom teachers (primary), resource/case-manager teachers, educa
 
 ### Current state
 
-Working in the app today:
-
-- **Landing page** with Lenis smooth scrolling and light, CSS-only motion.
-- **Sign-in** (Google or GitHub first; email for existing accounts) and a **four-stage sign-up** (account, about you, school and language, a consent step for fictional or de-identified data only).
-- **Dashboard** from the `/api/v1` backend: Pulse as goal data coverage (fresh, stale, data needed), today's schedule (Coming up) and the weekly digest. Dev-only demo controls load fictional data and switch roles.
-- **Lesson Lens**, powered by an AI agent on Maritime: **Get suggestions** on any class, then approve or reject each adaptation or modification (see [Lesson Lens on Maritime](#lesson-lens-on-maritime)).
-- **Settings**: profile, school and position, preferences, text size and signed-in devices (sign out per device).
-- **36 interface languages** with a picker on the landing page, auth pages, dashboard and Settings.
-
-Still to come: the remaining modules described on the landing page (Pulse capture, Progress Drafts generation, Team and Today View, Transition Handoff, Family Bridge, District Insights). The app uses fictional data only until a district privacy approval.
+Everything runs in a local demo on fictional data only. **Settings** (profile, preferences, text size, signed-in devices) and **36 interface languages** are available to every role. Lesson Lens is powered by an AI agent on Maritime (see [Lesson Lens on Maritime](#lesson-lens-on-maritime)).
 
 ## Tech stack
 
@@ -78,7 +83,7 @@ src/
     index.tsx             Landing page (static, prerendered, no providers)
     _app.tsx              Root shell
     (app)/                Dynamic app routes (mounts auth and data providers)
-      home.tsx              Teacher dashboard
+      home.tsx              Role home
       sign-in.tsx, sign-up.tsx
       (protected)/          Routes that require sign-in (Settings, API status)
   components/
@@ -109,17 +114,17 @@ Create a secrets config named `avi-local` (any name works; use it with `--secret
 npx deepspace dev start --host 127.0.0.1 --port 5173 --secrets-config avi-local
 ```
 
-Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fictional school, three students, IEPs and progress data). Use **Act as** to switch between case manager, teacher, EA, parent, student and district lead; the navigation and the data follow the role.
+Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fictional school, three students, IEPs, lesson plans and progress data). Use **Act as** to switch between EA, teacher, case manager, parent/guardian, district lead and school administrator; the navigation and the data follow the role.
 
-Demo data is dated relative to the moment you press the button, so Home shows a mix of Fresh, Stale and Data needed goals, a weekly digest, ranked "What works" strategies and Coming up items on any day. **Load demo data** works once per local database; to start over, stop the server and delete `.wrangler/state`, then start again. **Act as: Student** links you to the consented demo student so a practice session can start.
+Demo data is dated relative to the moment you press the button, so the demo has a current day's plans, captures and progress on any day. **Load demo data** works once per local database; to start over, stop the server and delete `.wrangler/state`, then start again.
 
 The demo seed and the role switcher appear only with `ALTAMIRA_DEV_SEED=true` in the secrets config and are never on in a deploy.
 
 The demo controls and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`. They answer 404 otherwise, and the flag must never be set in a deploy.
 
-On Home, "Reset demo data" (with a confirm dialog) wipes the demo rows and loads them again dated from today, so Pulse shows Fresh, Stale and Data needed goals again. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
+On Home, "Reset demo data" (with a confirm dialog) wipes the demo rows and loads them again dated from today, so the data is dated from today again. The API call is `POST /api/v1/dev/seed` with `{"reset": true}`.
 
-Accessibility check (axe-core on Home, Students, a student profile, Lesson Lens, Capture, Review, EA, Drafts, Family and Insights; fails on serious or critical issues). It needs one test account (`npx deepspace test accounts list`; create one with `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`) and the `avi-local` secrets config so the demo seed is available:
+Accessibility check (axe-core on each role's screens: EA and teacher Home, Students, a student, Capture, Progress, Summaries and End of day; case manager Home, Students, Progress and Summaries; parent Family; district lead Insights; school administrator Change tickets and Roles. It switches roles with the dev role switch and fails on serious or critical issues). It needs one test account (`npx deepspace test accounts list`; create one with `npx deepspace test accounts create --email <name>@deepspace.test --name "<name>" --password-stdin`) and the `avi-local` secrets config so the demo seed is available:
 
 ```sh
 npx deepspace test run tests/a11y/axe.spec.ts --port 5197 --secrets-config avi-local

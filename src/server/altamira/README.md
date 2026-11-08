@@ -37,19 +37,19 @@ Six roles: `case_manager`, `teacher`, `ea`, `parent`, `district_lead`, `school_a
 
 ## Routes
 
-Me and admin: `GET /me`, `GET /me/coming-up`, `GET|POST /admin/schools/:id/memberships` (school administrator), `GET /districts/:id/insights`. Dev (only when `ALTAMIRA_DEV_SEED === 'true'`, otherwise 404): `POST /dev/seed`, `GET /dev/roles`, `POST /dev/role` (six roles).
+Role set: `ea`, `teacher`, `case_manager`, `parent`, `district_lead`, `school_admin`. Dev routes (`POST /dev/seed`, `GET /dev/roles`, `POST /dev/role`) exist only when `ALTAMIRA_DEV_SEED === 'true'`, otherwise 404.
 
-Students: `GET /students/:id` (full read-only IEP), `POST /students/:id/iep/import`, `POST /students/:id/iep/source-text`, `POST /students/:id/iep/:version/confirm`, `GET /students/:id/objectives`, `POST /objectives/:oid/confirm|flag`.
+Me and admin: `GET /me`, `/me/day-review`, `/me/summaries/pending`, `/me/weekly` (case manager weekly summary), `/admin/schools/:sid/memberships` (school administrator), `/districts/:id/insights` (district lead, anonymized).
 
-Lesson Lens: `/lens/*` approvals and usage (`routes/lens-usage.ts`), `GET /students/:id/lens-usage`.
+Lesson plans: `/lesson-plans/today`, `/students/:id/lesson-plans`, `/lesson-plans/:id` and `/lesson-plans/:id/approve` (original, proposed changes, tailored; teacher approves).
 
-Capture: `POST /captures/photos`, `GET /captures/:batchId`, `POST /captures/sample-sheet` (dev), `GET /students/:id/capture-objectives`, `POST /students/:id/events`, `POST /students/:id/voice-notes` (403 `consent_required` when the parent's voice-note consent is off), `GET /review-queue`, `POST /review-queue/:rid/confirm`, `POST /data-points/:dpid/correct`.
+IEP tickets: `/students/:id/tickets` (case manager submits), `/tickets`, `/tickets/:id/apply`, `/tickets/:id/decline` (school administrator).
 
-Progress: `GET /students/:id/timeline`, `/goals/:gid/status`, `/goals/:gid/aimline`, `/what-works`, `/data-points/:dpid/source`, `/live`, `POST /goals/:gid/proficiency`.
+Capture and days: `/students/:id/notes`, `/students/:id/videos`, `/students/:id/days`, `/students/:id/days/:date`, `/students/:id/days/:date/complete`.
 
-Summaries and family: `GET /students/:id/summaries`, `GET /family/:id/summaries`, `POST /family-summaries/:fsid/approve`, `PUT /family/:id/consents`, `POST /tts`.
+Summaries: `/students/:id/summaries`, `/students/:id/summaries/generate`, `/summaries/:id`, `/summaries/:id/approve`, `/family/:id/summaries` (approved only).
 
-Removed (no route, op, table or test): student mode and sessions, teacher proposals, Progress Drafts, parent input, substitute Today View links, Transition Handoff, the decision-rule digest (`/me/digest` and its weekly job). Migrations drop their tables (`db/schema/student.ts` v3, `db/schema/school.ts` v2).
+Removed (no route, op, table or test): student mode and sessions, teacher proposals, Progress Drafts, parent input, substitute Today View links, Transition Handoff, the decision-rule digest (replaced by the case manager weekly summary). Migrations drop their tables (`db/schema/student.ts` v3, `db/schema/school.ts` v2).
 
 ## Execution model
 
