@@ -13,12 +13,7 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import {
-  armCronRoom,
-  CronRoom,
-  RecordRoom,
-  workerErrorHandler,
-} from 'deepspace/worker'
+import { armCronRoom, CronRoom, RecordRoom, workerErrorHandler } from 'deepspace/worker'
 import type { DOBindings, DOManifest } from 'deepspace/worker'
 import { registerAgent } from './src/server/ai/agent.js'
 import { buildTools } from './src/server/ai/tools.js'
