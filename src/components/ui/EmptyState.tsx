@@ -12,7 +12,6 @@ interface EmptyStateProps extends Omit<ComponentProps<'div'>, 'title'> {
   title: string
   description?: string
   action?: Action
-  secondaryAction?: Action
 }
 
 export function EmptyState({
@@ -20,7 +19,6 @@ export function EmptyState({
   title,
   description,
   action,
-  secondaryAction,
   className,
   ...props
 }: EmptyStateProps) {
@@ -38,14 +36,9 @@ export function EmptyState({
       {description && (
         <p className="mt-2 max-w-sm text-body text-muted-foreground">{description}</p>
       )}
-      {(action || secondaryAction) && (
+      {action && (
         <div className="mt-5 flex items-center gap-2">
-          {action && <Button onClick={action.onClick}>{action.label}</Button>}
-          {secondaryAction && (
-            <Button variant="ghost" onClick={secondaryAction.onClick}>
-              {secondaryAction.label}
-            </Button>
-          )}
+          <Button onClick={action.onClick}>{action.label}</Button>
         </div>
       )}
     </div>

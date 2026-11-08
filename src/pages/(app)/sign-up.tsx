@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useAuth, useMutations, useQuery, useUser } from 'deepspace'
 import { ChevronLeft, CircleAlert } from 'lucide-react'
 import {

@@ -13,9 +13,6 @@ import { cn } from '@/lib/utils'
 import { buttonVariants } from './Button'
 
 const Dialog = DialogPrimitive.Root
-const DialogTrigger = DialogPrimitive.Trigger
-const DialogPortal = DialogPrimitive.Portal
-const DialogClose = DialogPrimitive.Close
 
 function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
   return (
@@ -37,7 +34,7 @@ function DialogContent({
   ...props
 }: DialogPrimitive.Popup.Props & { hideClose?: boolean }) {
   return (
-    <DialogPortal>
+    <DialogPrimitive.Portal>
       {/* forceRender: give every modal its own backdrop, even a nested one, so
           opening a modal from within a modal visibly deepens the scrim. */}
       <DialogOverlay forceRender />
@@ -61,7 +58,7 @@ function DialogContent({
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
-    </DialogPortal>
+    </DialogPrimitive.Portal>
   )
 }
 
@@ -107,10 +104,6 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
 
 export {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogTrigger,
-  DialogClose,
   DialogContent,
   DialogHeader,
   DialogFooter,

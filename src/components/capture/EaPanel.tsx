@@ -15,6 +15,7 @@ import {
 } from "@/server/altamyra/contract/enums";
 import {
   captureErrorKind,
+  getCaptureConsent,
   recordEvent,
   sendVoiceNote,
 } from "@/lib/altamyra/capture-api";
@@ -23,7 +24,6 @@ import { useLoad } from "@/lib/useLoad";
 import { useLang } from "@/i18n";
 import type { MessageKey } from "@/i18n/en";
 import { goalName } from "./NoteCapture";
-import { useVoiceConsent } from "./useVoiceConsent";
 
 type Goal = { objective: { id: string }; label: string; metricType: string };
 type Kind = "prompt_level" | "counter" | "timer";
@@ -293,7 +293,7 @@ function VoiceNote({ studentId }: { studentId: string }) {
   const [status, setStatus] = useState<Saved>(null);
   const [busy, setBusy] = useState(false);
   const rec = useRef<MediaRecorder | null>(null);
-  const consent = useVoiceConsent(studentId);
+  const consent = useLoad(() => getCaptureConsent(studentId), studentId);
 
   async function send(blob: Blob) {
     setBusy(true);
@@ -349,7 +349,7 @@ function VoiceNote({ studentId }: { studentId: string }) {
   return (
     <Card title={t("capture.ea.voice")}>
       <p className="text-muted-foreground">{t("capture.ea.voiceHint")}</p>
-      {consent === "denied" ? (
+      {consent.data?.voiceNote === false ? (
         <StatusBadge tone="warning">
           {t("capture.ea.voiceNeedsConsent")}
         </StatusBadge>

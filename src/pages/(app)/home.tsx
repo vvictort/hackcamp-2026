@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router'
 import { useAuthProfileReady } from 'deepspace'
 import { ArrowUpRight, CircleCheck, CircleX, FileText, FlaskConical, MoonStar, UsersRound } from 'lucide-react'
 import {

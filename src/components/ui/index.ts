@@ -19,10 +19,7 @@ export { Button, buttonVariants, Spinner, type ButtonProps } from './Button'
 export { Input, PasswordInput } from './Input'
 export { FormField, type FormFieldControlProps } from './FormField'
 export { Textarea } from './Textarea'
-export {
-  Select, SelectGroup, SelectValue, SelectTrigger, SelectContent,
-  SelectLabel, SelectItem, SelectSeparator,
-} from './Select'
+export { Select, SelectValue, SelectTrigger, SelectContent, SelectItem } from './Select'
 export { Label } from './Label'
 
 /* Data display */
@@ -37,16 +34,12 @@ export { Progress } from './Progress'
 /* Feedback */
 export { ToastProvider, useToast } from './Toast'
 
-/* Overlay — the `Dialog` family: triggers, nesting, and custom composition. */
+/* Overlay */
 export {
-  Dialog, DialogPortal, DialogOverlay, DialogTrigger, DialogClose,
-  DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 } from './Dialog'
 export {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuCheckboxItem, DropdownMenuRadioItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuGroup,
-  DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent,
-  DropdownMenuSubTrigger, DropdownMenuRadioGroup,
+  DropdownMenuLabel, DropdownMenuSeparator,
 } from './DropdownMenu'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './Tooltip'

@@ -9,7 +9,7 @@
  * shipped tests rely on them.
  */
 
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { useAuthProfileReady } from 'deepspace'
 import {
   Camera,
@@ -76,7 +76,6 @@ export default function Navigation() {
   const { role, devEnabled } = useAltamyraMe()
   const profileReady = !isSignedIn || (!userLoading && !!user)
   const items = nav
-    .filter((n) => !n.devOnly || import.meta.env.DEV)
     .filter((n) => !n.hidden)
     .filter((n) => !n.roles || (role !== null && n.roles.includes(role)) || (devEnabled && n.showInDemo))
     .map<Item>((n) => ({ label: n.label, to: n.path, Icon: ICONS[n.path] ?? LayoutGrid }))

@@ -4,8 +4,6 @@ import { CheckIcon, ChevronDownIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const SelectGroup = SelectPrimitive.Group
-
 /**
  * Walk the JSX children to build Base UI's value→label `items` map from the
  * `<SelectItem>` descendants. Base UI's `Select.Value` shows the raw value
@@ -153,18 +151,6 @@ function SelectContent({
   )
 }
 
-function SelectLabel({ className, ...props }: React.ComponentProps<'div'>) {
-  // Plain label — Base UI's GroupLabel requires a Select.Group ancestor, but
-  // our call sites use labels standalone.
-  return (
-    <div
-      data-slot="select-label"
-      className={cn('text-muted-foreground px-3 py-2 text-small font-semibold', className)}
-      {...props}
-    />
-  )
-}
-
 function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
   return (
     <SelectPrimitive.Item
@@ -185,23 +171,10 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
   )
 }
 
-function SelectSeparator({ className, ...props }: SelectPrimitive.Separator.Props) {
-  return (
-    <SelectPrimitive.Separator
-      data-slot="select-separator"
-      className={cn('bg-border pointer-events-none -mx-1 my-1 h-px', className)}
-      {...props}
-    />
-  )
-}
-
 export {
   Select,
-  SelectGroup,
   SelectValue,
   SelectTrigger,
   SelectContent,
-  SelectLabel,
   SelectItem,
-  SelectSeparator,
 }

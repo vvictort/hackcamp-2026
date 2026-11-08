@@ -151,6 +151,7 @@ export const students = {
   'students.import.workingPdf': 'Reading the text in the PDF.',
   'students.import.progress': '{n} s elapsed',
   'students.import.failed': 'The import did not finish: {message}',
+  'students.import.noText': 'This file has no readable text. Paste the IEP text instead.',
 
   'students.rate.label': 'Quick rating',
   'students.rate.group': 'Rate this goal today',

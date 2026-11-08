@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { CircleCheck, ClipboardCheck, FileText } from 'lucide-react'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
 import { Button, buttonVariants, Card, EmptyState, PageHeader, Progress, StatusBadge, Textarea, useToast } from '@/components/ui'

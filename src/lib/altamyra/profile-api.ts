@@ -12,23 +12,12 @@ import { apiFetch, enc } from './api'
 
 type R<T extends z.ZodType> = z.infer<T>
 
-export type IepImportInput = { sourceKind: 'text'; text: string } | { sourceKind: 'pdf'; fileName: string; contentType: string; bytesBase64: string }
-
-const importBody = (input: IepImportInput) =>
-  input.sourceKind === 'text'
-    ? { sourceKind: 'text', text: input.text }
-    : { sourceKind: 'pdf', file: { fileKey: input.fileName, contentType: input.contentType, bytesBase64: input.bytesBase64 } }
-
-/** Above the server's 35 s model-chain budget, plus PDF reading and storing. */
-export const IMPORT_TIMEOUT_MS = 60_000
-
-/** PDF text layer as plain text, so it can sit beside the parsed result. */
-export const extractIepText = (id: string, input: Extract<IepImportInput, { sourceKind: 'pdf' }>) =>
-  apiFetch<{ text: string }>(`/students/${enc(id)}/iep/source-text`, { body: importBody(input), timeoutMs: 20_000 })
+/** Above the server's 35 s model-chain budget, plus storing. */
+const IMPORT_TIMEOUT_MS = 60_000
 
 /** IEP import with a 60 s client timeout so a stuck model call shows an error. */
-export const importIepTimed = (id: string, input: IepImportInput) =>
-  apiFetch<IepImportResponse>(`/students/${enc(id)}/iep/import`, { body: importBody(input), timeoutMs: IMPORT_TIMEOUT_MS })
+export const importIepTimed = (id: string, text: string) =>
+  apiFetch<IepImportResponse>(`/students/${enc(id)}/iep/import`, { body: { sourceKind: 'text', text }, timeoutMs: IMPORT_TIMEOUT_MS })
 
 // ---------- quick rating ----------
 

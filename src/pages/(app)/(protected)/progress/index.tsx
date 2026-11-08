@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { ChevronDown, ChevronRight, CircleCheck, CircleDashed, Sparkles, TrendingUp } from 'lucide-react'
 import { Card, EmptyState, PageHeader, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@/components/ui'
 import { fmtDate } from '@/components/students/text'

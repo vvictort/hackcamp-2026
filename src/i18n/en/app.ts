@@ -13,7 +13,6 @@ export const app = {
   'app.nav.family': 'Family',
   'app.nav.insights': 'District insights',
   'app.nav.roles': 'Roles',
-  'app.nav.apiStatus': 'API Status',
 
   'app.roles.title': 'Roles',
   'app.roles.description': 'See who has access at your school and give someone a role.',
@@ -117,8 +116,6 @@ export const app = {
   'app.summaries.student': 'Student',
   'app.summaries.noStudents': 'You have no students yet.',
   'app.summaries.loading': 'Loading summaries',
-  'app.summaries.loadFailed': 'Could not load this summary. Try again.',
-  'app.summaries.retry': 'Try again',
   'app.summaries.none': 'No summary yet',
   'app.summaries.noneBody': 'Create a draft from the data logged so far. Nothing is shared until you approve it.',
   'app.summaries.generate': 'Generate draft',
@@ -250,21 +247,4 @@ export const app = {
   'app.notFound.title': "We couldn't find that page",
   'app.notFound.body': 'Error 404. The link may be old or mistyped. Head back to your dashboard to keep going.',
   'app.notFound.cta': 'Go to your dashboard',
-
-  // API status
-  'app.api.title': 'API status',
-  'app.api.description': 'Check whether the app can reach its connected services.',
-  'app.api.stale': 'Showing the last loaded catalog',
-  'app.api.loading': 'Loading integration catalog...',
-  'app.api.failed': 'Could not load API data',
-  'app.api.retriedOne': 'Retried 1 time automatically.',
-  'app.api.retriedMany': 'Retried {n} times automatically.',
-  'app.api.retry': 'Retry',
-  'app.api.noneTitle': 'No integrations available',
-  'app.api.noneBody': 'The catalog loaded, but it did not return any integration definitions.',
-  'app.api.ready': 'Integration catalog ready',
-  'app.api.countOne': '1 integration available.',
-  'app.api.countMany': '{n} integrations available.',
-  'app.api.refreshing': 'Refreshing...',
-  'app.api.refresh': 'Refresh',
 } as const

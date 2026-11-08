@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { GoalCard } from "@/components/students/GoalCard";

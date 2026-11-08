@@ -1,5 +1,5 @@
 import { RoleGate } from "@/lib/altamyra/RoleGate";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { UsersRound } from "lucide-react";
 import {
   Button,

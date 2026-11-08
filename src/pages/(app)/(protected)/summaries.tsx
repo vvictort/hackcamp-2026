@@ -3,8 +3,8 @@
  * AI draft, fix it and approve it; nothing reaches its audience before that.
  * The case manager only reads approved weekly summaries.
  */
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { FileText } from 'lucide-react'
 import {
   Button,
@@ -25,7 +25,7 @@ import {
 import { useLang } from '@/i18n'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
 import { useAltamyraMe, visibleStudents } from '@/lib/altamyra/role'
-import { useLoad } from '@/lib/useLoad'
+import { LoadError, useLoad } from '@/lib/useLoad'
 import { studentLabel } from '@/components/capture/StudentSelect'
 import {
   approveSummary,
@@ -74,7 +74,7 @@ function WeeklyReadOnly() {
   const weekly = useLoad(listWeekly, 'weekly')
   const rows = weekly.data
 
-  if (weekly.status === 'error') return <LoadError onRetry={weekly.reload} />
+  if (weekly.status === 'error') return <LoadError error={weekly.error} onRetry={weekly.reload} />
   if (!rows) return <Loading />
   if (rows.length === 0)
     return (
@@ -90,20 +90,6 @@ function WeeklyReadOnly() {
           <p className="whitespace-pre-line text-body">{s.text}</p>
         </Card>
       ))}
-    </div>
-  )
-}
-
-function LoadError({ onRetry }: { onRetry: () => void }) {
-  const { t } = useLang()
-  return (
-    <div className="flex flex-col items-start gap-3">
-      <p role="alert" className="text-body text-destructive">
-        {t('app.summaries.loadFailed')}
-      </p>
-      <Button variant="outline" onClick={onRetry}>
-        {t('app.summaries.retry')}
-      </Button>
     </div>
   )
 }
@@ -168,12 +154,18 @@ function StaffSummaries() {
 }
 
 function SummaryEditor({ studentId, kind }: { studentId: string; kind: SummaryKind }) {
+  const current = useLoad(async () => pickCurrent(await listSummaries(studentId, kind)), `${studentId}:${kind}`)
+  if (current.status === 'error') return <LoadError error={current.error} onRetry={current.reload} />
+  if (current.status === 'loading') return <Loading />
+  return <SummaryForm studentId={studentId} kind={kind} initial={current.data} />
+}
+
+function SummaryForm({ studentId, kind, initial }: { studentId: string; kind: SummaryKind; initial: Summary | null }) {
   const { t } = useLang()
   const toast = useToast()
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [text, setText] = useState('')
-  const [translated, setTranslated] = useState('')
+  const [summary, setSummary] = useState(initial)
+  const [text, setText] = useState(initial?.text ?? '')
+  const [translated, setTranslated] = useState(initial?.translatedText ?? '')
   const [busy, setBusy] = useState<null | 'generate' | 'save' | 'approve'>(null)
 
   const adopt = (s: Summary | null) => {
@@ -181,19 +173,6 @@ function SummaryEditor({ studentId, kind }: { studentId: string; kind: SummaryKi
     setText(s?.text ?? '')
     setTranslated(s?.translatedText ?? '')
   }
-  const load = useCallback(() => {
-    setState('loading')
-    listSummaries(studentId, kind)
-      .then((r) => {
-        adopt(pickCurrent(r))
-        setState('ready')
-      })
-      .catch(() => setState('error'))
-  }, [studentId, kind])
-  useEffect(load, [load])
-
-  if (state === 'loading') return <Loading />
-  if (state === 'error') return <LoadError onRetry={load} />
 
   const generate = async () => {
     setBusy('generate')
