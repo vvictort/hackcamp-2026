@@ -17,6 +17,22 @@ Teachers and EAs adapt every lesson to each student's IEP goals and keep a daily
 | 3. Capture | EA (and teacher) | Photos of coded sheets, video, typed notes, events (prompt levels, counters, timers, voice notes). Whoever captured it confirms or corrects the AI score |
 | 4. Review | EA | A short end-of-day review of each child, which completes that day's record |
 
+The loop from plan to summaries:
+
+```mermaid
+flowchart LR
+  A["Teacher uploads plan"] --> B["Lesson Lens proposes per-student changes"]
+  B --> C["Teacher approves (draft until then)"]
+  C --> D["EA sees the approved plan"]
+  D --> E["Capture: photo, video, note, event"]
+  E --> F["AI score confirmed or corrected"]
+  F --> G["End-of-day review"]
+  G --> H["Daily, weekly, monthly summaries"]
+  H --> I["Approval"]
+  I --> J["Parent, in family language"]
+  I --> K["District, anonymized"]
+```
+
 ### Summaries
 
 | Summary | Audience |
@@ -142,6 +158,19 @@ The interface shows in 36 languages (English plus 35) from a language picker on 
 | `/api/i18n/:lang` | Fallback route that translates the English catalogue with Claude for languages or strings missing from the files, then caches it. It accepts no text, so student names and record data never reach the translator |
 | Lesson Lens | Not translated afterwards: the agent writes its suggestions in the teacher's language |
 
+Committed file first, server fallback second:
+
+```mermaid
+flowchart LR
+  E["English strings in src/i18n/en"] --> S["npm run i18n:sync"]
+  S --> R["/api/i18n/:lang (Claude, accepts no text)"]
+  R --> J["Committed locales/lang.json"]
+  P["Language picker"] --> J
+  J -->|"instant"| UI["Interface"]
+  J -.->|"stale or missing"| R
+  R -.->|"missing keys fall back to English"| UI
+```
+
 **After changing English text:** run `npm run i18n:sync` (app running, signed in to DeepSpace) and commit the changed `locales/` files. Until then, new or edited strings show in English. To add a language, add one line to `src/i18n/languages.ts`. Translations are machine-made and not reviewed by native speakers. See [decision 0010](docs/decisions/0010-committed-machine-translations.md).
 
 ## Lesson Lens on Maritime
@@ -152,6 +181,26 @@ Suggestions come from an AI agent in `agent/`: a small Node server on [Maritime]
 2. The `lessonLensSuggest` action (`src/actions/lesson-lens.ts`) loads that teacher's own class and students on the server, replaces every student name with "Student A, B…" (also inside pasted text), sends goal ids as `g1, g2…`, hashes the teacher id, and sends the teacher's language.
 3. It calls Maritime's chat API with a `deploy`-scoped key. The reply is validated strictly, names are put back inside the app, and suggestions are saved as pending.
 4. The teacher approves or rejects each one. Approving a **modification** asks for confirmation, because it changes the learning outcome. Decisions go back to the agent with names removed.
+
+What one request does, step by step:
+
+```mermaid
+sequenceDiagram
+  actor T as Teacher
+  participant A as App and server action
+  participant M as Maritime agent
+  participant G as Gemini
+  T->>A: Get suggestions
+  A->>A: Load own class, swap names for Student A and B
+  A->>M: Chat request with g1, g2 goal ids
+  M->>G: Prompt, rules fallback if unavailable
+  G-->>M: Suggestions
+  M-->>A: Reply
+  A->>A: Validate strictly, restore names
+  A-->>T: Pending suggestions
+  T->>A: Approve or reject
+  A->>M: Decision, names removed
+```
 
 Configure it in DeepSpace's secret store, then restart the dev server:
 
