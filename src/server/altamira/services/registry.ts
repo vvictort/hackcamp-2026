@@ -7,8 +7,10 @@ import { insightOpList } from './insight'
 import { insightsOpList } from './insights'
 import { integrationSchoolOps, integrationStudentOps } from './integration'
 import { lensOpList } from './lens'
+import { lessonPlanOpList } from './lesson-plans'
 import { measurementOpList } from './measurement'
 import { schoolOpList } from './school'
+import { ticketSchoolOps, ticketStudentOps } from './tickets'
 
 /**
  * Room op registries, one per room kind. Each room's run(opName, args, actor)
@@ -33,10 +35,11 @@ export const studentOps: OpRegistry = registry('student', [
   ...familyOpList,
   ...integrationStudentOps,
   ...comingUpOpList,
+  ...ticketStudentOps,
   studentDevSeedDemo,
   deidStudentNames,
 ])
 
-export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...integrationSchoolOps, deidSchoolRoster, devResetSchool])
+export const schoolOps: OpRegistry = registry('school', [...schoolOpList, ...lessonPlanOpList, ...ticketSchoolOps, ...integrationSchoolOps, deidSchoolRoster, devResetSchool])
 
 export const insightsOps: OpRegistry = registry('insights', insightsOpList)
