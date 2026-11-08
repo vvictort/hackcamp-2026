@@ -85,7 +85,7 @@ export default function App() {
  * Root error boundary. Generouted wires a `_app` `Catch` export to the root
  * route's errorElement, so any render-time crash in a page — a thrown error,
  * or a hooks-rule violation like React #310 — lands here instead of React
- * Router's raw minified screen. ErrorScreen decodes the error for the developer.
+ * Router's raw minified screen.
  */
 export function Catch() {
   const error = useRouteError()

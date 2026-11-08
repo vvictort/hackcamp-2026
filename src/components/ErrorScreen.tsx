@@ -1,108 +1,16 @@
 /**
- * Error decoding + a friendly error screen.
- *
- * Production React replaces error text with a numeric code and a docs link
- * (e.g. `Minified React error #310`), so a developer whose app crashes in a
- * deployed build sees only the number. `decodeReactError` turns that number
- * back into a plain-English explanation; `ErrorScreen` renders it. The most
- * common offenders are the hook-order errors (#300 / #310), which almost
- * always mean a hook was placed after an early `return`.
- *
- * Self-contained on purpose: it renders as the root error boundary, replacing
+ * The root error screen. Self-contained on purpose: it renders as the root error boundary, replacing
  * the app shell, so it must not depend on app providers. It imports only
- * buttonVariants (cva + cn, no context) straight from ui/Button, not the
+ * buttonVariants (no context) straight from ui/Button, not the
  * barrel, and reads its colours from the CSS variables in styles.css.
  */
 
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { buttonVariants } from './ui/Button'
 
-export interface DecodedReactError {
-  code: number
-  title: string
-  explanation: string
-  hint: string
-  docsUrl: string
-}
-
-/**
- * Friendly text for the React errors apps actually hit. Kept deliberately
- * small — any other code still decodes to a generic, linkable result.
- */
-const REACT_ERROR_TABLE: Record<number, Omit<DecodedReactError, 'code' | 'docsUrl'>> = {
-  300: {
-    title: 'A component changed how many hooks it runs',
-    explanation: 'This component called fewer hooks than it did on its previous render.',
-    hint: 'Almost always an early return placed above a hook. Move every hook (useState, useEffect, useQuery, …) above any conditional return so the same hooks run in the same order on every render.',
-  },
-  310: {
-    title: 'A component changed how many hooks it runs',
-    explanation: 'This component called more hooks than it did on its previous render.',
-    hint: 'Almost always an early return placed above a hook. Move every hook (useState, useEffect, useQuery, …) above any conditional return so the same hooks run in the same order on every render.',
-  },
-  301: {
-    title: 'Too many re-renders',
-    explanation: 'React hit its render limit because the component updated state while rendering, which triggers an infinite render loop.',
-    hint: 'Don’t call setState (or a mutation) directly in the render body. Move it into an event handler or an effect with the right dependencies.',
-  },
-  321: {
-    title: 'A hook was called in an invalid place',
-    explanation: 'Hooks can only be called at the top level of a function component or another hook.',
-    hint: 'Move the hook out of any condition, loop, callback, or plain (non-component) function. This can also mean two copies of React are installed.',
-  },
-}
-
-/** Pull a React error code out of a message, whether minified, URL, or legacy form. */
-function extractReactErrorCode(message: string): number | null {
-  const patterns = [/react\.dev\/errors\/(\d+)/, /invariant=(\d+)/, /Minified React error #(\d+)/]
-  for (const re of patterns) {
-    const match = message.match(re)
-    if (match) return Number(match[1])
-  }
-  return null
-}
-
-function errorMessage(error: unknown): string | null {
-  if (typeof error === 'string') return error
-  if (error instanceof Error) return error.message
-  return null
-}
-
-/**
- * Decode a (possibly minified) React error into a friendly explanation, or
- * `null` if it isn't a recognizable React error — in which case the caller
- * should just show the raw message.
- */
-export function decodeReactError(error: unknown): DecodedReactError | null {
-  const message = errorMessage(error)
-  if (!message) return null
-  const code = extractReactErrorCode(message)
-  if (code == null) return null
-
-  const known = REACT_ERROR_TABLE[code]
-  return {
-    code,
-    docsUrl: `https://react.dev/errors/${code}`,
-    title: known?.title ?? `React error #${code}`,
-    explanation: known?.explanation ?? 'React stopped rendering because of an error.',
-    hint:
-      known?.hint ??
-      'Run the app in development (npm run dev) to see the full, unminified message and the component that failed.',
-  }
-}
-
-export interface ErrorScreenProps {
-  /** The thrown value, as caught by an error boundary (often non-Error). */
-  error: unknown
-  /** Recovery action. Defaults to a full page reload. */
-  onReset?: () => void
-}
-
-export function ErrorScreen({ error, onReset }: ErrorScreenProps) {
-  const decoded = decodeReactError(error)
+export function ErrorScreen({ error }: { error: unknown }) {
   const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
   const stack = error instanceof Error ? error.stack : undefined
-  const reset = onReset ?? (() => window.location.reload())
 
   return (
     <div
@@ -116,19 +24,7 @@ export function ErrorScreen({ error, onReset }: ErrorScreenProps) {
           </span>
         </div>
 
-        <h1 className="text-h1">
-          {decoded?.title ?? 'Something went wrong'}
-        </h1>
-        {decoded?.explanation && (
-          <p className="mt-1.5 text-body text-muted-foreground">{decoded.explanation}</p>
-        )}
-
-        {decoded?.hint && (
-          <div className="mt-4 rounded-md border-2 border-warning bg-card px-4 py-3 text-left">
-            <p className="text-label font-semibold">How to fix</p>
-            <p className="mt-1 text-small text-muted-foreground">{decoded.hint}</p>
-          </div>
-        )}
+        <h1 className="text-h1">Something went wrong</h1>
 
         {rawMessage && (
           <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-card px-3 py-2 text-left text-small text-muted-foreground">
@@ -146,20 +42,10 @@ export function ErrorScreen({ error, onReset }: ErrorScreenProps) {
         )}
 
         <div className="mt-6 flex items-center justify-center gap-3">
-          <button type="button" onClick={reset} className={buttonVariants({ size: 'lg' })}>
+          <button type="button" onClick={() => window.location.reload()} className={buttonVariants({ size: 'lg' })}>
             <RefreshCw className="size-5" aria-hidden />
             Reload
           </button>
-          {decoded && (
-            <a
-              href={decoded.docsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-11 items-center text-small text-muted-foreground underline-offset-4 hover:underline"
-            >
-              React error #{decoded.code} reference
-            </a>
-          )}
         </div>
       </div>
     </div>
