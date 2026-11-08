@@ -81,10 +81,20 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     // {reset:true} wipes the demo rows and reloads them dated from now. Same dev flag gate as the route.
     const reset = (await c.req.json().catch(() => ({})))?.reset === true
     if (reset) await r.school(devResetSchool)
-    const seeded = reset
-      ? { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
-      : await r.school(schoolDevSeed, {})
-    for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo, reset ? { reset: true } : {})
+    const fixtureIds = { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
+    // Pressing "Load demo data" again (or a second person signing in) must not fail:
+    // when the school is already seeded, skip loading and just attach the caller below.
+    let fresh = reset
+    let seeded = fixtureIds
+    if (!reset) {
+      try {
+        seeded = await r.school(schoolDevSeed, {})
+        fresh = true
+      } catch (e) {
+        if (!(e instanceof Error && /already seeded/.test(e.message))) throw e
+      }
+    }
+    if (fresh) for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo, reset ? { reset: true } : {})
     // The caller acts as the case manager by default.
     await r.school(devRoleSwitch, { role: 'case_manager' })
     return r.json(DevSeedResponse, seeded)
