@@ -5,6 +5,7 @@ import { Button, buttonVariants, Card, EmptyState, FormField, Input, StatusBadge
 import type { z } from 'zod'
 import type { ReviewQueueResponse } from '@/server/altamira/contract/api'
 import { ApiError, cachedImage, confirmReview, correctDataPoint, fileKeyOfSourceRef, getReviewQueue } from '@/lib/altamira/capture-api'
+import { SAMPLE_ITEM_ROWS, SAMPLE_SHEET_URL } from './stampSheetCode'
 import { useCt } from './useCt'
 import { useStudents } from './useStudents'
 import { studentLabel } from './StudentSelect'
@@ -104,7 +105,10 @@ function ReviewRow({
   const [errs, setErrs] = useState<{ value?: string; reason?: string }>({})
   const [busy, setBusy] = useState(false)
   const fileKey = fileKeyOfSourceRef(dp.sourceRef)
-  const image = fileKey ? cachedImage(fileKey) : null
+  const isSample = !!fileKey && /sample-sheet-code/i.test(fileKey)
+  const image = fileKey ? (cachedImage(fileKey) ?? (isSample ? SAMPLE_SHEET_URL : null)) : null
+  const itemId = dp.sourceRef?.match(/#(.+)$/)?.[1] ?? null
+  const row = isSample && itemId ? SAMPLE_ITEM_ROWS[itemId] : undefined
 
   async function confirm() {
     setBusy(true)
@@ -144,7 +148,20 @@ function ReviewRow({
         </div>
         <div className="grid gap-4 sm:grid-cols-[minmax(0,16rem)_1fr]">
           {image ? (
-            <img src={image} alt={ct('capture.review.sourceImage')} className="max-h-60 w-auto rounded-md border border-border" />
+            <div className="flex flex-col gap-2">
+              {row && (
+                <div
+                  role="img"
+                  aria-label={ct('capture.review.itemCrop', { item: itemId ?? '' })}
+                  className="w-full rounded-md border border-border bg-white bg-no-repeat"
+                  style={{ aspectRatio: `800 / ${row[1]}`, backgroundImage: `url(${image})`, backgroundSize: '100% auto', backgroundPosition: `0 ${(row[0] / (1000 - row[1])) * 100}%` }}
+                />
+              )}
+              <details open={!row}>
+                <summary className="cursor-pointer text-small font-semibold">{ct('capture.review.fullSheet')}</summary>
+                <img src={image} alt={ct('capture.review.sourceImage')} className="mt-2 max-h-60 w-auto rounded-md border border-border" />
+              </details>
+            </div>
           ) : (
             <p className="text-small text-muted-foreground">{fileKey ? ct('capture.review.noImage') : ''}</p>
           )}
