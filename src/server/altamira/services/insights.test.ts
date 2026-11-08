@@ -74,3 +74,38 @@ describe('parseSourceRef', () => {
     expect(parseSourceRef(null)).toEqual({ kind: 'teacher', note: null })
   })
 })
+
+describe('district monthly narrative (template text, not AI)', () => {
+  const narrative = (sql: ReturnType<typeof insightsRoom>, period?: string) =>
+    runInsights<{ monthlyNarrative: { period: string | null; text: string } }>(sql, 'insights.get', { districtId: DISTRICT.id, period }, ACTORS.districtLead).monthlyNarrative
+  const inMonth = (studentKey: string, goalArea: string, period = '2026-11') => ({ ...inc(studentKey, goalArea), period })
+
+  it('says nothing is recorded yet on an empty district', () => {
+    expect(narrative(insightsRoom())).toEqual({ period: null, text: 'No learning data has been recorded for the district yet.' })
+  })
+
+  it('reports shown groups only and never mentions a suppressed group or its size', () => {
+    const sql = insightsRoom()
+    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: [...keys('r', 12).map((k) => inMonth(k, 'Reading')), ...keys('w', 3).map((k) => inMonth(k, 'Writing')), ...keys('m', 15).map((k) => inMonth(k, 'Math')), ...keys('s', 20).map((k) => inMonth(k, 'Science'))] }, ACTORS.system)
+    const n = narrative(sql)
+    expect(n.period).toBe('2026-11')
+    expect(n.text).toContain('Math: 15 students')
+    expect(n.text).toContain('Science: 20 students')
+    // Writing is under 10 students; Reading (its smallest sibling) is hidden too, so Writing cannot be subtracted out.
+    expect(n.text).not.toMatch(/Writing|Reading/)
+    expect(n.text).not.toMatch(/hash-|student key|studentKey|[0-9a-f]{8}-[0-9a-f]{4}/i)
+    // Only one group of three: nothing to report, and the small group is not named.
+    const small = insightsRoom()
+    runInsights(small, 'counters.push', { districtId: DISTRICT.id, increments: keys('w', 3).map((k) => inMonth(k, 'Writing')) }, ACTORS.system)
+    expect(narrative(small).text).toMatch(/nothing to report/)
+    expect(narrative(small).text).not.toMatch(/Writing|3/)
+  })
+
+  it('follows the requested period', () => {
+    const sql = insightsRoom()
+    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: [...keys('a', 10).map((k) => inMonth(k, 'Reading', '2026-10')), ...keys('b', 10).map((k) => inMonth(k, 'Math', '2026-11'))] }, ACTORS.system)
+    expect(narrative(sql, '2026-10').text).toContain('Reading')
+    expect(narrative(sql, '2026-10').text).not.toContain('Math')
+    expect(narrative(sql).period).toBe('2026-11')
+  })
+})

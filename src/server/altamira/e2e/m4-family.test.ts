@@ -5,19 +5,13 @@ import { createHarness, type Harness } from './harness'
 
 afterEach(closeAll)
 
-/** Inserts an AI-written summary draft the way the next-round generator will: as a draft, not yet approved. */
-function insertDraftSummary(h: Harness, studentId: string, id = 'f5000000-0000-4000-8000-000000000001') {
-  h.studentSql(studentId).run(
-    "INSERT INTO family_summaries (id, language, text, status, created_at, version) VALUES (?, 'en', 'A fictional monthly summary.', 'draft', '2026-11-09T17:00:00.000Z', 1)",
-    id,
-  )
-  return id
-}
-
 describe('parent access: own child, approved summaries and consent only', () => {
-  it('an unapproved AI summary is invisible to the parent and the case manager until the EA or teacher approves it', async () => {
+  it('an unapproved monthly summary is invisible to the parent and the case manager until the EA or teacher approves it', async () => {
     const h = createHarness()
-    const id = insertDraftSummary(h, kai)
+    const gen = await h.post(U.ea, `/students/${kai}/summaries/generate`, { kind: 'monthly', period: '2026-10', language: 'es' })
+    expect(gen.status).toBe(201)
+    const { id, version } = gen.body.summary
+    expect(gen.body.summary).toMatchObject({ kind: 'monthly', status: 'draft' })
     expect((await h.get(U.parentKai, `/family/${kai}/summaries`)).body.summaries).toEqual([])
     expect((await h.get(U.caseManager, `/students/${kai}/summaries`)).body.summaries).toEqual([])
     // The EA and the teacher see the draft.
@@ -26,15 +20,16 @@ describe('parent access: own child, approved summaries and consent only', () => 
 
     // Neither the parent nor the case manager can approve it.
     for (const user of [U.parentKai, U.caseManager, U.districtLead, U.schoolAdmin]) {
-      expect((await h.post(user, `/family-summaries/${id}/approve?studentId=${kai}`, { expectedVersion: 1 })).status).toBe(403)
+      expect((await h.post(user, `/summaries/${id}/approve`, { studentId: kai, version })).status).toBe(403)
     }
     expect((await h.get(U.parentKai, `/family/${kai}/summaries`)).body.summaries).toEqual([])
 
-    const approved = await h.post(U.ea, `/family-summaries/${id}/approve?studentId=${kai}`, { expectedVersion: 1, text: 'Edited and approved.' })
+    const approved = await h.post(U.ea, `/summaries/${id}/approve`, { studentId: kai, version })
     expect(approved.status).toBe(200)
-    expect(approved.body.summary).toMatchObject({ status: 'approved', approvedBy: U.ea, text: 'Edited and approved.' })
+    expect(approved.body.summary).toMatchObject({ status: 'approved', approvedBy: U.ea })
     expect((await h.get(U.parentKai, `/family/${kai}/summaries`)).body.summaries.map((s: { id: string }) => s.id)).toEqual([id])
-    expect((await h.get(U.caseManager, `/students/${kai}/summaries`)).body.summaries).toHaveLength(1)
+    // The case manager sees approved weekly summaries only, never a monthly one.
+    expect((await h.get(U.caseManager, `/students/${kai}/summaries`)).body.summaries).toEqual([])
   })
 
   it('a parent cannot read another child, staff routes or removed routes', async () => {
