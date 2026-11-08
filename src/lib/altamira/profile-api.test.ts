@@ -84,12 +84,12 @@ describe('importIepTimed', () => {
     mockFetch(502, { error: { code: 'ai_unavailable', message: 'The AI service did not answer.' } })
     await expect(importIepTimed('s1', { sourceKind: 'text', text: 'x' })).rejects.toMatchObject({ status: 502, code: 'ai_unavailable' })
   })
-  it('times out after 45 s', async () => {
+  it('times out after 60 s', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', (_u: string, init: RequestInit) => new Promise((_, rej) => init.signal?.addEventListener('abort', () => rej(new Error('aborted')))))
     const p = importIepTimed('s1', { sourceKind: 'text', text: 'x' })
     const assertion = expect(p).rejects.toMatchObject({ code: 'timeout' })
-    await vi.advanceTimersByTimeAsync(45_001)
+    await vi.advanceTimersByTimeAsync(60_001)
     await assertion
   })
 })

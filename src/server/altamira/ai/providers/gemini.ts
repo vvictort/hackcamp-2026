@@ -12,8 +12,8 @@ import { createFixtureProvider } from './fixture'
 
 export const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
 export const GEMINI_TIMEOUT_MS = 25_000
-/** Whole-chain wall-time cap so a request never hangs for a minute or more. */
-export const GEMINI_TOTAL_TIMEOUT_MS = 40_000
+/** Whole-chain budget; each attempt gets min(GEMINI_TIMEOUT_MS, time left). Callers may pass a smaller totalTimeoutMs. */
+export const GEMINI_TOTAL_TIMEOUT_MS = 35_000
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 const FALL_OVER_STATUS = new Set([429, 503, 404])
 
@@ -136,10 +136,15 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
 
   async function viaGemini<K extends AiFunctionName>(fn: K, input: unknown) {
     const deadline = Date.now() + totalMs
+    const tried: string[] = []
     let lastIssue: AiOutputError | null = null
     for (const model of models) {
       const budget = deadline - Date.now()
-      if (budget <= 0) break
+      if (budget <= 0) {
+        log('chain', `budget of ${totalMs} ms used up`)
+        break
+      }
+      tried.push(model)
       const text = await attempt(model, fn, input, budget)
       if (text === 'next') continue
       let json: unknown
@@ -158,8 +163,9 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
       }
       return out.data
     }
+    log('chain', `tried ${tried.join(', ') || 'none'}; using fixture`)
     if (lastIssue) throw lastIssue
-    throw new GeminiError(`All Gemini models failed or timed out (${models.join(', ')})`)
+    throw new GeminiError(`All Gemini models failed or timed out (${tried.join(', ') || models.join(', ')})`)
   }
 
   async function call<K extends AiFunctionName>(fn: K, input: unknown) {
@@ -192,6 +198,6 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
   } as AiProvider
 }
 
-export function geminiFromEnv(env: GeminiEnv, fetchImpl?: typeof fetch): AiProvider {
-  return createGeminiProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMIRA_GEMINI_MODELS, fetch: fetchImpl, fallback: createFixtureProvider() })
+export function geminiFromEnv(env: GeminiEnv, fetchImpl?: typeof fetch, totalTimeoutMs?: number): AiProvider {
+  return createGeminiProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMIRA_GEMINI_MODELS, totalTimeoutMs, fetch: fetchImpl, fallback: createFixtureProvider() })
 }

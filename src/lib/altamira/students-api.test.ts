@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { ApiError, buildUrl, confirmObjective, getDataPointSource, getProfile, importIep, listMyProposals } from './students-api'
+import { ApiError, buildUrl, confirmObjective, createProposal, resolveProposal, getDataPointSource, getProfile, importIep, listMyProposals } from './students-api'
 
 function mockFetch(status: number, body: unknown) {
   const fn = vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))
@@ -56,5 +56,23 @@ describe('students-api', () => {
     await expect(getProfile('s1')).rejects.toBeInstanceOf(ApiError)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 500 })))
     await expect(getProfile('s1')).rejects.toMatchObject({ status: 500, code: 'error' })
+  })
+})
+
+describe('proposal bodies', () => {
+  it('createProposal posts { target, change, evidenceIds } to the student', async () => {
+    const f = mockFetch(200, { proposal: {} })
+    await createProposal('s1', { target: 'iep', change: { newText: 'x' }, evidenceIds: ['d1'] })
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('/api/v1/students/s1/proposals')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ target: 'iep', change: { newText: 'x' }, evidenceIds: ['d1'] })
+  })
+  it('resolveProposal posts expectedVersion, decision, note with studentId in the query', async () => {
+    const f = mockFetch(200, { proposal: {} })
+    await resolveProposal('p1', 's1', { expectedVersion: 1, decision: 'accepted', note: null })
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('/api/v1/proposals/p1/resolve?studentId=s1')
+    expect(JSON.parse(init.body as string)).toEqual({ expectedVersion: 1, decision: 'accepted', note: null })
   })
 })

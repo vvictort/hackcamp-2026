@@ -164,7 +164,9 @@ export const students = {
   'students.import.confirm': 'Confirm this version',
   'students.import.confirmedToast': 'IEP version confirmed',
 
-  'students.import.working': 'Reading the IEP and proposing objectives. This can take up to 45 seconds.',
+  'students.import.working': 'Reading the IEP and proposing objectives. This can take up to 40 seconds.',
+  'students.import.workingPdf': 'Reading the text in the PDF.',
+  'students.import.progress': '{n} s elapsed',
   'students.import.failed': 'The import did not finish: {message}',
 
   'students.rate.label': 'Quick rating',

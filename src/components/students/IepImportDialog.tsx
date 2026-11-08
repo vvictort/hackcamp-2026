@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormField, Input, Textarea, useToast } from '@/components/ui'
-import { importIepTimed } from '@/lib/altamira/profile-api'
+import { useEffect, useRef, useState } from 'react'
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormField, Input, Progress, Textarea, useToast } from '@/components/ui'
+import { extractIepText, importIepTimed } from '@/lib/altamira/profile-api'
 import { confirmIep, fileToBase64 } from '@/lib/altamira/students-api'
 import type { IepImportResponse } from '@/server/altamira/contract/api'
 import type { IepSections } from '@/server/altamira/contract/student'
@@ -26,6 +26,21 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
   const [sourceText, setSourceText] = useState('')
   const [draft, setDraft] = useState<IepSections | null>(null)
   const [modSubjects, setModSubjects] = useState('')
+  const [phase, setPhase] = useState<'pdf' | 'ai'>('ai')
+  const [elapsed, setElapsed] = useState(0)
+  const parsedRef = useRef<HTMLHeadingElement>(null)
+
+  // Progress: count seconds while a request runs.
+  useEffect(() => {
+    if (!busy || result) return
+    setElapsed(0)
+    const id = setInterval(() => setElapsed((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [busy, result])
+  // Move focus to the review so keyboard users land beside the parsed fields.
+  useEffect(() => {
+    if (result) parsedRef.current?.focus()
+  }, [result])
 
   const reset = () => {
     setText('')
@@ -44,13 +59,16 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
     setError(null)
     try {
       const file = fileRef.current?.files?.[0]
-      const res = await importIepTimed(
-        studentId,
-        file
-          ? { sourceKind: 'pdf', fileName: file.name, contentType: file.type || 'application/pdf', bytesBase64: await fileToBase64(file) }
-          : { sourceKind: 'text', text },
-      )
-      setSourceText(file ? '' : text)
+      let source = text
+      if (file) {
+        setPhase('pdf')
+        source = (
+          await extractIepText(studentId, { sourceKind: 'pdf', fileName: file.name, contentType: file.type || 'application/pdf', bytesBase64: await fileToBase64(file) })
+        ).text
+      }
+      setPhase('ai')
+      const res = await importIepTimed(studentId, { sourceKind: 'text', text: source })
+      setSourceText(source)
       setResult(res)
       setDraft(res.iep.sections)
       setModSubjects(res.iep.modificationSubjects.join(', '))
@@ -119,7 +137,7 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
               </pre>
             </section>
             <section aria-labelledby="iep-parsed" className="flex min-w-0 flex-col gap-3">
-              <h3 id="iep-parsed" className="text-label font-semibold">{s('students.import.parsed')}</h3>
+              <h3 id="iep-parsed" ref={parsedRef} tabIndex={-1} className="text-label font-semibold">{s('students.import.parsed')}</h3>
               <div className="max-h-[50vh] overflow-auto pe-1 flex flex-col gap-3">
                 <FormField label={s('students.import.grade')}>
                   <Input value={draft.student.grade} onChange={(e) => set({ student: { ...draft.student, grade: e.target.value } })} />
@@ -152,7 +170,11 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
           </div>
         )}
 
-        {busy && !result && <p role="status" className="text-small text-muted-foreground">{s('students.import.working')}</p>}
+        {busy && !result && <div role="status" className="flex flex-col gap-1">
+            <p className="text-small text-muted-foreground">{s(phase === 'pdf' ? 'students.import.workingPdf' : 'students.import.working')}</p>
+            <Progress value={Math.min(95, Math.round((elapsed / 40) * 100))} />
+            <p className="text-small text-muted-foreground">{s('students.import.progress', { n: elapsed })}</p>
+          </div>}
         {error && <p role="alert" className="text-small font-semibold text-destructive-strong">{error}</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={() => close(false)}>{s('students.cancel')}</Button>
