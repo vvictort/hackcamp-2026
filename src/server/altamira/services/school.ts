@@ -311,11 +311,14 @@ export const sheetCodesIssue = defineOp({
   capability: 'lesson.augment',
   args: z.object({ studentId: Id, lessonId: Id, checkId: Id, now: z.string().optional() }),
   run(sql, args, actor): { sheetCode: SheetCode } {
-    authorize(actor, 'lesson.augment', args.studentId)
+    // PRD matrix "Augment lessons": EAs and parents view approved materials, so readers get codes already issued;
+    // only write access issues a new one.
+    authorize(actor, 'lesson.augment', args.studentId, { access: 'read' })
     if (!repo.studentById(sql, args.studentId)) throw new AltamiraError('not_found', `student ${args.studentId} not found`)
     mustFind(sql, 'lessons', LessonSchema, args.lessonId)
     const existing = repo.findSheetCode(sql, args.studentId, args.lessonId, args.checkId)
     if (existing) return { sheetCode: existing }
+    authorize(actor, 'lesson.augment', args.studentId)
     let code = randomCode()
     while (repo.sheetCodeByCode(sql, code)) code = randomCode()
     const at = nowIso(args.now)
@@ -331,11 +334,13 @@ export const sheetCodesResolve = defineOp({
   room: 'school',
   capability: 'evidence.capture',
   args: z.object({ code: z.string().min(1) }),
-  run(sql, args, actor): { sheetCode: SheetCode } {
+  run(sql, args, actor): { sheetCode: SheetCode; classId: string | null } {
     const sheetCode = repo.sheetCodeByCode(sql, args.code.trim().toUpperCase())
     if (!sheetCode) throw new AltamiraError('not_found', 'unknown sheet code')
     authorizeStaff(actor, 'evidence.capture', sheetCode.studentId)
-    return { sheetCode }
+    // The lesson's class goes on the data point (PRD 1B "Timeline persistence").
+    const classId = sql.get<{ class_id: string }>('SELECT class_id FROM lessons WHERE id = ?', sheetCode.lessonId)?.class_id ?? null
+    return { sheetCode, classId }
   },
 })
 

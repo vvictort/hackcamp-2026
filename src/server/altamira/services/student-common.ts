@@ -8,10 +8,28 @@ import { approvedAdaptations } from '../repos/lens'
 import { activeConsent } from '../repos/records'
 import type { ConsentKind } from '../contract/enums'
 import { baselineOf, progressFraction, whatWorks, type Outcome, type WhatWorksRow } from './analytics'
+import { SCHOOL_TIME_ZONE } from './thresholds'
 
 /** Helpers shared by the student-room services. */
 
-export const dayStart = (iso: string) => `${iso.slice(0, 10)}T00:00:00.000Z`
+const SCHOOL_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+const SCHOOL_OFFSET = new Intl.DateTimeFormat('en-US', { timeZone: SCHOOL_TIME_ZONE, timeZoneName: 'longOffset' })
+
+/** The school's calendar date (YYYY-MM-DD) at an instant. */
+export const schoolDate = (iso: string): string => SCHOOL_DATE.format(new Date(iso))
+
+/** UTC offset of the school's time zone at an instant, in minutes (e.g. -480 for PST). */
+function schoolOffsetMinutes(ms: number): number {
+  const name = SCHOOL_OFFSET.formatToParts(new Date(ms)).find((p) => p.type === 'timeZoneName')?.value ?? 'GMT'
+  const m = name.match(/GMT([+-])(\d{2}):(\d{2})/)
+  return m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0
+}
+
+/** Start of the school day containing `iso`, as a UTC timestamp (PRD matrix: EA scope is "today"). */
+export function dayStart(iso: string): string {
+  const midnightUtc = Date.parse(`${schoolDate(iso)}T00:00:00.000Z`)
+  return new Date(midnightUtc - schoolOffsetMinutes(midnightUtc) * 60_000).toISOString()
+}
 
 export function requireObjective(sql: SqlExecutor, objectiveId: string): Objective {
   const objective = objectiveById(sql, objectiveId)
@@ -67,6 +85,7 @@ export function newDataPoint(
     version: 1,
     supersedesId: null,
     reason: null,
+    sessionDetail: null,
     ...fields,
   }
 }

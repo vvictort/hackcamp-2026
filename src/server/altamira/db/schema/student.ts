@@ -238,7 +238,10 @@ export const STUDENT_DDL: string[] = [
   ...AUDIT_LOG_DDL,
 ]
 
-export const STUDENT_MIGRATIONS: readonly Migration[] = [STUDENT_DDL]
+/** v2: student-mode time on task and read-aloud use on each data point (PRD 1B "Capture sources"). */
+export const STUDENT_V2: string[] = ['ALTER TABLE data_points ADD COLUMN session_detail_json TEXT']
+
+export const STUDENT_MIGRATIONS: readonly Migration[] = [STUDENT_DDL, STUDENT_V2]
 
 export const migrateStudent = (sql: SqlExecutor): number => runMigrations(sql, STUDENT_MIGRATIONS)
 

@@ -26,6 +26,15 @@ export type AiFunctions = { [K in AiFunctionName]: (input: AiInput<K>) => Promis
 
 const issuesOf = (error: z.ZodError) => error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
 
+/** Every studentToken value in an input (top level or nested, e.g. lens profile). */
+function studentTokensIn(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(studentTokensIn)
+  if (!value || typeof value !== 'object') return []
+  return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) =>
+    k === 'studentToken' && typeof v === 'string' ? [v] : studentTokensIn(v),
+  )
+}
+
 /**
  * The public AI functions (design doc "AI module"). Each one: validates the
  * input, de-identifies it, refuses the call if any identifier survives, calls
@@ -39,6 +48,10 @@ export function createAi(options: AiOptions): AiFunctions {
     const schemas = AI_SCHEMAS[fn]
     const parsed = schemas.input.safeParse(input)
     if (!parsed.success) throw new AltamiraError('bad_request', `Invalid ${fn} input: ${issuesOf(parsed.error).join('; ')}`)
+
+    // Fail closed: a student named in the input must be on the roster, or their name could not be stripped.
+    const known = new Set(roster.students.map((st) => st.token))
+    if (studentTokensIn(parsed.data).some((t) => !known.has(t))) throw new AiDeidentificationError(fn, ['unrostered_student'])
 
     const { value, map } = deidentify(parsed.data, roster)
     const payload = schemas.input.parse(value)

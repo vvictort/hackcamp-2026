@@ -30,7 +30,7 @@ export function seedStudent(sql: SqlExecutor, fixture: StudentFixture): void {
     insertRow(sql, 'iep_versions', toRow(fixture.iep))
     fixture.goals.forEach(({ exampleId: _exampleId, ...g }) => insertRow(sql, 'goals', toRow(g)))
     fixture.objectives.forEach((o) => insertRow(sql, 'objectives', toRow(o)))
-    fixture.dataPoints.forEach((d) => insertRow(sql, 'data_points', toRow(d)))
+    fixture.dataPoints.forEach((d) => insertRow(sql, 'data_points', toRow(d, ['sessionDetail'])))
     fixture.consents.forEach((c) => insertRow(sql, 'consents', toRow(c)))
     fixture.proficiency.forEach((p) => insertRow(sql, 'proficiency_ratings', toRow(p)))
     appendAudit(sql, {

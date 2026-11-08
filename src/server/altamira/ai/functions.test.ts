@@ -119,6 +119,17 @@ describe('de-identification scan over every AI function', () => {
     expect(requests).toEqual([])
     expect(ai.calls.scorePhotoPage).toBe(0)
   })
+
+  it('fails closed when the input names a student who is not on the roster', async () => {
+    const { provider, requests } = recordingProvider(createFixtureProvider())
+    const ai = createAi({ provider, roster })
+    const err = await ai
+      .proposeObjectives({ studentToken: 'S-ZZZZ', goalId: 'g1', area: 'Reading', goalText: 'Retell the main idea' })
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(AiDeidentificationError)
+    expect((err as AiDeidentificationError).kinds).toEqual(['unrostered_student'])
+    expect(requests).toEqual([])
+  })
 })
 
 describe('createAi', () => {

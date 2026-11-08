@@ -70,6 +70,7 @@ const point = (p: Partial<DataPoint> & Pick<DataPoint, 'id' | 'objectiveId' | 'v
   version: 1,
   supersedesId: null,
   reason: null,
+  sessionDetail: null,
   ...p,
 })
 

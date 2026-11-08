@@ -100,13 +100,16 @@ export const LensForStudentInput = z.object({
 })
 export type LensForStudentInput = z.infer<typeof LensForStudentInput>
 
-export const LensGap = z.object({
-  gapType: GapType,
-  title: z.string().min(1),
-  why: z.string(),
-  goalIds: z.array(Id),
-  accommodation: z.string().nullable(),
-})
+export const LensGap = z
+  .object({
+    gapType: GapType,
+    title: z.string().min(1),
+    why: z.string(),
+    goalIds: z.array(Id),
+    accommodation: z.string().nullable(),
+  })
+  // PRD 1A-3: each gap names the IEP goal or accommodation it comes from.
+  .refine((g) => g.goalIds.length > 0 || (g.accommodation ?? '').trim().length > 0, 'a gap names an IEP goal or accommodation')
 export type LensGap = z.infer<typeof LensGap>
 
 export const LensAdaptation = z.object({

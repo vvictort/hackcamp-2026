@@ -28,7 +28,28 @@ import {
 } from '../services/measurement'
 import { studentsGet } from '../services/school'
 import { parseCbIepText } from './cbiep'
+import { extractPdfText } from './pdf-text'
 import type { Kit } from './context'
+
+/**
+ * The CB-IEP text: pasted, or read from the PDF's text layer here, in the
+ * Worker. The PDF itself never goes to a model, because names can only be
+ * removed from text (PRD NFR Privacy).
+ */
+async function importText(body: IepImportBody): Promise<string> {
+  if (body.sourceKind === 'text') return body.text ?? ''
+  const b64 = body.file?.bytesBase64
+  if (!b64) throw new HttpError('bad_request', 'Send the CB-IEP PDF bytes inline (file.bytesBase64).')
+  let bytes: Uint8Array
+  try {
+    bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))
+  } catch {
+    throw new HttpError('bad_request', 'file.bytesBase64 is not valid base64.')
+  }
+  const text = await extractPdfText(bytes)
+  if (!text) throw new HttpError('bad_request', 'This PDF has no readable text layer; paste the CB-IEP text with sourceKind "text".')
+  return text
+}
 
 /** Student profile, CB-IEP import, objectives and proposals. */
 export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
@@ -51,16 +72,13 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     const studentId = r.param('id')
     const body = await r.body(IepImportBody)
-    if (body.sourceKind === 'pdf' || body.text === null) {
-      throw new HttpError('bad_request', 'PDF extraction is not available yet; send the CB-IEP text with sourceKind "text".')
-    }
-    const sections = parseCbIepText(body.text)
+    const sections = parseCbIepText(await importText(body))
     const { student } = await r.school(studentsGet, { studentId })
     const { iep, goals } = await r.student(studentId, iepImport, { sections, sourceFileKey: body.file?.fileKey ?? null })
 
-    // AI runs outside any room transaction, on de-identified input; the imported names are added to the roster.
-    const { firstName, lastName, preferredName } = sections.student
-    const ai = await r.ai([{ token: student.displayToken, firstName, lastName, preferredName }])
+    // AI runs outside any room transaction, on de-identified input. The roster reads this student's IEP versions,
+    // so the names in the import just stored are stripped and scanned for.
+    const ai = await r.ai([studentId])
     const objectiveProposals = []
     for (const g of goals) {
       objectiveProposals.push(await ai.proposeObjectives({ studentToken: student.displayToken, goalId: g.id, area: g.area, goalText: g.text }))

@@ -9,7 +9,7 @@ import { schemaVersion } from './migrate'
 import { createNodeSqlExecutor } from './node-sqlite'
 import { INSIGHTS_DDL, migrateInsights } from './schema/insights'
 import { SCHOOL_DDL, migrateSchool } from './schema/school'
-import { STUDENT_DDL, migrateStudent } from './schema/student'
+import { STUDENT_DDL, STUDENT_MIGRATIONS, migrateStudent } from './schema/student'
 
 const open: { close(): void }[] = []
 function freshDb() {
@@ -27,9 +27,9 @@ const tables = (db: ReturnType<typeof freshDb>) =>
 describe('migrations on node:sqlite', () => {
   it('create every student, school and insights table, and are idempotent', () => {
     const s = freshDb()
-    expect(migrateStudent(s)).toBe(1)
-    expect(migrateStudent(s)).toBe(1)
-    expect(schemaVersion(s)).toBe(1)
+    expect(migrateStudent(s)).toBe(STUDENT_MIGRATIONS.length)
+    expect(migrateStudent(s)).toBe(STUDENT_MIGRATIONS.length)
+    expect(schemaVersion(s)).toBe(STUDENT_MIGRATIONS.length)
     expect(tables(s)).toEqual([...student.STUDENT_TABLES, 'schema_version'].sort())
 
     const sc = freshDb()

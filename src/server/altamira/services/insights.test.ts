@@ -11,16 +11,39 @@ const inc = (studentKey: string, goalArea: string) => ({ schoolId: SCHOOL.id, pe
 const keys = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `hash-${prefix}-${i}`)
 
 describe('District Insights (PRD: no group under 10 is ever displayed)', () => {
-  it('suppresses groups with fewer than 10 students', () => {
+  it('suppresses groups with fewer than 10 students, and the smallest sibling so it cannot be subtracted out', () => {
     const sql = insightsRoom()
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: [...keys('r', 9).map((k) => inc(k, 'Reading')), ...keys('w', 10).map((k) => inc(k, 'Writing'))] }, ACTORS.system)
+    const push = (increments: unknown[]) => runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments }, ACTORS.system)
+    push([...keys('r', 9).map((k) => inc(k, 'Reading')), ...keys('w', 10).map((k) => inc(k, 'Writing')), ...keys('m', 12).map((k) => inc(k, 'Math'))])
     // Repeat pushes raise counts, never the student count.
-    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('r', 9).map((k) => inc(k, 'Reading')) }, ACTORS.system)
+    push(keys('r', 9).map((k) => inc(k, 'Reading')))
     const { groups } = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id }, ACTORS.districtLead)
     expect(groups).toEqual([
+      { dims: { goalArea: 'Math' }, students: 12, count: 12, suppressed: false },
       { dims: { goalArea: 'Reading' }, students: null, count: null, suppressed: true },
-      { dims: { goalArea: 'Writing' }, students: 10, count: 10, suppressed: false },
+      { dims: { goalArea: 'Writing' }, students: null, count: null, suppressed: true },
     ])
+  })
+
+  it('a finer grouping cannot be differenced against a coarser one (complementary suppression)', () => {
+    const sql = insightsRoom()
+    // 12 Writing students: 11 with adaptations, 1 with a modification.
+    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('w', 12).map((k, i) => ({ ...inc(k, 'Writing'), label: i === 0 ? 'modification' : 'adaptation' })) }, ACTORS.system)
+    const coarse = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalArea'] }, ACTORS.districtLead)
+    expect(coarse.groups[0]).toMatchObject({ students: 12, suppressed: false })
+    const fine = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalArea', 'label'] }, ACTORS.districtLead)
+    // 12 - 11 would reveal the 1; both cells are hidden.
+    expect(fine.groups.every((g) => g.suppressed)).toBe(true)
+  })
+
+  it('groups by goal progress and review timeliness', () => {
+    const sql = insightsRoom()
+    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('g', 10).map((k) => ({ ...inc(k, 'Math'), goalProgress: 'near_goal_line' })) }, ACTORS.system)
+    runInsights(sql, 'counters.push', { districtId: DISTRICT.id, increments: keys('g', 10).map((k) => ({ ...inc(k, 'Math'), goalArea: null, reviewTimeliness: 'on_time' })) }, ACTORS.system)
+    const progress = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['goalProgress'] }, ACTORS.districtLead)
+    expect(progress.groups.find((g) => g.dims.goalProgress === 'near_goal_line')).toMatchObject({ students: 10, suppressed: false })
+    const timely = runInsights<{ groups: InsightGroup[] }>(sql, 'insights.get', { districtId: DISTRICT.id, groupBy: ['reviewTimeliness'] }, ACTORS.districtLead)
+    expect(timely.groups.find((g) => g.dims.reviewTimeliness === 'on_time')).toMatchObject({ students: 10, suppressed: false })
   })
 
   it('suppresses at every grouping, including combined dimensions', () => {

@@ -23,14 +23,14 @@ import type { Check } from '../contract/student'
 import type { AltamiraEnv } from '../middleware/auth'
 import { HttpError } from '../middleware/errors'
 import { captureBatchesCreate, captureBatchesGet, checksForScoring } from '../services/integration'
-import { voiceNoteProcess } from '../services/family'
+import { voiceNoteAudioDeleted, voiceNoteProcess } from '../services/family'
 import {
   dataPointSource,
   dataPointsAddPending,
   dataPointsCorrect,
   eventsRecord,
   goalStatusGet,
-  objectivesList,
+  objectivesForCapture,
   reviewConfirm,
   reviewList,
   timelineGet,
@@ -66,7 +66,11 @@ function pageScore(check: Check, items: { value: number; confidence: number }[])
   return { value, confidence }
 }
 
-type ResolvedPage = { page: MediaRef; code: string | null; sheet: { studentId: string; lessonId: string; checkId: string } | null }
+type ResolvedPage = {
+  page: MediaRef
+  code: string | null
+  sheet: { studentId: string; lessonId: string; checkId: string; classId: string | null } | null
+}
 
 async function resolvePages(r: Req, pages: MediaRef[]): Promise<ResolvedPage[]> {
   const out: ResolvedPage[] = []
@@ -77,8 +81,8 @@ async function resolvePages(r: Req, pages: MediaRef[]): Promise<ResolvedPage[]> 
       continue
     }
     try {
-      const { sheetCode } = await r.school(sheetCodesResolve, { code })
-      out.push({ page, code, sheet: sheetCode })
+      const { sheetCode, classId } = await r.school(sheetCodesResolve, { code })
+      out.push({ page, code, sheet: { ...sheetCode, classId } })
     } catch (err) {
       // An unknown code is an unreadable page; a student outside the caller's scope refuses the whole batch.
       if (err instanceof AltamiraError && err.code === 'not_found') out.push({ page, code, sheet: null })
@@ -91,22 +95,25 @@ async function resolvePages(r: Req, pages: MediaRef[]): Promise<ResolvedPage[]> 
 async function scorePage(r: Req, p: ResolvedPage): Promise<CapturePageResult> {
   const base = { fileKey: p.page.fileKey, sheetCode: p.code, studentId: p.sheet?.studentId ?? null }
   if (!p.sheet) return { ...base, status: 'unreadable_code', dataPointIds: [] }
-  const { studentId, lessonId, checkId } = p.sheet
+  const { studentId, lessonId, checkId, classId } = p.sheet
   try {
     const { check } = await r.student(studentId, checksForScoring, { checkId })
-    const ai = await r.ai()
+    const ai = await r.ai([studentId])
     const scored = await ai.scorePhotoPage({
       image: p.page,
       check: { checkId, items: check.items, answerKey: check.answerKey, rubric: check.rubric },
     })
     const { value, confidence } = pageScore(check, scored.items)
+    // PRD data quality: the point links to its photo and item; the item is the page's least confident one.
+    const weakest = scored.items.reduce<(typeof scored.items)[number] | null>((w, i) => (!w || i.confidence < w.confidence ? i : w), null)
     const { dataPoint } = await r.student(studentId, dataPointsAddPending, {
       objectiveId: check.objectiveId,
       value,
       aiConfidence: confidence,
-      routing: routing(confidence, `${p.page.fileKey}:${checkId}`, check.rubric !== null),
-      sourceRef: photoRef(p.page.fileKey, null),
+      routing: routing(confidence, r.sampleSeed(), check.rubric !== null),
+      sourceRef: photoRef(p.page.fileKey, weakest?.itemId ?? null),
       lessonId,
+      classId,
     })
     return { ...base, status: 'scored', dataPointIds: [dataPoint.id] }
   } catch (err) {
@@ -147,34 +154,46 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
 
   /**
    * PRD NFR Consent: audio needs parental consent, and the recording is
-   * deleted once converted to events (or at once, unprocessed, without consent).
+   * deleted once the consent gate is passed, whether processing succeeds or
+   * fails (or at once, unprocessed, without consent). The deletion is audited
+   * only after the delete succeeded.
    */
   app.post('/students/:id/voice-notes', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
     const r = req(c)
     const studentId = r.param('id')
     const body = await r.body(VoiceNoteBody)
+    const audioFileKey = body.audio.fileKey
+    const deleteAudio = async (processed: boolean) => {
+      await deps.deleteFile(r.env, audioFileKey, r.actor.userId)
+      await r.student(studentId, voiceNoteAudioDeleted, { audioFileKey, processed })
+    }
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('audio'))) {
-      await deps.deleteFile(r.env, body.audio.fileKey, r.actor.userId)
+      await deleteAudio(false)
       throw new HttpError('forbidden', 'Voice notes need recorded parental consent for audio.')
     }
-    const { objectives } = await r.student(studentId, objectivesList)
-    const { token } = await studentToken(r, studentId)
-    const ai = await r.ai()
-    const parsed = await ai.parseVoiceNote({
-      audio: body.audio,
-      studentToken: token,
-      objectives: objectives
-        .filter((o) => o.status === 'confirmed')
-        .map((o) => ({ objectiveId: o.id, metricType: o.metricType, description: `${o.unit}: ${o.masteryRule}` })),
-    })
-    const result = await r.student(studentId, voiceNoteProcess, {
-      audioFileKey: body.audio.fileKey,
-      classId: body.classId,
-      recordedAt: body.recordedAt,
-      events: parsed.events.map((event, i) => ({ event, routing: routing(event.confidence, `${body.audio.fileKey}:${i}`) })),
-    })
-    await deps.deleteFile(r.env, body.audio.fileKey, r.actor.userId)
-    return r.json(VoiceNoteResponse, { dataPoints: result.dataPoints, audioDeleted: true }, 201)
+    let processed = false
+    try {
+      // Confirmed objectives only, as ids, metric types and units: no IEP text reaches the EA's request.
+      const { objectives } = await r.student(studentId, objectivesForCapture)
+      const { token } = await studentToken(r, studentId)
+      const ai = await r.ai([studentId])
+      const parsed = await ai.parseVoiceNote({
+        audio: body.audio,
+        studentToken: token,
+        objectives: objectives.map((o) => ({ objectiveId: o.objectiveId, metricType: o.metricType, description: o.unit })),
+      })
+      const result = await r.student(studentId, voiceNoteProcess, {
+        audioFileKey,
+        classId: body.classId,
+        recordedAt: body.recordedAt,
+        events: parsed.events.map((event) => ({ event, routing: routing(event.confidence, r.sampleSeed()) })),
+      })
+      processed = true
+      await deleteAudio(true)
+      return r.json(VoiceNoteResponse, { dataPoints: result.dataPoints, audioDeleted: true }, 201)
+    } finally {
+      if (!processed) await deleteAudio(false)
+    }
   })
 
   /** Open review items across the caller's students (EAs see their own entries only). */

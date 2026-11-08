@@ -152,13 +152,29 @@ export const objectivesList = defineOp({
   args: StudentArgs,
   run(sql, args, actor): { objectives: Objective[] } {
     const allowed = authorize(actor, 'iep.view', args.studentId)
-    if (allowed.filter === 'supports_applied' || allowed.filter === 'today_view') {
+    // PRD matrix "View IEP goals and accommodations": EAs get supports and what works only, never IEP text.
+    if (allowed.filter === 'supports_only' || allowed.filter === 'supports_applied' || allowed.filter === 'today_view') {
       throw new AltamiraError('forbidden', 'objectives are not shown in this mode')
     }
     const rows = sql.all<Row>(
       "SELECT o.* FROM objectives o JOIN goals g ON g.id = o.goal_id WHERE g.status = 'active' ORDER BY o.rowid",
     )
     return { objectives: parseRows(ObjectiveSchema, rows) }
+  },
+})
+
+/**
+ * What a voice-note parser needs to file events (EA capture): confirmed
+ * objectives' ids, metric types and units only, no IEP text.
+ */
+export const objectivesForCapture = defineOp({
+  name: 'objectives.forCapture',
+  room: 'student',
+  capability: 'evidence.capture',
+  args: StudentArgs,
+  run(sql, args, actor): { objectives: { objectiveId: string; metricType: MetricType; unit: string }[] } {
+    authorizeStaff(actor, 'evidence.capture', args.studentId)
+    return { objectives: iepRepo.currentConfirmedObjectives(sql).map((o) => ({ objectiveId: o.id, metricType: o.metricType, unit: o.unit })) }
   },
 })
 
@@ -176,13 +192,13 @@ export const objectivesPropose = defineOp({
     for (const p of args.proposals) {
       const goal = iepRepo.goalById(sql, p.goalId)
       if (!goal) throw new AltamiraError('not_found', `goal ${p.goalId} not found`)
+      const existing = iepRepo.objectivesForGoals(sql, [goal.id])[0]
       if (!p.measurable) {
         unmeasurable.push({ goalId: p.goalId, reason: p.reason })
+        // PRD 1B: goals that can't be measured are flagged for the IEP team, as a stored objective row.
+        if (!existing) objectives.push(insertFlagged(sql, actor, goal, p.reason, at))
         continue
       }
-      const existing = iepRepo
-        .objectivesForGoals(sql, [goal.id])
-        .find((o) => o.status === 'proposed' || o.status === 'confirmed')
       if (existing) {
         objectives.push(existing)
         continue
@@ -212,6 +228,33 @@ export const objectivesPropose = defineOp({
   },
 })
 
+/**
+ * A goal the AI judged unmeasurable. The measure fields hold placeholders
+ * (empty unit and mastery rule) until the case manager sets them when confirming.
+ */
+function insertFlagged(sql: SqlExecutor, actor: Actor, goal: Goal, reason: string, at: string): Objective {
+  const objective: Objective = {
+    id: newId(),
+    goalId: goal.id,
+    metricType: 'accuracy',
+    unit: '',
+    baseline: null,
+    baselineMethod: null,
+    target: 0,
+    masteryRule: '',
+    reviewDate: iepRepo.iepByVersion(sql, goal.iepVersion)?.sections.reviewDate ?? null,
+    captureMethod: 'teacher',
+    status: 'flagged_unmeasurable',
+    flagReason: reason,
+    confirmedBy: null,
+    confirmedAt: null,
+    version: 1,
+  }
+  insertEntity(sql, 'objectives', objective)
+  audit(sql, actor, 'objectives.flag', 'objectives', objective.id, undefined, { status: objective.status, flagReason: reason }, at)
+  return objective
+}
+
 const ObjectiveEdits = ObjectiveSchema.pick({
   metricType: true,
   unit: true,
@@ -235,6 +278,9 @@ export const objectivesConfirm = defineOp({
     if (o.status === 'confirmed') throw new AltamiraError('bad_request', 'objective is already confirmed')
     const at = nowIso(args.now)
     const next: Objective = { ...o, ...args.edits, status: 'confirmed', flagReason: null, confirmedBy: actor.userId, confirmedAt: at, version: o.version + 1 }
+    if (!next.unit.trim() || !next.masteryRule.trim()) {
+      throw new AltamiraError('bad_request', 'set the unit and mastery rule before confirming this objective')
+    }
     updateVersioned(sql, 'objectives', o.id, o.version, {
       metric_type: next.metricType,
       unit: next.unit,
@@ -611,8 +657,11 @@ export const goalStatusGet = defineOp({
     if (!objective) {
       return { goalId: goal.id, objectiveId: null, metricType: null, baseline: null, current: null, target: null, trend: null, projectedDate: null, recentCount: 0, canShowTrend: false, latestDecision: null }
     }
-    const points = ev.confirmedPoints(sql, objective.id)
-    const status = goalStatus(points, objective, nowIso(args.now))
+    const at = nowIso(args.now)
+    // PRD matrix: EAs see assigned students, today, so their status line is built from today's points only.
+    const today = dayStart(at)
+    const points = ev.confirmedPoints(sql, objective.id).filter((p) => allowed.filter !== 'today' || p.at >= today)
+    const status = goalStatus(points, objective, at)
     // Decision rules belong to the case manager; parents and EAs see the status line only.
     const latest = allowed.filter === 'all' ? (ev.latestDecision(sql, objective.id)?.rule ?? null) : null
     return { goalId: goal.id, objectiveId: objective.id, metricType: objective.metricType, ...status, latestDecision: latest }
@@ -623,12 +672,15 @@ export const dataPointSource = defineOp({
   name: 'dataPoint.source',
   room: 'student',
   capability: 'progress.view',
-  args: StudentArgs.extend({ dataPointId: Id }),
+  args: StudentArgs.extend({ dataPointId: Id }).extend(Now.shape),
   run(sql, args, actor) {
     const allowed = authorize(actor, 'progress.view', args.studentId)
     if (allowed.filter === 'self_simplified') throw new AltamiraError('forbidden', 'student mode shows progress through sessions')
     const dataPoint = ev.dataPointById(sql, args.dataPointId)
-    const hidden = allowed.filter === 'confirmed_only' && (!dataPoint || dataPoint.status === 'pending_review')
+    const hidden =
+      (allowed.filter === 'confirmed_only' && (!dataPoint || dataPoint.status === 'pending_review')) ||
+      // PRD matrix: EAs see today's scope only.
+      (allowed.filter === 'today' && (!dataPoint || dataPoint.recordedAt < dayStart(nowIso(args.now))))
     if (!dataPoint || hidden) throw new AltamiraError('not_found', `data point ${args.dataPointId} not found`)
     return { dataPoint, source: parseSourceRef(dataPoint.sourceRef) }
   },
@@ -645,6 +697,7 @@ export const measurementOpList = [
   iepImport,
   iepConfirm,
   objectivesList,
+  objectivesForCapture,
   objectivesPropose,
   objectivesConfirm,
   objectivesFlagUnmeasurable,

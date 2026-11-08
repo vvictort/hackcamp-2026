@@ -10,15 +10,15 @@ import type { Consent, DataPoint, FamilySummary, Handoff, HandoffPacket, ParentI
 import type { SqlExecutor } from '../db/sql'
 import { assertVersion, audit, insertEntity, newId, nowIso, updateVersioned } from '../repos/base'
 import * as ev from '../repos/evidence'
-import { confirmedObjectiveForGoal, currentGoals, currentIep, objectivesForGoals } from '../repos/iep'
+import { confirmedObjectiveForGoal, currentConfirmedObjectives, currentGoals, currentIep, objectivesForGoals } from '../repos/iep'
 import { approvedAdaptations } from '../repos/lens'
 import * as records from '../repos/records'
 import { goalStatus } from './analytics'
 import { Now, StudentArgs, authorize, authorizeStaff } from './authz'
 import { citationErrors } from './insight'
-import { Routing, eventValue, storeScoredPoint, type EventInput } from './measurement'
+import { Routing, evaluateObjective, eventValue, storeScoredPoint, type EventInput } from './measurement'
 import { eaEventRef } from './sources'
-import { EVENT_SOURCE, requireConsent, requireObjective, whatWorksFor } from './student-common'
+import { EVENT_SOURCE, requireConsent, whatWorksFor } from './student-common'
 
 /** M4 ops: consent, parent input, Family Bridge, Today View, Transition Handoff, voice notes. */
 
@@ -215,6 +215,25 @@ function trendLabel(trend: number | null, direction: number, unit: string): stri
   return `${word} (${trend >= 0 ? '+' : ''}${trend.toFixed(2)} ${unit} per week)`
 }
 
+/**
+ * Suggested next goal for one current goal, by a deterministic rule on its
+ * confirmed data (PRD Transition Handoff "suggested next goals"): a met target
+ * or a raise-goal decision suggests raising it, a change-approach decision
+ * suggests keeping it with a new approach, otherwise continue toward the target.
+ */
+function nextGoalFor(sql: SqlExecutor, goal: { id: string; area: string }, at: string): string {
+  const objective = confirmedObjectiveForGoal(sql, goal.id)
+  if (!objective) return `${goal.area}: make this goal measurable with the receiving team before setting a new target.`
+  const { points, outcome } = evaluateObjective(sql, objective)
+  const status = goalStatus(points, objective, at)
+  const direction = Math.sign(objective.target - (status.baseline ?? objective.target)) || 1
+  const met = status.current !== null && (status.current - objective.target) * direction >= 0
+  const target = `${objective.target} ${objective.unit}`.trim()
+  if (met || outcome === 'raise_goal') return `${goal.area}: raise the goal; recent data meets or is above the target of ${target}.`
+  if (outcome === 'change_approach') return `${goal.area}: keep the target of ${target} and change the approach; progress is below the goal line.`
+  return `${goal.area}: continue toward the target of ${target}.`
+}
+
 export const handoffsCreate = defineOp({
   name: 'handoffs.create',
   room: 'student',
@@ -236,8 +255,7 @@ export const handoffsCreate = defineOp({
         return { goalId: g.id, area: g.area, text: g.text, trend, proficiency: records.latestProficiency(sql, g.id)?.level ?? null }
       }),
       whatWorks: whatWorksFor(sql).filter((r) => !r.hidden).map(({ adaptationType, n, meanOutcome }) => ({ adaptationType, n, meanOutcome })),
-      // Suggested next goals need the AI module; the route may fill them before showing the packet.
-      suggestedNextGoals: [],
+      suggestedNextGoals: currentGoals(sql).map((g) => nextGoalFor(sql, g, at)),
     }
     const handoff: Handoff = { id: newId(), createdBy: actor.userId, createdAt: at, toSchool: args.toSchool, packet }
     insertEntity(sql, 'handoffs', handoff)
@@ -270,8 +288,10 @@ function toEventInput(e: z.infer<typeof VoiceEvent>): EventInput {
 }
 
 /**
- * Stores the events parsed from a voice note and records that the audio is
- * deleted. The route deletes the stored recording after this op succeeds.
+ * Stores the events parsed from a voice note. Only events for a current,
+ * confirmed objective whose metric fits the event are kept (AI output never
+ * lands on an objective the case manager has not confirmed); the rest are
+ * counted as skipped. The route deletes the recording whatever happens here.
  */
 export const voiceNoteProcess = defineOp({
   name: 'voiceNote.process',
@@ -284,24 +304,30 @@ export const voiceNoteProcess = defineOp({
     recordedAt: z.string().optional(),
     events: z.array(z.object({ event: VoiceEvent, routing: Routing })),
   }).extend(Now.shape),
-  run(sql, args, actor: Actor): { dataPoints: DataPoint[]; audioDeleted: true; skipped: number } {
+  run(sql, args, actor: Actor): { dataPoints: DataPoint[]; skipped: number } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
     requireConsent(sql, 'audio')
     const at = nowIso(args.now)
+    const confirmed = new Map(currentConfirmedObjectives(sql).map((o) => [o.id, o]))
     const dataPoints: DataPoint[] = []
     let skipped = 0
     for (const { event, routing } of args.events) {
-      if (!event.objectiveId) {
+      const objective = event.objectiveId ? confirmed.get(event.objectiveId) : undefined
+      let value: number
+      try {
+        if (!objective) throw new AltamiraError('bad_request', 'no confirmed objective for this event')
+        value = eventValue(toEventInput(event), objective)
+      } catch (err) {
+        if (!(err instanceof AltamiraError)) throw err
         skipped++
         continue
       }
-      const objective = requireObjective(sql, event.objectiveId)
       const { dataPoint } = storeScoredPoint(
         sql,
         actor,
         {
           objective,
-          value: eventValue(toEventInput(event), objective),
+          value,
           aiConfidence: event.confidence,
           routing,
           sourceRef: eaEventRef(event.kind, `voice-${newId()}`),
@@ -314,8 +340,21 @@ export const voiceNoteProcess = defineOp({
       )
       dataPoints.push(dataPoint)
     }
-    audit(sql, actor, 'voice_notes.audio_deleted', 'data_points', args.audioFileKey, undefined, { events: dataPoints.length }, at)
-    return { dataPoints, audioDeleted: true, skipped }
+    audit(sql, actor, 'voice_notes.process', 'data_points', args.audioFileKey, undefined, { events: dataPoints.length, skipped }, at)
+    return { dataPoints, skipped }
+  },
+})
+
+/** Records that the recording was deleted. Called by the route only after the delete succeeded (PRD NFR Consent). */
+export const voiceNoteAudioDeleted = defineOp({
+  name: 'voiceNote.audioDeleted',
+  room: 'student',
+  capability: 'evidence.capture',
+  args: StudentArgs.extend({ audioFileKey: z.string().min(1), processed: z.boolean() }).extend(Now.shape),
+  run(sql, args, actor): { audioDeleted: true } {
+    authorizeStaff(actor, 'evidence.capture', args.studentId)
+    audit(sql, actor, 'voice_notes.audio_deleted', 'data_points', args.audioFileKey, undefined, { processed: args.processed }, nowIso(args.now))
+    return { audioDeleted: true }
   },
 })
 
@@ -331,4 +370,5 @@ export const familyOpList = [
   handoffsCreate,
   handoffsGet,
   voiceNoteProcess,
+  voiceNoteAudioDeleted,
 ]

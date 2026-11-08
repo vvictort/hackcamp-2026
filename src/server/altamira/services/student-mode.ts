@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { SessionNextResponse, SessionSupports } from '../contract/api'
 import { Id } from '../contract/common'
+import type { MetricType } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
 import { ProbeForm, type AnswerKeyEntry, type CheckItem, type IepVersion, type Probe } from '../contract/student'
@@ -13,7 +14,7 @@ import { probesForObjectives } from '../repos/records'
 import { Now, StudentArgs, authorize, authorizeStaff, requireStudentSession } from './authz'
 import { isObjectiveItem, scoreItem } from './scoring'
 import { parseSourceRef, studentResponseRef } from './sources'
-import { newDataPoint, requireConsent } from './student-common'
+import { activeAdaptationIds, newDataPoint, requireConsent } from './student-common'
 import { BREAK_TIMER_MINUTES } from './thresholds'
 
 /**
@@ -28,7 +29,13 @@ type SessionItem = {
   item: CheckItem
   key: AnswerKeyEntry | undefined
   fromProbe: boolean
+  /** Lesson of the approved adaptation that holds the check; null for probes. */
+  lessonId: string | null
 }
+
+const lessonOfSuggestion = (sql: SqlExecutor, suggestionId: string): string | null =>
+  sql.get<{ lesson_id: string }>('SELECT r.lesson_id FROM suggestions s JOIN lens_runs r ON r.id = s.lens_run_id WHERE s.id = ?', suggestionId)?.lesson_id ??
+  null
 
 /** Supports applied automatically from the IEP, as booleans only (PRD Student mode). */
 export function supportsFrom(iep: IepVersion | undefined): SessionSupports {
@@ -45,11 +52,25 @@ export function supportsFrom(iep: IepVersion | undefined): SessionSupports {
 /** Objective items with a key, from scheduled probes first, then approved checks. */
 function sessionItems(sql: SqlExecutor): SessionItem[] {
   const objectives = currentConfirmedObjectives(sql).map((o) => o.id)
-  const forms: { formId: string; objectiveId: string; items: CheckItem[]; key: AnswerKeyEntry[]; fromProbe: boolean }[] = [
-    ...probesForObjectives(sql, objectives).map((p: Probe) => ({ formId: p.id, objectiveId: p.objectiveId, items: p.form.items, key: p.form.answerKey, fromProbe: true })),
+  const forms: { formId: string; objectiveId: string; items: CheckItem[]; key: AnswerKeyEntry[]; fromProbe: boolean; lessonId: string | null }[] = [
+    ...probesForObjectives(sql, objectives).map((p: Probe) => ({
+      formId: p.id,
+      objectiveId: p.objectiveId,
+      items: p.form.items,
+      key: p.form.answerKey,
+      fromProbe: true,
+      lessonId: null,
+    })),
     ...approvedChecks(sql)
       .filter((c) => c.answerKey && objectives.includes(c.objectiveId))
-      .map((c) => ({ formId: c.id, objectiveId: c.objectiveId, items: c.items, key: c.answerKey ?? [], fromProbe: false })),
+      .map((c) => ({
+        formId: c.id,
+        objectiveId: c.objectiveId,
+        items: c.items,
+        key: c.answerKey ?? [],
+        fromProbe: false,
+        lessonId: lessonOfSuggestion(sql, c.suggestionId),
+      })),
   ]
   return forms.flatMap((f) =>
     f.items
@@ -60,6 +81,7 @@ function sessionItems(sql: SqlExecutor): SessionItem[] {
         item,
         key: f.key.find((k) => k.itemId === item.id),
         fromProbe: f.fromProbe,
+        lessonId: f.lessonId,
       })),
   )
 }
@@ -70,6 +92,20 @@ function responses(sql: SqlExecutor) {
     const src = parseSourceRef(dp.sourceRef)
     return src.kind === 'student_response' ? { dp, sessionId: src.sessionId, itemKey: src.itemId } : null
   }).filter((r) => r !== null)
+}
+
+/**
+ * Value of one scored item. Accuracy: 100 or 0 (percent correct). Rate:
+ * correct items per minute from the item's time on task, so a timed probe's
+ * points measure fluency (design doc M5 rate metric). Other metrics: 1 or 0.
+ */
+export function itemValue(metricType: MetricType, correct: boolean, durationMs: number | undefined): number {
+  if (metricType === 'accuracy') return correct ? 100 : 0
+  if (metricType === 'rate') {
+    if (!durationMs) throw new AltamiraError('bad_request', 'a rate objective needs the time on task (durationMs)')
+    return correct ? Math.round((60_000 / durationMs) * 100) / 100 : 0
+  }
+  return correct ? 1 : 0
 }
 
 export const sessionsStart = defineOp({
@@ -107,7 +143,12 @@ export const sessionsRespond = defineOp({
   name: 'sessions.respond',
   room: 'student',
   capability: 'evidence.capture',
-  args: StudentArgs.extend({ itemId: z.string().min(1), response: z.string(), durationMs: z.number().int().min(0).optional() }).extend(Now.shape),
+  args: StudentArgs.extend({
+    itemId: z.string().min(1),
+    response: z.string(),
+    durationMs: z.number().int().min(0).optional(),
+    readAloudUsed: z.boolean().default(false),
+  }).extend(Now.shape),
   run(sql, args, actor): { correct: boolean } {
     const at = nowIso(args.now)
     const session = requireStudentSession(actor, args.studentId, at)
@@ -120,20 +161,24 @@ export const sessionsRespond = defineOp({
     if (correct === null) throw new AltamiraError('bad_request', 'this item cannot be scored automatically')
     const objective = objectiveById(sql, item.objectiveId)
     if (!objective) throw new AltamiraError('not_found', 'objective not found')
-    const max = objective.metricType === 'accuracy' ? 100 : 1
     const dataPoint = newDataPoint({
       id: newId(),
       objectiveId: objective.id,
-      value: correct ? max : 0,
+      value: itemValue(objective.metricType, correct, args.durationMs),
       unit: objective.unit,
       source: item.fromProbe ? 'probe' : 'student',
       recorderId: session.startedBy ?? actor.userId,
       recordedAt: at,
+      // PRD 1B "Timeline persistence": the lesson and the adaptations in force travel with the point.
+      lessonId: item.lessonId,
+      activeAdaptations: activeAdaptationIds(sql, item.lessonId),
       status: 'auto_confirmed',
       sourceRef: studentResponseRef(session.tokenId, item.itemKey),
+      // PRD 1B "Capture sources": student mode records time on task and read-aloud use.
+      sessionDetail: { timeOnTaskMs: args.durationMs ?? null, readAloud: args.readAloudUsed },
     })
     ev.insertDataPoint(sql, dataPoint)
-    audit(sql, actor, 'data_points.create', 'data_points', dataPoint.id, undefined, { ...dataPoint, durationMs: args.durationMs ?? null }, at)
+    audit(sql, actor, 'data_points.create', 'data_points', dataPoint.id, undefined, dataPoint, at)
     return { correct }
   },
 })
