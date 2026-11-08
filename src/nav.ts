@@ -1,6 +1,6 @@
 /**
- * Routed navigation entries. Navigation.tsx renders these (filtered by role
- * and devOnly), giving each an icon from its ICONS map, with a fallback for
+ * Routed navigation entries. Navigation.tsx renders these (filtered by role),
+ * giving each an icon from its ICONS map, with a fallback for
  * entries `deepspace add` inserts below the marker line. The same `roles`
  * also guard the pages (see RoleGate), so a role never reaches a screen its
  * nav does not offer.
@@ -15,7 +15,6 @@ export interface NavItem {
   label: MessageKey
   /** Altamyra roles that may use the item; omitted = everyone. */
   roles?: AltamyraRole[]
-  devOnly?: boolean
   /** Reachable by URL and from other pages, but not shown in the sidebar. */
   hidden?: boolean
   /** Also shown to roles outside `roles` while the demo role switcher is on (Home hosts the switcher). */
@@ -34,8 +33,6 @@ export const nav: NavItem[] = [
   { path: '/admin/tickets', label: 'app.nav.tickets', roles: ['school_admin'] },
   { path: '/admin/roles', label: 'app.nav.roles', roles: ['school_admin'] },
   { path: '/settings', label: 'nav.settings' },
-  // The /api-status debug page still exists: add
-  // `{ path: '/api-status', label: 'app.nav.apiStatus', devOnly: true }` to surface it.
   // ── Features add nav items below this line ──
 ]
 
