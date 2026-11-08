@@ -112,10 +112,13 @@ export const sessionsStart = defineOp({
   name: 'sessions.start',
   room: 'student',
   capability: 'evidence.capture',
-  args: StudentArgs.extend(Now.shape),
+  args: StudentArgs.extend({ selfStart: z.boolean().default(false) }).extend(Now.shape),
   run(sql, args, actor): { consentId: string; supports: SessionSupports } {
     // PRD NFR Consent: sessions are started by a teacher or EA, and only with parental consent.
-    authorizeStaff(actor, 'evidence.capture', args.studentId)
+    // selfStart (demo only; the route gates it on ALTAMIRA_DEV_SEED): the student's own linked account is in scope for that one student.
+    if (args.selfStart) {
+      if (actor.session || !actor.parentOf.includes(args.studentId)) throw new AltamiraError('forbidden', 'student mode self start needs your own linked student')
+    } else authorizeStaff(actor, 'evidence.capture', args.studentId)
     const consent = requireConsent(sql, 'student_mode')
     audit(sql, actor, 'sessions.start', 'consents', consent.id, undefined, { consentId: consent.id }, nowIso(args.now))
     return { consentId: consent.id, supports: supportsFrom(currentIep(sql)) }

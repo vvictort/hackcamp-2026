@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import { z } from 'zod'
 import { routeScore } from '../ai/scoring'
 import {
   CaptureBatchResponse,
@@ -9,6 +10,7 @@ import {
   DataPointSourceResponse,
   GoalStatusResponse,
   PhotoCaptureBody,
+  SessionCreateResponse,
   ReviewConfirmBody,
   ReviewQueueResponse,
   TimelineQuery,
@@ -16,13 +18,18 @@ import {
   VoiceNoteBody,
   VoiceNoteResponse,
 } from '../contract/api'
-import type { MediaRef } from '../contract/common'
+import { Id, type MediaRef } from '../contract/common'
 import { AltamiraError } from '../contract/errors'
 import type { CapturePageResult } from '../contract/school'
 import type { Check } from '../contract/student'
 import type { AltamiraEnv } from '../middleware/auth'
 import { HttpError } from '../middleware/errors'
+import { mintToken } from '../middleware/tokens'
+import { canStartStudentSession, STUDENT_SESSION_TTL_MS } from '../middleware/session'
 import { captureBatchesCreate, captureBatchesGet, checksForScoring } from '../services/integration'
+import { lensSaveRun } from '../services/lens'
+import { sessionsStart } from '../services/student-mode'
+import { ensureReviewable, fallbackPageScore, type PageItemScore } from '../services/scoring'
 import { voiceNoteAudioDeleted, voiceNoteProcess } from '../services/family'
 import {
   dataPointSource,
@@ -31,15 +38,22 @@ import {
   eventsRecord,
   goalStatusGet,
   objectivesForCapture,
+  objectivesList,
   reviewConfirm,
   reviewList,
   timelineGet,
   type Routing,
 } from '../services/measurement'
-import { sheetCodesResolve } from '../services/school'
+import { classesList, lessonsCreate, rosterList, sheetCodesIssue, sheetCodesResolve } from '../services/school'
 import { photoRef } from '../services/sources'
 import type { Kit, Req } from './context'
 import { studentToken } from './lens-flow'
+
+const CaptureObjectivesResponse = z.object({
+  objectives: z.array(z.object({ objectiveId: Id, metricType: z.string(), unit: z.string() })),
+})
+const SampleSheetBody = z.object({ studentId: Id })
+const SampleSheetResponse = z.object({ code: z.string(), studentId: Id, checkId: Id })
 
 /**
  * Assumption: the PRD routes "scores below the threshold, and a random sample
@@ -92,20 +106,41 @@ async function resolvePages(r: Req, pages: MediaRef[]): Promise<ResolvedPage[]> 
   return out
 }
 
+/** Demo sheets (file key "sample-sheet-code-...") are only recognised when the dev seed is on. */
+const isSampleSheet = (r: Req, page: MediaRef) => r.deps.devSeedEnabled(r.env) && /sample-sheet-code/i.test(page.fileKey)
+
+/**
+ * The AI scores the page. With no key or any AI failure, a deterministic
+ * fallback keeps the demo flow working; it always leaves one low-confidence
+ * item so the review queue is exercised. Real photos are never auto-trusted
+ * by the fallback.
+ */
+async function scoreItems(r: Req, studentId: string, page: MediaRef, check: Check): Promise<PageItemScore[]> {
+  let items: PageItemScore[]
+  try {
+    const ai = await r.ai([studentId])
+    const scored = await ai.scorePhotoPage({
+      image: page,
+      check: { checkId: check.id, items: check.items, answerKey: check.answerKey, rubric: check.rubric },
+    })
+    items = scored.items
+  } catch (err) {
+    if (err instanceof AltamiraError && err.code === 'forbidden') throw err
+    items = fallbackPageScore(check.items, check.rubric ? Math.max(...check.rubric.levels.map((l) => l.score)) : null)
+  }
+  return isSampleSheet(r, page) ? ensureReviewable(items, AI_CONFIDENCE_THRESHOLD) : items
+}
+
 async function scorePage(r: Req, p: ResolvedPage): Promise<CapturePageResult> {
   const base = { fileKey: p.page.fileKey, sheetCode: p.code, studentId: p.sheet?.studentId ?? null }
   if (!p.sheet) return { ...base, status: 'unreadable_code', dataPointIds: [] }
   const { studentId, lessonId, checkId, classId } = p.sheet
   try {
     const { check } = await r.student(studentId, checksForScoring, { checkId })
-    const ai = await r.ai([studentId])
-    const scored = await ai.scorePhotoPage({
-      image: p.page,
-      check: { checkId, items: check.items, answerKey: check.answerKey, rubric: check.rubric },
-    })
-    const { value, confidence } = pageScore(check, scored.items)
+    const scoredItems = await scoreItems(r, studentId, p.page, check)
+    const { value, confidence } = pageScore(check, scoredItems)
     // PRD data quality: the point links to its photo and item; the item is the page's least confident one.
-    const weakest = scored.items.reduce<(typeof scored.items)[number] | null>((w, i) => (!w || i.confidence < w.confidence ? i : w), null)
+    const weakest = scoredItems.reduce<PageItemScore | null>((w, i) => (!w || i.confidence < w.confidence ? i : w), null)
     const { dataPoint } = await r.student(studentId, dataPointsAddPending, {
       objectiveId: check.objectiveId,
       value,
@@ -144,6 +179,112 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   app.get('/captures/:batchId', signedIn, async (c) => {
     const r = req(c)
     return r.json(CaptureBatchResponse, await r.school(captureBatchesGet, { batchId: r.param('batchId') }))
+  })
+
+  /**
+   * Goals an EA (or any staff role) can record against: ids, metric types and
+   * units only, no IEP wording. GET /students/:id/objectives stays for the
+   * case manager and teachers.
+   */
+  app.get('/students/:id/capture-objectives', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
+    const r = req(c)
+    return r.json(CaptureObjectivesResponse, await r.student(r.param('id'), objectivesForCapture))
+  })
+
+  /**
+   * Demo only (ALTAMIRA_DEV_SEED): builds a lesson with one keyed check for the
+   * student's confirmed goal and issues its sheet code, so the bundled fictional
+   * sample sheet can be photographed and scored without the Lesson Lens first.
+   */
+  app.post('/captures/sample-sheet', signedIn, async (c) => {
+    const r = req(c)
+    if (!deps.devSeedEnabled(r.env)) throw new HttpError('not_found', 'not found')
+    const { studentId } = await r.body(SampleSheetBody)
+    r.allow('lesson.augment', studentId)
+    const { objectives } = await r.student(studentId, objectivesList)
+    const confirmed = objectives.filter((o) => o.status === 'confirmed')
+    const objective = confirmed.find((o) => o.metricType === 'accuracy') ?? confirmed[0]
+    if (!objective) throw new HttpError('bad_request', 'This student has no confirmed goal to score against.')
+    let classId: string | null = null
+    for (const cls of (await r.school(classesList)).classes) {
+      if ((await r.school(rosterList, { classId: cls.id })).studentIds.includes(studentId)) {
+        classId = cls.id
+        break
+      }
+    }
+    if (!classId) throw new HttpError('bad_request', 'This student is not on a class roster.')
+    const { lesson } = await r.school(lessonsCreate, {
+      classId,
+      title: 'Sample sheet: number facts',
+      sourceKind: 'text',
+      text: 'Add and subtract within 10. Compare two numbers.',
+    })
+    const run = await r.student(studentId, lensSaveRun, {
+      lessonId: lesson.id,
+      analysisId: crypto.randomUUID(),
+      subject: 'math',
+      gaps: [],
+      adaptations: [
+        {
+          adaptationType: 'visual_supports',
+          title: 'Number line on the desk',
+          text: 'Keep a number line on the desk for adding and subtracting.',
+          why: 'Supports counting on and back.',
+          goalIds: [objective.goalId],
+          changesOutcome: false,
+          modelLabel: 'adaptation',
+          label: 'adaptation',
+        },
+      ],
+      checks: [
+        {
+          goalId: objective.goalId,
+          objectiveId: objective.id,
+          items: [
+            { id: 'q1', prompt: '4 + 3 = ?', format: 'numeric', options: null },
+            { id: 'q2', prompt: '9 - 4 = ?', format: 'numeric', options: null },
+            { id: 'q3', prompt: 'Which is bigger, 6 or 8?', format: 'multiple_choice', options: ['6', '8'] },
+          ],
+          answerKey: [
+            { itemId: 'q1', accepted: ['7'] },
+            { itemId: 'q2', accepted: ['5'] },
+            { itemId: 'q3', accepted: ['8'] },
+          ],
+          rubric: null,
+        },
+      ],
+    })
+    const check = run.checks[0]
+    if (!check) throw new HttpError('bad_request', 'The sample check could not be created.')
+    const { sheetCode } = await r.school(sheetCodesIssue, { studentId, lessonId: lesson.id, checkId: check.id })
+    return r.json(SampleSheetResponse, { code: sheetCode.code, studentId, checkId: check.id })
+  })
+
+  /**
+   * Starts student mode. Teachers and EAs of the student start it as the PRD
+   * says; in the demo (ALTAMIRA_DEV_SEED) the signed-in "student" account, which
+   * is linked to its own student, may start it for that student only. Consent is
+   * checked in the room first.
+   */
+  app.post('/students/:id/student-mode/start', signedIn, async (c) => {
+    const r = req(c)
+    const studentId = r.param('id')
+    const self = deps.devSeedEnabled(r.env) && !r.actor.session && r.actor.parentOf.includes(studentId)
+    if (!self && !canStartStudentSession(r.actor, studentId, r.now())) {
+      throw new HttpError('forbidden', 'Only a teacher or EA of this student can start student mode.')
+    }
+    await r.student(studentId, sessionsStart, { selfStart: self })
+    const { token, tokenHash } = await mintToken()
+    const expiresAt = new Date(r.now() + STUDENT_SESSION_TTL_MS).toISOString()
+    const sessionId = await deps.rooms.school(r.env).issueToken({
+      kind: 'student_session',
+      studentId,
+      createdBy: r.actor.userId,
+      tokenHash,
+      expiresAt,
+      createdAt: r.nowIso(),
+    })
+    return r.json(SessionCreateResponse, { sessionId, token, expiresAt }, 201)
   })
 
   app.post('/students/:id/events', signedIn, mw.requireCapability('evidence.capture'), async (c) => {

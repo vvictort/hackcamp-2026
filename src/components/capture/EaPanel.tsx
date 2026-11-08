@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleCheck, CircleX, Mic, Minus, Play, Plus, Square } from 'lucide-react'
 import { Button, Card, StatusBadge, Textarea, useToast } from '@/components/ui'
-import type { Objective } from '@/server/altamira/contract/student'
 import { PROMPT_LEVELS, type PromptLevel } from '@/server/altamira/contract/enums'
 import { getObjectives, getProfile, recordEvent, sendVoiceNote } from '@/lib/altamira/capture-api'
+import { getCaptureObjectives } from '@/lib/altamira/practice-api'
+import { capture } from '@/i18n/en/capture'
 import { StudentSelect } from './StudentSelect'
 import { useCt, type CaptureKey } from './useCt'
 import { useStudents } from './useStudents'
 
-type Goal = { objective: Objective; label: string }
+type Goal = { objective: { id: string }; label: string }
 const BIG = 'min-h-14 min-w-14 text-body'
 
 export function formatClock(totalSeconds: number): string {
@@ -23,33 +24,44 @@ export function EaPanel() {
   const [goals, setGoals] = useState<Goal[] | null>(null)
   const [failed, setFailed] = useState(false)
 
+  const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
     setGoals(null)
     setFailed(false)
     if (!studentId) return
     let live = true
-    Promise.all([getObjectives(studentId), getProfile(studentId).catch(() => null)])
-      .then(([o, profile]) => {
+    // The capture list works for EAs (no IEP wording). Case managers and teachers also get the goal text.
+    Promise.all([
+      getCaptureObjectives(studentId),
+      getObjectives(studentId).catch(() => null),
+      getProfile(studentId).catch(() => null),
+    ])
+      .then(([capture, full, profile]) => {
         if (!live) return
-        const text = new Map(profile?.view === 'full' ? profile.goals.map((g) => [g.id, g.text]) : [])
+        const goalText = new Map(profile?.view === 'full' ? profile.goals.map((g) => [g.id, g.text]) : [])
+        const goalOf = new Map((full?.objectives ?? []).map((o) => [o.id, o.goalId]))
         setGoals(
-          o.objectives
-            .filter((x) => x.status === 'confirmed')
-            .map((objective) => ({ objective, label: text.get(objective.goalId) ?? `${objective.metricType.replace('_', ' ')} (${objective.unit})` })),
+          capture.objectives.map((o, i) => {
+            const metricKey = `capture.ea.metric.${o.metricType}` as CaptureKey
+            const metric = metricKey in capture ? ct(metricKey) : o.metricType.replace('_', ' ')
+            const text = goalText.get(goalOf.get(o.objectiveId) ?? '')
+            return { objective: { id: o.objectiveId }, label: text ?? ct('capture.ea.goalLabel', { n: i + 1, metric, unit: o.unit }) }
+          }),
         )
       })
       .catch(() => live && setFailed(true))
     return () => {
       live = false
     }
-  }, [studentId])
+  }, [studentId, attempt, ct])
 
   if (state === 'error' || failed)
     return (
       <Card>
         <p role="alert">{ct('capture.common.loadFailed')}</p>
         <div>
-          <Button size="lg" onClick={state === 'error' ? reload : () => setStudentId((s) => s)}>
+          <Button size="lg" onClick={state === 'error' ? reload : () => setAttempt((n) => n + 1)}>
             {ct('capture.common.retry')}
           </Button>
         </div>

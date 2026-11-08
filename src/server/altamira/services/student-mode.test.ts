@@ -72,6 +72,14 @@ describe('consent gate (PRD NFR Consent)', () => {
     expect(() => runStudent(sql, 'sessions.start', { studentId: kai }, ACTORS.parentKai)).toThrow(AltamiraError)
   })
 
+  it('lets the linked student account self start for its own student only (demo path)', () => {
+    const sql = studentRoom('kai')
+    const res = runStudent<{ consentId: string }>(sql, 'sessions.start', { studentId: kai, selfStart: true }, ACTORS.parentKai)
+    expect(res.consentId).toBeTruthy()
+    expect(() => runStudent(sql, 'sessions.start', { studentId: STUDENT_IDS.amara, selfStart: true }, ACTORS.parentKai)).toThrow(AltamiraError)
+    expect(() => runStudent(sql, 'sessions.start', { studentId: kai, selfStart: true }, ACTORS.teacher)).toThrow(AltamiraError)
+  })
+
   it('stops a running session once consent is revoked', () => {
     const sql = kaiWithApprovedCheck()
     runStudent(sql, 'consents.set', { studentId: kai, kind: 'student_mode', granted: false }, ACTORS.parentKai)
