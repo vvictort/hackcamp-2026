@@ -156,7 +156,7 @@ function rosterRules(roster: Roster, book: TokenBook): { early: Rule[]; names: R
 
 function replaceText(text: string, early: Rule[], names: Rule[], book: TokenBook): string {
   let out = text.normalize('NFC')
-  for (const r of early) out = out.split(r.literal).join(r.token)
+  for (const r of early) out = out.replaceAll(r.literal, r.token)
   out = out.replace(EMAIL_RE, (m) => book.tokenFor('EMAIL', m))
   out = out.replace(LABELLED_ID_RE, (_m, label: string, sep: string, id: string) => `${label}${sep}${book.tokenFor('ID', id)}`)
   out = out.replace(LABELLED_DOB_RE, (_m, label: string, sep: string, dob: string) => `${label}${sep}${book.tokenFor('DOB', dob)}`)

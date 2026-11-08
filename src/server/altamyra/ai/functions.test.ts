@@ -7,7 +7,7 @@ import { AiDeidentificationError, AiOutputError } from './errors'
 import { FIXTURE_EXTRA_IDENTIFIERS, FIXTURE_LESSONS, fixtureRoster, fixtureProfile, tokenFor } from './fixture-data'
 import { createAi } from './functions'
 import { createFixtureProvider } from './providers/fixture'
-import { fixtureNamesIn, recordingProvider } from './test-helpers'
+import { fixtureNamesIn, recordingProvider } from '../e2e/testing'
 
 const roster = fixtureRoster()
 const LESSONS = Object.values(FIXTURE_LESSONS)

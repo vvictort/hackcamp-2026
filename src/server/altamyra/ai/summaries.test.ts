@@ -13,7 +13,7 @@ import {
   wordCount,
   type SummaryProvider,
 } from './summaries'
-import { fixtureNamesIn, recordingProvider } from './test-helpers'
+import { fixtureNamesIn, recordingProvider } from '../e2e/testing'
 
 const roster = fixtureRoster()
 const kai = STUDENT_FIXTURES[0]
