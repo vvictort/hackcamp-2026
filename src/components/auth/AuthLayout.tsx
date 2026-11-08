@@ -1,5 +1,5 @@
 import { useId, type Key, type ReactNode, type Ref } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Card } from '@/components/ui'
 import { Logo, LogoMark } from '../LogoMark'
 import { cn } from '@/lib/utils'

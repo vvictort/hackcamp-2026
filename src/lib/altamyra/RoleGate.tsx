@@ -6,7 +6,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { ShieldAlert } from 'lucide-react'
 import { Card, EmptyState, Spinner } from '@/components/ui'
 import { useLang } from '@/i18n'

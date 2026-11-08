@@ -24,7 +24,7 @@
 import { Suspense, useEffect } from 'react'
 import Lenis from 'lenis'
 import 'lenis/dist/lenis.css'
-import { Outlet, useRouteError } from 'react-router-dom'
+import { Outlet, useRouteError } from 'react-router'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { ToastProvider, TooltipProvider } from '@/components/ui'
 import { LangProvider } from '@/i18n'

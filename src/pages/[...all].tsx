@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { APP_NAME } from '../constants'
 import { buttonVariants } from '@/components/ui'
 import { useLang } from '@/i18n'

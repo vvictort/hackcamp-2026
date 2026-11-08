@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { flushSync } from 'react-dom'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { ArrowLeft, Mail } from 'lucide-react'
 import { signIn, useAuth } from 'deepspace'
 import { AuthLayout } from '@/components/auth/AuthLayout'

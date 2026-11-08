@@ -9,7 +9,7 @@
  * shipped tests rely on them.
  */
 
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { useAuthProfileReady } from 'deepspace'
 import {
   Camera,

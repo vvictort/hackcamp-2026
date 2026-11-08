@@ -16,7 +16,7 @@
  */
 
 import { Suspense, type ReactNode } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router'
 import { DeepSpaceAuthProvider, useAuthStatus } from 'deepspace'
 import { RecordProvider, RecordScope, AgentTools } from 'deepspace'
 import Navigation from '../../components/Navigation'

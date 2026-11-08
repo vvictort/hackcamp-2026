@@ -14,7 +14,7 @@
  * those pages can return the visitor here afterwards.
  */
 
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router'
 import { AuthGate } from 'deepspace'
 import { buttonVariants, Card } from '@/components/ui'
 import { useLang } from '@/i18n'

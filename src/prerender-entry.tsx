@@ -15,10 +15,7 @@
 
 import type { ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
-// From react-router-dom, like the pages: under Vitest the two entry points
-// load as separate module instances, and a router created from one is
-// invisible to <Outlet>/<Link> imported from the other.
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import * as app from './pages/_app'
 import Landing from './pages/index'
 
