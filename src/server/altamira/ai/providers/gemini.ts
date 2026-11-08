@@ -1,6 +1,7 @@
 import { AI_SCHEMAS, type AiFunctionName, type AiProvider, type AiProviderName } from '../../contract/ai'
 import type { MediaRef } from '../../contract/common'
 import { AiNotConfiguredError, AiOutputError } from '../errors'
+import { createFixtureProvider } from './fixture'
 
 /**
  * Gemini through Google AI Studio REST (plain fetch, no SDK). Inputs arrive
@@ -11,6 +12,8 @@ import { AiNotConfiguredError, AiOutputError } from '../errors'
 
 export const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
 export const GEMINI_TIMEOUT_MS = 25_000
+/** Whole-chain wall-time cap so a request never hangs for a minute or more. */
+export const GEMINI_TOTAL_TIMEOUT_MS = 40_000
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 const FALL_OVER_STATUS = new Set([429, 503, 404])
 
@@ -21,6 +24,9 @@ export type GeminiOptions = {
   /** Comma list; defaults to DEFAULT_GEMINI_MODELS. */
   models?: string
   timeoutMs?: number
+  totalTimeoutMs?: number
+  /** Used when the chain fails or the key is refused; results then carry lastSource 'fixture'. */
+  fallback?: AiProvider
   fetch?: typeof fetch
 }
 
@@ -76,15 +82,33 @@ function extractText(body: unknown): string {
   return text
 }
 
+/** Strips a ```json fence and any text around the outermost JSON value. */
+export function parseJsonLoose(text: string): unknown {
+  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    const start = trimmed.search(/[{[]/)
+    const end = Math.max(trimmed.lastIndexOf('}'), trimmed.lastIndexOf(']'))
+    if (start < 0 || end <= start) throw new Error('not JSON')
+    return JSON.parse(trimmed.slice(start, end + 1))
+  }
+}
+
 export function createGeminiProvider(options: GeminiOptions): AiProvider {
   if (!options.apiKey) throw new AiNotConfiguredError('GEMINI_API_KEY is not set')
   const models = parseModels(options.models)
   const timeoutMs = options.timeoutMs ?? GEMINI_TIMEOUT_MS
+  const totalMs = options.totalTimeoutMs ?? GEMINI_TOTAL_TIMEOUT_MS
   const doFetch = options.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
+  const { fallback } = options
+  let lastSource: 'gemini' | 'fixture' = 'gemini'
+  const log = (model: string, what: string | number) => console.warn(`[altamira-ai] ${model} ${what}`)
 
-  async function attempt(model: string, fn: AiFunctionName, input: unknown): Promise<string | 'next'> {
+  /** Text, 'next' (try another model), or throws GeminiError for a fatal status (400/401/403 and other 4xx). */
+  async function attempt(model: string, fn: AiFunctionName, input: unknown, budgetMs: number): Promise<string | 'next'> {
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+    const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(timeoutMs, budgetMs)))
     try {
       const res = await doFetch(`${BASE_URL}/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',
@@ -95,38 +119,69 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
         }),
         signal: ctrl.signal,
       })
-      if (FALL_OVER_STATUS.has(res.status)) return 'next'
+      if (FALL_OVER_STATUS.has(res.status) || res.status >= 500) {
+        log(model, res.status)
+        return 'next'
+      }
       if (!res.ok) throw new GeminiError(`Gemini ${model} answered HTTP ${res.status}`, res.status)
       return extractText(await res.json())
     } catch (err) {
-      if (ctrl.signal.aborted) return 'next'
-      throw err
+      if (err instanceof GeminiError && err.status) throw err
+      log(model, ctrl.signal.aborted ? 'timeout' : 'error')
+      return 'next'
     } finally {
       clearTimeout(timer)
     }
   }
 
-  async function call<K extends AiFunctionName>(fn: K, input: unknown) {
+  async function viaGemini<K extends AiFunctionName>(fn: K, input: unknown) {
+    const deadline = Date.now() + totalMs
+    let lastIssue: AiOutputError | null = null
     for (const model of models) {
-      const text = await attempt(model, fn, input)
+      const budget = deadline - Date.now()
+      if (budget <= 0) break
+      const text = await attempt(model, fn, input, budget)
       if (text === 'next') continue
       let json: unknown
       try {
-        json = JSON.parse(text)
+        json = parseJsonLoose(text)
       } catch {
-        throw new AiOutputError(fn, ['response is not JSON'])
+        log(model, 'unparseable')
+        lastIssue = new AiOutputError(fn, ['response is not JSON'])
+        continue
       }
       const out = AI_SCHEMAS[fn].output.safeParse(json)
-      if (!out.success) throw new AiOutputError(fn, out.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`))
+      if (!out.success) {
+        log(model, 'off-schema')
+        lastIssue = new AiOutputError(fn, out.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`))
+        continue
+      }
       return out.data
     }
+    if (lastIssue) throw lastIssue
     throw new GeminiError(`All Gemini models failed or timed out (${models.join(', ')})`)
+  }
+
+  async function call<K extends AiFunctionName>(fn: K, input: unknown) {
+    try {
+      const out = await viaGemini(fn, input)
+      lastSource = 'gemini'
+      return out
+    } catch (err) {
+      if (!fallback) throw err
+      log('chain', err instanceof GeminiError && err.status ? err.status : 'exhausted')
+      lastSource = 'fixture'
+      return (fallback[fn] as (i: unknown) => Promise<unknown>)(input) as Promise<ReturnType<typeof viaGemini<K>> extends Promise<infer R> ? R : never>
+    }
   }
 
   // The contract's AiProviderName has no 'gemini' yet; the cast is dropped once it does.
   const name = 'gemini' as AiProviderName
   return {
     name,
+    get lastSource() {
+      return lastSource
+    },
     proposeObjectives: (i) => call('proposeObjectives', i),
     analyseLesson: (i) => call('analyseLesson', i),
     lensForStudent: (i) => call('lensForStudent', i),
@@ -138,5 +193,5 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
 }
 
 export function geminiFromEnv(env: GeminiEnv, fetchImpl?: typeof fetch): AiProvider {
-  return createGeminiProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMIRA_GEMINI_MODELS, fetch: fetchImpl })
+  return createGeminiProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMIRA_GEMINI_MODELS, fetch: fetchImpl, fallback: createFixtureProvider() })
 }
