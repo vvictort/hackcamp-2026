@@ -28,7 +28,6 @@ function requireGoal(sql: SqlExecutor, goalId: string) {
 export const aimlineGet = defineOp({
   name: 'aimline.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ goalId: Id }).extend(Now.shape),
   run(sql, args, actor) {
     authorize(actor, 'progress.view', args.studentId)
@@ -47,7 +46,6 @@ export const aimlineGet = defineOp({
 export const whatWorksGet = defineOp({
   name: 'whatWorks.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs,
   run(sql, args, actor): { rows: WhatWorksRow[] } {
     authorize(actor, 'progress.view', args.studentId)
@@ -139,7 +137,6 @@ export const dataNeededScan = defineOp({
 export const proficiencySet = defineOp({
   name: 'proficiency.set',
   room: 'student',
-  capability: 'proficiency.set',
   args: StudentArgs.extend({ goalId: Id, level: Proficiency, period: z.string().min(1), narrative: z.string().nullable().default(null) }).extend(Now.shape),
   run(sql, args, actor): { rating: ProficiencyRating } {
     authorize(actor, 'proficiency.set', args.studentId)

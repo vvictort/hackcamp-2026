@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { CBIEP_SAMPLE_TEXT, SOFIA } from '../fixtures'
 import { closeAll } from './testing'
-import { amara, approveAdaptation, approvedMathSheets, fictionalPdf, kai, sofia, toBase64, U } from './flows'
+import { amara, approvedMathSheets, fictionalPdf, kai, sofia, toBase64, U } from './flows'
 import { createHarness, type Harness } from './harness'
 
 afterEach(closeAll)
@@ -102,17 +102,6 @@ describe('photo scoring', () => {
       expect(source.body.dataPoint.lessonId).toBe(lesson.id)
       expect(source.body.dataPoint.classId).toEqual(expect.any(String))
     }
-  })
-})
-
-describe('Lens approval route (replaces the removed 1A routes)', () => {
-  it('a modification the IEP does not authorize is blocked and stores nothing (PRD 1A-5)', async () => {
-    const h = createHarness()
-    const res = await approveAdaptation(h, kai, { label: 'modify', adaptationType: 'modified_assessment' })
-    expect(res.status).toBe(201)
-    expect(res.body.blocked.length).toBe(1)
-    expect(res.body.lessonId).toBeNull()
-    expect(h.studentSql(kai).get<{ n: number }>('SELECT COUNT(*) AS n FROM usage_events')?.n).toBe(0)
   })
 })
 

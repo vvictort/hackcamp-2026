@@ -1,7 +1,6 @@
 import type { OpRegistry, RoomOp, RoomName } from '../contract/ops'
 import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
 import { devDemoStudent } from '../fixtures/demo-day'
-import { comingUpOpList } from './coming-up'
 import { deidSchoolRoster, deidStudentNames } from './deid'
 import { devRoleSwitch } from './dev'
 import { familyOpList } from './family'
@@ -36,7 +35,6 @@ export const studentOps: OpRegistry = registry('student', [
   ...progressOpList,
   ...familyOpList,
   ...integrationStudentOps,
-  ...comingUpOpList,
   ...ticketStudentOps,
   studentDevSeedDemo,
   deidStudentNames,

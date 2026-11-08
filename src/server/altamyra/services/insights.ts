@@ -119,7 +119,6 @@ export function monthlyNarrative(sql: SqlExecutor, districtId: string, period?: 
 export const insightsGet = defineOp({
   name: 'insights.get',
   room: 'insights',
-  capability: 'insights.view',
   args: z.object({
     districtId: Id,
     period: z.string().optional(),

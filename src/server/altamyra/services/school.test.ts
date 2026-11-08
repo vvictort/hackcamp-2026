@@ -53,7 +53,6 @@ describe('lessons (PRD 1A-1)', () => {
     const { sql, lesson: l } = lesson()
     expect(l.createdBy).toBe(USER_IDS.teacher)
     expect(() => runSchool(sql, 'lessons.create', { classId: CLASS_IDS.literacy, title: 'x', sourceKind: 'text', text: 'y' }, ACTORS.ea)).toThrow(/lesson_plan.edit/)
-    expect(runSchool<{ subject: string }>(sql, 'lessons.get', { lessonId: l.id }, ACTORS.ea).subject).toBe('literacy')
   })
 })
 

@@ -18,7 +18,7 @@ import { insightsOps, schoolOps, studentOps } from '../services/registry'
 import { insightsRoom, schoolRoom, studentRoom } from './testing'
 import { createAltamyraApi } from '../routes/app'
 import { AI_REVIEW_SAMPLE_RATE } from '../routes/capture'
-import { sheetCodeFromFileKey, type AltamyraRouteDeps } from '../routes/deps'
+import type { AltamyraRouteDeps } from '../routes/deps'
 
 /**
  * End-to-end harness: the real /api/v1 sub-app over in-memory rooms on
@@ -116,7 +116,6 @@ export function createHarness(options: HarnessOptions = {}) {
     deleteFile: async (_env, fileKey) => {
       deletedFiles.push(fileKey)
     },
-    readSheetCode: sheetCodeFromFileKey,
     // Unexpected errors still answer a generic 500; tests can inspect them here.
     fallbackError: (err, c) => {
       errors.push(err)

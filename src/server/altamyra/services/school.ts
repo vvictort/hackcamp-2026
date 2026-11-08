@@ -47,7 +47,6 @@ function ensureUser(sql: SqlExecutor, actor: Actor, userId: string, displayName:
 export const membershipsAssign = defineOp({
   name: 'memberships.assign',
   room: 'school',
-  capability: 'membership.manage',
   args: z.object({ schoolId: Id, grant: AdminMembershipBody, now: z.string().optional() }),
   run(sql, { schoolId, grant, now }, actor): { membership: Membership | null; parentLink: ParentLink | null } {
     // PRD: "Role assignment is done by a school administrator outside these roles."
@@ -98,7 +97,6 @@ export const membershipsAssign = defineOp({
 export const membershipsList = defineOp({
   name: 'memberships.list',
   room: 'school',
-  capability: 'membership.manage',
   args: z.object({ schoolId: Id }),
   run(sql, { schoolId }, actor): { memberships: { userId: string; displayName: string; role: MembershipRole | 'parent'; studentId: string | null; classId: string | null }[] } {
     authorize(actor, 'membership.manage', null, { schoolId })
@@ -141,7 +139,6 @@ export const rosterList = defineOp({
 export const lessonsCreate = defineOp({
   name: 'lessons.create',
   room: 'school',
-  capability: 'lesson_plan.edit',
   args: z.object({
     classId: Id,
     title: z.string().min(1),
@@ -189,25 +186,6 @@ export const lessonsCreate = defineOp({
   },
 })
 
-export const lessonsGet = defineOp({
-  name: 'lessons.get',
-  room: 'school',
-  capability: 'lesson_plan.edit',
-  args: z.object({ lessonId: Id }),
-  run(sql, args, actor) {
-    const lesson = mustFind(sql, 'lessons', LessonSchema, args.lessonId)
-    authorizeClass(sql, actor, lesson.classId, 'read')
-    const cls = repo.classById(sql, lesson.classId)
-    return {
-      lesson,
-      files: repo.filesOfLesson(sql, lesson.id),
-      subject: cls?.subject ?? '',
-      grade: cls?.grade ?? '',
-      studentIds: repo.rosterOf(sql, lesson.classId),
-    }
-  },
-})
-
 // ---------- sheet codes (PRD principle 3: codes identify student, lesson and check without a name) ----------
 
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -220,7 +198,6 @@ function randomCode(): string {
 export const sheetCodesIssue = defineOp({
   name: 'sheetCodes.issue',
   room: 'school',
-  capability: 'lesson_plan.edit',
   args: z.object({ studentId: Id, lessonId: Id, checkId: Id, now: z.string().optional() }),
   run(sql, args, actor): { sheetCode: SheetCode } {
     // PRD matrix "Augment lessons": EAs and parents view approved materials, so readers get codes already issued;
@@ -244,7 +221,6 @@ export const sheetCodesIssue = defineOp({
 export const sheetCodesResolve = defineOp({
   name: 'sheetCodes.resolve',
   room: 'school',
-  capability: 'evidence.capture',
   args: z.object({ code: z.string().min(1) }),
   run(sql, args, actor): { sheetCode: SheetCode; classId: string | null } {
     const sheetCode = repo.sheetCodeByCode(sql, args.code.trim().toUpperCase())
@@ -339,7 +315,6 @@ export const schoolOpList = [
   classesList,
   rosterList,
   lessonsCreate,
-  lessonsGet,
   sheetCodesIssue,
   sheetCodesResolve,
   meOverview,

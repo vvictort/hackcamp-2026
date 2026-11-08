@@ -45,7 +45,7 @@ describe('relative-dated demo seed', () => {
     expect(new Set(kinds)).toEqual(new Set(['fresh', 'stale', 'data_needed']))
   })
 
-  it('ranks strategies with evidence counts and lists coming-up items; the digest is gone', async () => {
+  it('ranks strategies with evidence counts; the digest is gone', async () => {
     const h = await seeded()
     expect((await h.get(U, '/me/digest')).status).toBe(404)
 
@@ -53,11 +53,6 @@ describe('relative-dated demo seed', () => {
     const shown = ww.body.rows.filter((r: { hidden: boolean }) => !r.hidden)
     expect(shown.length).toBeGreaterThanOrEqual(2)
     expect(shown[0].n).toBeGreaterThanOrEqual(shown[1].n)
-
-    const up = await h.get(U, '/me/coming-up')
-    expect(up.status).toBe(200)
-    const kindsUp = new Set(up.body.items.map((i: { kind: string }) => i.kind))
-    expect(kindsUp).toEqual(new Set(['iep_meeting', 'review_queue', 'data_due']))
   })
 
   it('gives every student non-empty what-works rows with enough evidence, and a worked-before strategy', async () => {

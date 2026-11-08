@@ -52,7 +52,6 @@ describe('permission matrix enforced on the API (PRD NFR Security)', () => {
   it('the case manager has no direct IEP edit: only import and confirm remain, the rest is 403 or gone', async () => {
     const h = createHarness()
     expect((await h.post(U.caseManager, `/students/${kai}/events`, { kind: 'counter', objectiveId: 'x', count: 1 })).status).toBe(403)
-    expect((await h.post(U.caseManager, '/lens/approvals', { studentId: kai, subject: 'math', lessonText: 'x', items: [{ goalId: 'g', label: 'adapt', adaptationType: 'chunked_steps', title: 't', text: 't', why: '' }] })).status).toBe(403)
     expect((await h.get(U.caseManager, '/review-queue')).status).toBe(403)
     expect((await h.post(U.caseManager, `/data-points/x/correct?studentId=${kai}`, { expectedVersion: 1, value: 1, reason: 'x' })).status).toBe(403)
     expect((await h.call(U.caseManager, 'PUT', `/family/${kai}/consents`, { kind: 'video', granted: true })).status).toBe(403)

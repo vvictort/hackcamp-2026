@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { ErrorBody, ErrorCode } from './errors'
-import type { Actor, Capability } from './permissions'
+import type { Actor } from './permissions'
 
 /**
  * Execution model (design doc): SQL runs only inside a room. A room op is a
@@ -33,8 +33,6 @@ export type RoomName = 'student' | 'school' | 'insights'
 export interface RoomOp<A = unknown, R = unknown> {
   name: string
   room: RoomName
-  /** Capability the route must have checked with can() before calling this op. */
-  capability?: Capability
   /** When set, the room parses args with it before run(). */
   args?: z.ZodType<A>
   run(sql: SqlExecutor, args: A, actor: Actor): R

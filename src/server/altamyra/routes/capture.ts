@@ -109,7 +109,7 @@ export function normalizePhotoPage(page: MediaRef): MediaRef {
 async function resolvePages(r: Req, rawPages: MediaRef[]): Promise<ResolvedPage[]> {
   const out: ResolvedPage[] = []
   for (const page of rawPages.map(normalizePhotoPage)) {
-    const code = r.deps.readSheetCode(page)
+    const code = page.fileKey.match(/sheet[-_]?code[-_](AL-[A-Za-z0-9]+)/i)?.[1]?.toUpperCase() ?? null
     if (!code) {
       out.push({ page, code: null, sheet: null })
       continue

@@ -19,7 +19,6 @@ import { Now, StudentArgs, authorizeStaff } from './authz'
 export const captureBatchesCreate = defineOp({
   name: 'captureBatches.create',
   room: 'school',
-  capability: 'evidence.capture',
   args: z.object({ pages: z.array(CapturePageResult).min(1), status: CaptureBatchStatus }).extend(Now.shape),
   run(sql, args, actor): { batch: CaptureBatch } {
     for (const page of args.pages) if (page.studentId) authorizeStaff(actor, 'evidence.capture', page.studentId)
@@ -35,7 +34,6 @@ export const captureBatchesCreate = defineOp({
 export const captureBatchesGet = defineOp({
   name: 'captureBatches.get',
   room: 'school',
-  capability: 'evidence.capture',
   args: z.object({ batchId: Id }),
   run(sql, args, actor): { batch: CaptureBatch } {
     const batch = repo.captureBatchById(sql, args.batchId)
@@ -50,7 +48,6 @@ export const captureBatchesGet = defineOp({
 export const checksForScoring = defineOp({
   name: 'checks.forScoring',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ checkId: Id }),
   run(sql, args, actor): { check: Check } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)

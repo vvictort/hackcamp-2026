@@ -55,7 +55,6 @@ const confirmedOnly = (allowed: Allowed): boolean => allowed.role !== 'ea' && al
 export const notesAdd = defineOp({
   name: 'notes.add',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ objectiveId: Id.nullable().default(null), text: z.string().trim().min(1).max(2000) }).extend(Now.shape),
   run(sql, args, actor): { note: Note } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
@@ -73,7 +72,6 @@ export const notesAdd = defineOp({
 export const videosAdd = defineOp({
   name: 'videos.add',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({
     storageKey: z.string().min(1),
     contentType: z.string().regex(/^video\//),
@@ -136,7 +134,6 @@ const addMs = (iso: string): string => new Date(Date.parse(iso) - 1).toISOString
 export const daysList = defineOp({
   name: 'days.list',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ from: DateString.optional(), to: DateString.optional() }).extend(Now.shape),
   run(sql, args, actor): { days: Day[] } {
     const allowed = authorize(actor, 'progress.view', args.studentId)
@@ -180,7 +177,6 @@ export function dayDetail(sql: SqlExecutor, date: string, allowed: Allowed): Day
 export const daysGet = defineOp({
   name: 'days.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ date: DateString }),
   run(sql, args, actor): DayDetail {
     return dayDetail(sql, args.date, authorize(actor, 'progress.view', args.studentId))
@@ -191,7 +187,6 @@ export const daysGet = defineOp({
 export const daysComplete = defineOp({
   name: 'days.complete',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ date: DateString, note: z.string().trim().max(2000).nullable().default(null) }).extend(Now.shape),
   run(sql, args, actor): { review: DayReview } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
@@ -214,7 +209,6 @@ export const daysComplete = defineOp({
 export const dayReviewToday = defineOp({
   name: 'dayReview.today',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend(Now.shape),
   run(sql, args, actor): { date: string; entriesToday: number; reviewed: boolean } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)

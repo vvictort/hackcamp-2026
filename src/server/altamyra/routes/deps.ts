@@ -1,7 +1,6 @@
 import type { ErrorHandler } from 'hono'
 import type { Env } from '../../../../worker'
 import type { AiProvider } from '../contract/ai'
-import type { MediaRef } from '../contract/common'
 import type { Roster } from '../ai/deidentify'
 import type { SummaryProvider } from '../ai/summaries-provider'
 import type { AltamyraEnv } from '../middleware/auth'
@@ -37,20 +36,8 @@ export type AltamyraRouteDeps = {
   devSeedEnabled(env: Env): boolean
   /** Deletes a stored upload, e.g. voice-note audio once converted (PRD NFR Consent). */
   deleteFile(env: Env, fileKey: string, ownerUserId: string): Promise<void>
-  /** Reads the printed sheet code of a photographed page, or null. */
-  readSheetCode(page: MediaRef): string | null
   /** Forwards the live timeline WebSocket to the student room (optional). */
   openLive?(env: Env, studentId: string, request: Request): Promise<Response>
-  /** Handler for errors that are not Altamyra errors (500). */
-  fallbackError?: ErrorHandler<AltamyraEnv>
+  fallbackError: ErrorHandler<AltamyraEnv>
   now(): number
-}
-
-/**
- * The client app reads the code printed on each sheet and names the uploaded
- * page after it (".../sheet-code-AL-XXXXXXXX.jpg"); the fixture provider uses
- * the same convention.
- */
-export function sheetCodeFromFileKey(page: MediaRef): string | null {
-  return page.fileKey.match(/sheet[-_]?code[-_](AL-[A-Za-z0-9]+)/i)?.[1]?.toUpperCase() ?? null
 }

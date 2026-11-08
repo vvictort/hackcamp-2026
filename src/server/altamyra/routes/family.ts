@@ -23,15 +23,12 @@ export function familyRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   })
 
   /** Summaries of one child. The room filters by role: the parent gets approved monthly summaries only. */
-  app.get('/family/:id/summaries', signedIn, mw.requireCapability('summary.view'), async (c) => {
-    const r = req(c)
-    return r.json(SummariesResponse, await r.student(r.param('id'), familySummariesList, r.query(SummariesQuery)))
-  })
-
-  app.get('/students/:id/summaries', signedIn, mw.requireCapability('summary.view'), async (c) => {
-    const r = req(c)
-    return r.json(SummariesResponse, await r.student(r.param('id'), familySummariesList, r.query(SummariesQuery)))
-  })
+  for (const path of ['/family/:id/summaries', '/students/:id/summaries']) {
+    app.get(path, signedIn, mw.requireCapability('summary.view'), async (c) => {
+      const r = req(c)
+      return r.json(SummariesResponse, await r.student(r.param('id'), familySummariesList, r.query(SummariesQuery)))
+    })
+  }
 
   /**
    * Read-aloud audio. Text is de-identified before it leaves (when studentId is
@@ -42,10 +39,7 @@ export function familyRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
    */
   app.post('/tts', signedIn, async (c) => {
     const r = req(c)
-    const raw = await c.req.json().catch(() => null)
-    const parsed = z.object({ text: z.string().trim().min(1).max(2000), language: z.string().max(16).default('en'), studentId: z.string().max(64).optional() }).safeParse(raw)
-    if (!parsed.success) throw new HttpError('bad_request', 'Text is required and must be 2000 characters or fewer.')
-    const { text, studentId } = parsed.data
+    const { text, studentId } = await r.body(z.object({ text: z.string().trim().min(1).max(2000), language: z.string().max(16).default('en'), studentId: z.string().max(64).optional() }))
     if (studentId) {
       r.allow('summary.view', studentId)
       if (!r.can('summary.edit', studentId)) {

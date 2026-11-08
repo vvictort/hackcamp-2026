@@ -37,7 +37,6 @@ const subjectsOf = (sections: IepSections) => sections.modifications.map((m) => 
 export const iepImport = defineOp({
   name: 'iep.import',
   room: 'student',
-  capability: 'iep.import',
   args: StudentArgs.extend({
     sections: IepSections,
     modificationSubjects: z.array(z.string()).optional(),
@@ -96,7 +95,6 @@ function syncGoals(sql: SqlExecutor, actor: Actor, version: number, sections: Ie
 export const iepConfirm = defineOp({
   name: 'iep.confirm',
   room: 'student',
-  capability: 'iep.import',
   args: StudentArgs.extend({
     version: z.number().int().min(1),
     sections: IepSections.optional(),
@@ -146,7 +144,6 @@ export const iepConfirm = defineOp({
 export const objectivesList = defineOp({
   name: 'objectives.list',
   room: 'student',
-  capability: 'iep.view',
   args: StudentArgs,
   run(sql, args, actor): { objectives: Objective[] } {
     authorize(actor, 'iep.view', args.studentId)
@@ -164,7 +161,6 @@ export const objectivesList = defineOp({
 export const objectivesForCapture = defineOp({
   name: 'objectives.forCapture',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs,
   run(sql, args, actor): { objectives: { objectiveId: string; metricType: MetricType; unit: string }[] } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
@@ -176,7 +172,6 @@ export const objectivesForCapture = defineOp({
 export const objectivesPropose = defineOp({
   name: 'objectives.propose',
   room: 'student',
-  capability: 'iep.import',
   args: StudentArgs.extend({ proposals: z.array(ProposeObjectivesOutput) }).extend(Now.shape),
   run(sql, args, actor): { objectives: Objective[]; unmeasurable: { goalId: string; reason: string }[] } {
     authorize(actor, 'iep.import', args.studentId)
@@ -262,7 +257,6 @@ const ObjectiveEdits = ObjectiveSchema.pick({
 export const objectivesConfirm = defineOp({
   name: 'objectives.confirm',
   room: 'student',
-  capability: 'objective.confirm',
   args: StudentArgs.extend({ objectiveId: Id, edits: ObjectiveEdits.optional() }).extend(ExpectedVersion.shape).extend(Now.shape),
   run(sql, args, actor): { objective: Objective } {
     // PRD matrix: only the case manager confirms objectives; teachers propose.
@@ -296,7 +290,6 @@ export const objectivesConfirm = defineOp({
 export const objectivesFlagUnmeasurable = defineOp({
   name: 'objectives.flagUnmeasurable',
   room: 'student',
-  capability: 'objective.confirm',
   args: StudentArgs.extend({ objectiveId: Id, reason: z.string().min(1) }).extend(ExpectedVersion.shape).extend(Now.shape),
   run(sql, args, actor): { objective: Objective } {
     authorize(actor, 'objective.confirm', args.studentId)
@@ -362,7 +355,6 @@ export function storeScoredPoint(
 export const dataPointsAddPending = defineOp({
   name: 'dataPoints.addPending',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({
     objectiveId: Id,
     value: z.number(),
@@ -423,7 +415,6 @@ export function eventValue(event: EventInput, objective: Objective): number {
 export const eventsRecord = defineOp({
   name: 'events.record',
   room: 'student',
-  capability: 'evidence.capture',
   args: StudentArgs.extend({ event: CaptureEventBody }).extend(Now.shape),
   run(sql, args, actor): { dataPoint: DataPoint } {
     authorizeStaff(actor, 'evidence.capture', args.studentId)
@@ -478,7 +469,6 @@ function writeCorrection(sql: SqlExecutor, actor: Actor, old: DataPoint, value: 
 export const dataPointsCorrect = defineOp({
   name: 'dataPoints.correct',
   room: 'student',
-  capability: 'review.confirm',
   args: StudentArgs.extend({ dataPointId: Id, value: z.number(), reason: z.string().min(1) }).extend(ExpectedVersion.shape).extend(Now.shape),
   run(sql, args, actor): { dataPoint: DataPoint } {
     const old = requireHeadPoint(sql, args.dataPointId)
@@ -492,7 +482,6 @@ export const dataPointsCorrect = defineOp({
 export const reviewList = defineOp({
   name: 'review.list',
   room: 'student',
-  capability: 'review.confirm',
   args: StudentArgs,
   run(sql, args, actor): { items: { studentId: string; item: ReviewItem; dataPoint: DataPoint }[] } {
     authorize(actor, 'review.confirm', args.studentId, { recordedBy: actor.userId })
@@ -511,7 +500,6 @@ export const reviewList = defineOp({
 export const reviewConfirm = defineOp({
   name: 'review.confirm',
   room: 'student',
-  capability: 'review.confirm',
   args: StudentArgs.extend({ reviewId: Id, value: z.number().optional() }).extend(ExpectedVersion.shape).extend(Now.shape),
   run(sql, args, actor): { dataPoint: DataPoint } {
     const item = ev.reviewById(sql, args.reviewId)
@@ -537,7 +525,6 @@ export const reviewConfirm = defineOp({
 export const timelineGet = defineOp({
   name: 'timeline.get',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ from: z.string().optional(), to: z.string().optional(), objectiveId: Id.optional() }).extend(Now.shape),
   run(sql, args, actor): { dataPoints: DataPoint[]; decisions: Decision[] } {
     authorize(actor, 'progress.view', args.studentId)
@@ -550,7 +537,6 @@ export const timelineGet = defineOp({
 export const goalStatusGet = defineOp({
   name: 'goal.status',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ goalId: Id }).extend(Now.shape),
   run(sql, args, actor): GoalStatusResponse {
     authorize(actor, 'progress.view', args.studentId)
@@ -570,7 +556,6 @@ export const goalStatusGet = defineOp({
 export const dataPointSource = defineOp({
   name: 'dataPoint.source',
   room: 'student',
-  capability: 'progress.view',
   args: StudentArgs.extend({ dataPointId: Id }).extend(Now.shape),
   run(sql, args, actor) {
     authorize(actor, 'progress.view', args.studentId)

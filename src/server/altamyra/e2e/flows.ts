@@ -21,7 +21,7 @@ const SAMPLE_KEY = [
 
 /**
  * A coded sheet with an answer key for one student. The removed /lessons routes are replaced by the dev-seed
- * sample sheet (the harness must be created with devSeed: true). The lens approval itself is POST /lens/approvals.
+ * sample sheet (the harness must be created with devSeed: true).
  */
 export async function approvedMathSheets(h: Harness, studentId: string) {
   const res = await h.post(U.teacher, '/captures/sample-sheet', { studentId })
@@ -35,19 +35,6 @@ export async function approvedMathSheets(h: Harness, studentId: string) {
   const pages = [{ sheetCode: code, checkItems: SAMPLE_ITEMS }]
   const answerKey = [{ sheetCode: code, entries: SAMPLE_KEY }]
   return { lesson, checkId: res.body.checkId as string, sheets: { pages, answerKey } }
-}
-
-/** Approves one adaptation through the Lens approval endpoint (what the dashboard posts). */
-export async function approveAdaptation(h: Harness, studentId: string, over: Record<string, unknown> = {}) {
-  const profile = await h.get(U.teacher, `/students/${studentId}`)
-  const goal = (profile.body.goals as { id: string; status: string }[]).find((g) => g.status === 'active')
-  if (!goal) throw new Error('student has no active goal')
-  return h.post(U.teacher, '/lens/approvals', {
-    studentId,
-    subject: 'math',
-    lessonText: 'Add and subtract within 10',
-    items: [{ goalId: goal.id, label: 'adapt', adaptationType: 'chunked_steps', title: 'Steps', text: 'Give a step-by-step card.', why: 'Supports the goal.', ...over }],
-  })
 }
 
 /** A minimal one-page PDF whose content stream shows each line with Tj and a line move. FICTIONAL text only. */

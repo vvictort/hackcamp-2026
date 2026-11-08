@@ -13,7 +13,6 @@ import { ACTOR_ROLES } from '../contract/permissions'
 import { HttpError } from '../middleware/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { insightsGet } from '../services/insights'
-import { ComingUpResponse, comingUpList } from '../services/coming-up'
 import { devRoleSwitch } from '../services/dev'
 import { meOverview, membershipsAssign, membershipsList } from '../services/school'
 import type { Kit, Req } from './context'
@@ -28,21 +27,6 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const me = MeResponse.parse(await r.school(meOverview, { date: r.today() }))
     // devSeed tells the UI whether to show demo controls; true only when ALTAMYRA_DEV_SEED === 'true'.
     return c.json({ ...me, schoolId: deps.schoolId(c.env), devSeed: deps.devSeedEnabled(c.env) })
-  })
-
-  /** Scheduled work for the caseload over the next 14 days: IEP meetings, review queue, data due. */
-  app.get('/me/coming-up', signedIn, async (c) => {
-    const r = req(c)
-    const items = []
-    for (const studentId of r.staffStudentIds()) {
-      try {
-        items.push(...(await r.student(studentId, comingUpList)).items)
-      } catch {
-        /* no access to this student: skip */
-      }
-    }
-    items.sort((a, b) => a.date.localeCompare(b.date))
-    return r.json(ComingUpResponse, { items })
   })
 
   /** The school administrator's Roles page: who holds which role. */
