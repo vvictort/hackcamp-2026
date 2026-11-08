@@ -72,3 +72,6 @@ export type DigestItem = {
   studentId: string
   decision: { id: string; objectiveId: string; rule: 'below_aimline' | 'above_aimline' | 'data_needed'; firedAt: string }
 }
+
+/** GET /me/coming-up: scheduled work over the next 14 days. */
+export type ComingUpItem = { studentId: string; kind: 'iep_meeting' | 'review_queue' | 'data_due'; date: string; count: number | null }
