@@ -6,6 +6,7 @@ import {
   DATA_POINT_STATUSES,
   DECISION_RULES,
   FAMILY_SUMMARY_STATUSES,
+  SUMMARY_KINDS,
   GAP_TYPES,
   GOAL_STATUSES,
   LABELS,
@@ -227,7 +228,60 @@ export const STUDENT_V3: string[] = [
   'ALTER TABLE consents_v3 RENAME TO consents',
 ]
 
-export const STUDENT_MIGRATIONS: readonly Migration[] = [STUDENT_DDL, STUDENT_V2, STUDENT_V3]
+/**
+ * v4: the daily record (typed notes, videos, day reviews) and one summaries table
+ * for daily, weekly and monthly summaries. Old family_summaries rows become
+ * monthly summaries of their creation month.
+ */
+export const STUDENT_V4: string[] = [
+  `CREATE TABLE notes (
+    id TEXT PRIMARY KEY,
+    objective_id TEXT REFERENCES objectives (id),
+    text TEXT NOT NULL,
+    recorder_id TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  'CREATE INDEX notes_recorded ON notes (recorded_at)',
+  `CREATE TABLE videos (
+    id TEXT PRIMARY KEY,
+    storage_key TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    objective_id TEXT REFERENCES objectives (id),
+    recorder_id TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  'CREATE INDEX videos_recorded ON videos (recorded_at)',
+  `CREATE TABLE day_reviews (
+    date TEXT PRIMARY KEY,
+    completed_by TEXT NOT NULL,
+    completed_at TEXT NOT NULL,
+    note TEXT,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  `CREATE TABLE summaries (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN (${l(SUMMARY_KINDS)})),
+    period TEXT NOT NULL,
+    text TEXT NOT NULL,
+    translated_text TEXT,
+    language TEXT,
+    audio_script TEXT,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN (${l(FAMILY_SUMMARY_STATUSES)})),
+    edited_by TEXT,
+    approved_by TEXT,
+    approved_at TEXT,
+    created_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
+  )`,
+  'CREATE INDEX summaries_period ON summaries (kind, period)',
+  "INSERT INTO summaries (id, kind, period, text, language, status, approved_by, approved_at, created_at, version) SELECT id, 'monthly', substr(created_at, 1, 7), text, language, status, approved_by, approved_at, created_at, version FROM family_summaries",
+  'DROP TABLE family_summaries',
+]
+
+export const STUDENT_MIGRATIONS: readonly Migration[] = [STUDENT_DDL, STUDENT_V2, STUDENT_V3, STUDENT_V4]
 
 export const migrateStudent = (sql: SqlExecutor): number => runMigrations(sql, STUDENT_MIGRATIONS)
 

@@ -1,20 +1,22 @@
 import { z } from 'zod'
 import { VoiceEvent } from '../contract/ai'
-import { ExpectedVersion, Id } from '../contract/common'
+import { Id } from '../contract/common'
 import { ConsentKind } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
 import { can, type Actor } from '../contract/permissions'
-import type { Consent, DataPoint, FamilySummary } from '../contract/student'
-import { assertVersion, audit, insertEntity, newId, nowIso, updateVersioned } from '../repos/base'
+import type { Consent, DataPoint } from '../contract/student'
+import { audit, insertEntity, newId, nowIso, updateVersioned } from '../repos/base'
 import { currentConfirmedObjectives } from '../repos/iep'
 import * as records from '../repos/records'
 import { Now, StudentArgs, authorize, authorizeStaff } from './authz'
 import { Routing, eventValue, storeScoredPoint, type EventInput } from './measurement'
+import { dayRecordOpList } from './day-record'
 import { eaEventRef } from './sources'
 import { EVENT_SOURCE, requireConsent } from './student-common'
+import { summariesOpList } from './summaries'
 
-/** Consent (parent), family summaries (EA/teacher write and approve; parents read approved) and voice notes. */
+/** Consent (parent), voice notes, and the summary and daily-record ops registered with them. */
 
 // ---------- consent (PRD NFR Consent) ----------
 
@@ -55,59 +57,6 @@ export const consentsList = defineOp({
     // The parent manages consent; staff in scope read it (voice notes and videos are gated on it).
     if (!can(actor, 'consent.manage', args.studentId).allowed) authorize(actor, 'progress.view', args.studentId)
     return { consents: records.listConsents(sql) }
-  },
-})
-
-// ---------- summaries (daily, weekly, monthly share one table for now) ----------
-
-/**
- * AI-written summaries start as drafts. Only an EA or the teacher edits and
- * approves them; only approved text reaches a parent or case manager.
- */
-export const familySummariesSave = defineOp({
-  name: 'familySummaries.save',
-  room: 'student',
-  capability: 'summary.edit',
-  args: StudentArgs.extend({ language: z.string().min(2), text: z.string().min(1) }).extend(Now.shape),
-  run(sql, args, actor): { summary: FamilySummary } {
-    authorize(actor, 'summary.edit', args.studentId)
-    const at = nowIso(args.now)
-    const summary: FamilySummary = { id: newId(), language: args.language, text: args.text, status: 'draft', createdAt: at, approvedBy: null, approvedAt: null, version: 1 }
-    insertEntity(sql, 'family_summaries', summary)
-    audit(sql, actor, 'family_summaries.create', 'family_summaries', summary.id, undefined, summary, at)
-    return { summary }
-  },
-})
-
-export const familySummariesApprove = defineOp({
-  name: 'familySummaries.approve',
-  room: 'student',
-  capability: 'summary.approve',
-  args: StudentArgs.extend({ summaryId: Id, text: z.string().min(1).optional() }).extend(ExpectedVersion.shape).extend(Now.shape),
-  run(sql, args, actor): { summary: FamilySummary } {
-    authorize(actor, 'summary.approve', args.studentId)
-    const summary = records.summaryById(sql, args.summaryId)
-    if (!summary) throw new AltamiraError('not_found', `family summary ${args.summaryId} not found`)
-    assertVersion(summary.version, args.expectedVersion, `family summary ${summary.id}`)
-    if (summary.status === 'approved') throw new AltamiraError('bad_request', 'family summary is already approved')
-    const at = nowIso(args.now)
-    const text = args.text ?? summary.text
-    updateVersioned(sql, 'family_summaries', summary.id, summary.version, { text, status: 'approved', approved_by: actor.userId, approved_at: at })
-    const next: FamilySummary = { ...summary, text, status: 'approved', approvedBy: actor.userId, approvedAt: at, version: summary.version + 1 }
-    audit(sql, actor, 'family_summaries.approve', 'family_summaries', summary.id, summary, next, at)
-    return { summary: next }
-  },
-})
-
-/** EA and teacher see drafts and approved summaries; a parent or case manager sees approved ones only (filtered here, in the room). */
-export const familySummariesList = defineOp({
-  name: 'familySummaries.list',
-  room: 'student',
-  capability: 'summary.view',
-  args: StudentArgs,
-  run(sql, args, actor): { summaries: FamilySummary[] } {
-    const allowed = authorize(actor, 'summary.view', args.studentId)
-    return { summaries: allowed.filter === 'approved_only' ? records.approvedSummaries(sql) : records.listSummaries(sql) }
   },
 })
 
@@ -191,12 +140,4 @@ export const voiceNoteAudioDeleted = defineOp({
   },
 })
 
-export const familyOpList = [
-  consentsSet,
-  consentsList,
-  familySummariesSave,
-  familySummariesApprove,
-  familySummariesList,
-  voiceNoteProcess,
-  voiceNoteAudioDeleted,
-]
+export const familyOpList = [consentsSet, consentsList, voiceNoteProcess, voiceNoteAudioDeleted, ...summariesOpList, ...dayRecordOpList]

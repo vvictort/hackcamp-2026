@@ -8,6 +8,7 @@ import {
   DataPointStatus,
   DecisionRule,
   FamilySummaryStatus,
+  SummaryKind,
   GapType,
   GoalStatus,
   Label,
@@ -299,6 +300,63 @@ export const ProficiencyRating = z.object({
 })
 export type ProficiencyRating = z.infer<typeof ProficiencyRating>
 
+/** A typed observation by an EA or teacher, optionally tied to a goal's objective. */
+export const Note = z.object({
+  id: Id,
+  objectiveId: Id.nullable(),
+  text: z.string().min(1).max(2000),
+  recorderId: Id,
+  recordedAt: Timestamp,
+  version: RowVersion,
+})
+export type Note = z.infer<typeof Note>
+
+/** An uploaded video (parent video consent required). The file lives in storage under storageKey. */
+export const Video = z.object({
+  id: Id,
+  storageKey: z.string().min(1),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().min(0),
+  objectiveId: Id.nullable(),
+  recorderId: Id,
+  recordedAt: Timestamp,
+  version: RowVersion,
+})
+export type Video = z.infer<typeof Video>
+
+/** The end-of-day review of one school day, completed by an EA or teacher. */
+export const DayReview = z.object({
+  date: DateString,
+  completedBy: Id,
+  completedAt: Timestamp,
+  note: z.string().nullable(),
+  version: RowVersion,
+})
+export type DayReview = z.infer<typeof DayReview>
+
+/**
+ * A daily, weekly or monthly summary. AI-written: a draft is visible to the EA
+ * and teacher only, and reaches its audience once an EA or teacher approves it.
+ * Monthly summaries also carry the family-language translation and the audio script.
+ */
+export const Summary = z.object({
+  id: Id,
+  kind: SummaryKind,
+  period: z.string().min(1),
+  text: z.string().min(1),
+  translatedText: z.string().nullable(),
+  language: z.string().nullable(),
+  audioScript: z.string().nullable(),
+  status: FamilySummaryStatus,
+  editedBy: Id.nullable(),
+  approvedBy: Id.nullable(),
+  approvedAt: Timestamp.nullable(),
+  createdAt: Timestamp,
+  version: RowVersion,
+})
+export type Summary = z.infer<typeof Summary>
+
+/** @deprecated old family summary shape, kept so the frontend keeps compiling. Use Summary. */
 export const FamilySummary = z.object({
   id: Id,
   language: z.string().min(2),
@@ -338,7 +396,10 @@ export const STUDENT_TABLES = [
   'usage_events',
   'consents',
   'proficiency_ratings',
-  'family_summaries',
+  'notes',
+  'videos',
+  'day_reviews',
+  'summaries',
   'audit_log',
 ] as const
 export type StudentTable = (typeof STUDENT_TABLES)[number]

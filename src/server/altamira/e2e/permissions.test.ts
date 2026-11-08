@@ -56,7 +56,7 @@ describe('permission matrix enforced on the API (PRD NFR Security)', () => {
     expect((await h.get(U.caseManager, '/review-queue')).status).toBe(403)
     expect((await h.post(U.caseManager, `/data-points/x/correct?studentId=${kai}`, { expectedVersion: 1, value: 1, reason: 'x' })).status).toBe(403)
     expect((await h.call(U.caseManager, 'PUT', `/family/${kai}/consents`, { kind: 'video', granted: true })).status).toBe(403)
-    expect((await h.post(U.caseManager, `/family-summaries/x/approve?studentId=${kai}`, { expectedVersion: 1 })).status).toBe(403)
+    expect((await h.post(U.caseManager, `/summaries/x/approve`, { studentId: kai, version: 1 })).status).toBe(403)
   })
 
   it('C5: the review queue and corrections are for the EA and teacher who captured the entry', async () => {

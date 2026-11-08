@@ -101,6 +101,35 @@ export function suppressSmallGroups(rows: Row[], dims: readonly string[] = rows[
   )
 }
 
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/**
+ * The district's monthly narrative: fixed wording filled in from the
+ * aggregates. Not AI, so it needs no approval. Only groups that passed small-group
+ * suppression appear; a hidden group, its size and any student identifier are never mentioned.
+ */
+export function monthlyNarrative(sql: SqlExecutor, districtId: string, period?: string): { period: string | null; text: string } {
+  const month = period ?? sql.get<{ p: string | null }>('SELECT MAX(period) AS p FROM counters WHERE district_id = ?', districtId)?.p ?? null
+  if (!month) return { period: null, text: 'No learning data has been recorded for the district yet.' }
+  const rows = sql
+    .all<{ goal_area: string; students: number; total: number }>(
+      `SELECT goal_area, COUNT(DISTINCT student_key) AS students, SUM(count) AS total FROM counters
+        WHERE district_id = ? AND period = ? AND goal_area IS NOT NULL GROUP BY goal_area ORDER BY goal_area`,
+      districtId,
+      month,
+    )
+    .map((r) => ({ dims: { goalArea: r.goal_area } as Record<string, string | null>, students: Number(r.students), count: Number(r.total) }))
+  const shown = suppressSmallGroups(rows, ['goalArea']).filter((g) => !g.suppressed)
+  if (shown.length === 0) {
+    return { period: month, text: `No group of ${MIN_GROUP_SIZE} or more students has progress data for ${month} yet, so there is nothing to report.` }
+  }
+  const lines = shown.map((g) => `${g.dims.goalArea}: ${plural(g.students ?? 0, 'student', 'students')}, ${plural(g.count ?? 0, 'data point', 'data points')}.`)
+  return {
+    period: month,
+    text: `In ${month}, ${plural(shown.length, 'goal area', 'goal areas')} had progress data from ${MIN_GROUP_SIZE} or more students. ${lines.join(' ')} Groups with fewer than ${MIN_GROUP_SIZE} students are not shown.`,
+  }
+}
+
 export const insightsGet = defineOp({
   name: 'insights.get',
   room: 'insights',
@@ -110,7 +139,7 @@ export const insightsGet = defineOp({
     period: z.string().optional(),
     groupBy: z.array(InsightDimension).min(1).default(['goalArea']),
   }),
-  run(sql, args, actor): { groups: InsightGroup[] } {
+  run(sql, args, actor): { groups: InsightGroup[]; monthlyNarrative: { period: string | null; text: string } } {
     authorize(actor, 'insights.view', null, { districtId: args.districtId })
     const dims = INSIGHT_DIMENSIONS.filter((d) => args.groupBy.includes(d))
     const cols = dims.map((d) => DIMENSION_COLUMNS[d])
@@ -122,6 +151,7 @@ export const insightsGet = defineOp({
       ...params,
     )
     return {
+      monthlyNarrative: monthlyNarrative(sql, args.districtId, args.period),
       groups: suppressSmallGroups(
         rows.map((r) => ({
           dims: Object.fromEntries(dims.map((d) => [d, r[DIMENSION_COLUMNS[d]] === null ? null : String(r[DIMENSION_COLUMNS[d]])])),

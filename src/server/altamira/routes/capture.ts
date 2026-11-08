@@ -9,11 +9,15 @@ import {
   DataPointResponse,
   DataPointSourceResponse,
   GoalStatusResponse,
+  NoteBody,
+  NoteResponse,
   PhotoCaptureBody,
   ReviewConfirmBody,
   ReviewQueueResponse,
   TimelineQuery,
   TimelineResponse,
+  VideoBody,
+  VideoResponse,
   VoiceNoteBody,
   VoiceNoteResponse,
 } from '../contract/api'
@@ -24,6 +28,7 @@ import type { Check } from '../contract/student'
 import type { AltamiraEnv } from '../middleware/auth'
 import { HttpError } from '../middleware/errors'
 import { captureBatchesCreate, captureBatchesGet, checksForScoring } from '../services/integration'
+import { notesAdd, videosAdd } from '../services/day-record'
 import { lensSaveRun } from '../services/lens'
 import { ensureReviewable, fallbackPageScore, type PageItemScore } from '../services/scoring'
 import { voiceNoteAudioDeleted, voiceNoteProcess } from '../services/family'
@@ -43,6 +48,7 @@ import {
 import { classesList, lessonsCreate, rosterList, sheetCodesIssue, sheetCodesResolve } from '../services/school'
 import { photoRef } from '../services/sources'
 import type { Kit, Req } from './context'
+import { daysRoutes } from './days'
 import { studentToken } from './lens-flow'
 
 const CaptureObjectivesResponse = z.object({
@@ -175,6 +181,7 @@ async function scorePage(r: Req, p: ResolvedPage): Promise<CapturePageResult> {
 /** Photo capture, EA events and voice notes, review queue, corrections and timeline (feature 1B, M2). */
 export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   const { mw, signedIn, studentRef, req, deps } = kit
+  daysRoutes(app, kit)
 
   /**
    * PRD 1B "Photo in the web app": each page's sheet code names the student,
@@ -323,6 +330,35 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     } finally {
       if (!processed) await deleteAudio(false)
     }
+  })
+
+  /** A typed observation, optionally tied to a goal; saved to today's record. */
+  app.post('/students/:id/notes', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
+    const r = req(c)
+    const body = await r.body(NoteBody)
+    return r.json(NoteResponse, await r.student(r.param('id'), notesAdd, { objectiveId: body.objectiveId ?? null, text: body.text }), 201)
+  })
+
+  /**
+   * A video upload (stored, not converted). Needs the parent's video consent: without it the answer is 403
+   * "consent_required" and the uploaded file is deleted at once.
+   */
+  app.post('/students/:id/videos', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
+    const r = req(c)
+    const studentId = r.param('id')
+    const body = await r.body(VideoBody)
+    if (!(await deps.rooms.student(r.env, studentId).hasConsent('video'))) {
+      await deps.deleteFile(r.env, body.fileKey, r.actor.userId)
+      throw new HttpError('forbidden', "consent_required: videos need the parent or guardian's consent.")
+    }
+    const { video } = await r.student(studentId, videosAdd, {
+      storageKey: body.fileKey,
+      contentType: body.contentType,
+      sizeBytes: body.sizeBytes,
+      objectiveId: body.objectiveId ?? null,
+      recordedAt: body.recordedAt,
+    })
+    return r.json(VideoResponse, { video }, 201)
   })
 
   /** Open review items across the caller's students: the EA and the teacher see their own captures only. */
