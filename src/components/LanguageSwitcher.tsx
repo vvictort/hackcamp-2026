@@ -14,7 +14,8 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   return (
     <Select value={lang} onValueChange={setLang}>
       <SelectTrigger aria-label={t('common.language')} aria-busy={loading || undefined} className={className ?? 'h-11 w-auto min-w-36 gap-2 rounded-full'}>
-        {loading ? <Spinner /> : <Globe className="size-4 shrink-0" aria-hidden />}
+        {/* A div, not a span: the trigger stretches direct child spans, which blew the spinner up. */}
+        {loading ? <div className="shrink-0"><Spinner /></div> : <Globe className="size-4 shrink-0" aria-hidden />}
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
