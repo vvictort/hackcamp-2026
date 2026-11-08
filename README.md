@@ -55,7 +55,7 @@ flowchart LR
 ### Rules the product holds to
 
 - **Approval:** anything AI writes or edits (plans, scores, summaries, translations, audio scripts) is a draft only the EA or teacher sees until one approves it. The backend enforces this, not just the screens.
-- **Names:** student names are removed before anything reaches an AI model.
+- **Names:** people at the school see student names: the student's own staff, their parents or guardians, and the school administrator. The district lead never does. Everything sent to Gemini is anonymous: every student, staff, family and school name in the roster becomes a code such as `[S-K7Q4]`, and phone, address, birth date, PEN and email fields are dropped. The call is refused if any name survives. The code-to-name map never leaves the server, and names are put back only in the app (`src/server/altamyra/ai/deidentify.ts`, `ai/functions.ts`).
 - **Records:** MyEducation BC stays the official IEP record; Altamyra is the working layer around it.
 - **Data:** fictional data only until district privacy approval; stored in Canada.
 - **Accessibility:** Atkinson Hyperlegible, WCAG 2.2 AA, status shown by icon and word, never colour alone.
