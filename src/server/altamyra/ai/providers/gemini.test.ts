@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fixtureRoster } from '../fixture-data'
-import { FIXTURE_NAMES } from '../../fixtures'
+import { FIXTURE_NAMES } from '../../e2e/testing'
 import { createAi } from '../functions'
 import { AiOutputError } from '../errors'
 import { createFixtureProvider } from './fixture'

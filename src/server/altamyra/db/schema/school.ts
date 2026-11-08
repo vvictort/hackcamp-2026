@@ -53,12 +53,6 @@ export const SCHOOL_DDL: string[] = [
     created_at TEXT NOT NULL,
     UNIQUE (parent_user_id, student_id)
   )`,
-  `CREATE TABLE IF NOT EXISTS student_team (
-    id TEXT PRIMARY KEY,
-    student_id TEXT NOT NULL REFERENCES students (id),
-    user_id TEXT NOT NULL REFERENCES users (id),
-    team_role TEXT NOT NULL
-  )`,
   `CREATE TABLE IF NOT EXISTS roster (
     class_id TEXT NOT NULL REFERENCES classes (id),
     student_id TEXT NOT NULL REFERENCES students (id),
@@ -89,14 +83,6 @@ export const SCHOOL_DDL: string[] = [
     storage_key TEXT NOT NULL,
     content_type TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
-    created_at TEXT NOT NULL
-  )`,
-  // PRD 1A-2: one cached analysis per lesson.
-  `CREATE TABLE IF NOT EXISTS lesson_analyses (
-    id TEXT PRIMARY KEY,
-    lesson_id TEXT NOT NULL UNIQUE REFERENCES lessons (id),
-    analysis_json TEXT NOT NULL,
-    provider TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS sheet_codes (

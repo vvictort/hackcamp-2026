@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import type { z } from 'zod'
+import { z } from 'zod'
+import { Id, Timestamp } from '../contract/common'
 import { Counter } from '../contract/insights'
 import * as plans from '../contract/plans'
 import * as school from '../contract/school'
@@ -11,6 +12,53 @@ import { createNodeSqlExecutor } from './node-sqlite'
 import { INSIGHTS_DDL, migrateInsights } from './schema/insights'
 import { SCHOOL_DDL, migrateSchool } from './schema/school'
 import { STUDENT_DDL, STUDENT_MIGRATIONS, migrateStudent } from './schema/student'
+
+const AuditEntry = z.object({
+  id: Id,
+  at: Timestamp,
+  actorId: z.string().min(1),
+  action: z.string().min(1),
+  tableName: z.string().min(1),
+  rowId: z.string().min(1),
+  before: z.unknown().nullable(),
+  after: z.unknown().nullable(),
+})
+
+const studentTables: Record<string, z.ZodObject> = {
+  iep_versions: student.IepVersion,
+  goals: student.Goal,
+  objectives: student.Objective,
+  lens_runs: student.LensRun,
+  suggestions: student.GapSuggestion,
+  checks: student.Check,
+  probes: student.Probe,
+  data_points: student.DataPoint,
+  review_queue: student.ReviewItem,
+  decisions: student.Decision,
+  usage_events: student.UsageEvent,
+  consents: student.Consent,
+  proficiency_ratings: student.ProficiencyRating,
+  notes: student.Note,
+  videos: student.Video,
+  day_reviews: student.DayReview,
+  summaries: student.Summary,
+  audit_log: AuditEntry,
+}
+const schoolTables: Record<string, z.ZodObject> = {
+  users: school.User,
+  memberships: school.Membership,
+  parent_links: school.ParentLink,
+  students: school.SchoolStudent,
+  classes: school.SchoolClass,
+  roster: school.RosterEntry,
+  schedule_blocks: school.ScheduleBlock,
+  lessons: school.Lesson,
+  lesson_files: school.LessonFile,
+  sheet_codes: school.SheetCode,
+  capture_batches: school.CaptureBatch,
+  lesson_plans: plans.LessonPlan,
+  iep_change_tickets: plans.Ticket,
+}
 
 const open: { close(): void }[] = []
 function freshDb() {
@@ -31,12 +79,12 @@ describe('migrations on node:sqlite', () => {
     expect(migrateStudent(s)).toBe(STUDENT_MIGRATIONS.length)
     expect(migrateStudent(s)).toBe(STUDENT_MIGRATIONS.length)
     expect(schemaVersion(s)).toBe(STUDENT_MIGRATIONS.length)
-    expect(tables(s)).toEqual([...student.STUDENT_TABLES, 'schema_version'].sort())
+    expect(tables(s)).toEqual([...Object.keys(studentTables), 'schema_version'].sort())
 
     const sc = freshDb()
     migrateSchool(sc)
     migrateSchool(sc)
-    expect(tables(sc)).toEqual([...school.SCHOOL_TABLES, 'schema_version'].sort())
+    expect(tables(sc)).toEqual([...Object.keys(schoolTables), 'audit_log', 'schema_version'].sort())
 
     const i = freshDb()
     migrateInsights(i)
@@ -65,44 +113,6 @@ function expectedColumns(schema: z.ZodObject): string[] {
 }
 
 describe('DDL matches the contract schemas', () => {
-  const studentTables: Record<string, z.ZodObject> = {
-    iep_versions: student.IepVersion,
-    goals: student.Goal,
-    objectives: student.Objective,
-    lens_runs: student.LensRun,
-    suggestions: student.GapSuggestion,
-    checks: student.Check,
-    probes: student.Probe,
-    data_points: student.DataPoint,
-    review_queue: student.ReviewItem,
-    decisions: student.Decision,
-    usage_events: student.UsageEvent,
-    consents: student.Consent,
-    proficiency_ratings: student.ProficiencyRating,
-    notes: student.Note,
-    videos: student.Video,
-    day_reviews: student.DayReview,
-    summaries: student.Summary,
-    audit_log: student.AuditEntry,
-  }
-  const schoolTables: Record<string, z.ZodObject> = {
-    users: school.User,
-    memberships: school.Membership,
-    parent_links: school.ParentLink,
-    students: school.SchoolStudent,
-    student_team: school.StudentTeamMember,
-    classes: school.SchoolClass,
-    roster: school.RosterEntry,
-    schedule_blocks: school.ScheduleBlock,
-    lessons: school.Lesson,
-    lesson_files: school.LessonFile,
-    lesson_analyses: school.LessonAnalysis,
-    sheet_codes: school.SheetCode,
-    capture_batches: school.CaptureBatch,
-    lesson_plans: plans.LessonPlan,
-    iep_change_tickets: plans.Ticket,
-  }
-
   const check = (db: ReturnType<typeof freshDb>, map: Record<string, z.ZodObject>) => {
     for (const [table, schema] of Object.entries(map)) {
       const cols = db.all<{ name: string }>(`PRAGMA table_info(${table})`).map((c) => c.name).sort()
@@ -113,14 +123,12 @@ describe('DDL matches the contract schemas', () => {
   it('student room', () => {
     const db = freshDb()
     migrateStudent(db)
-    expect(Object.keys(studentTables).sort()).toEqual([...student.STUDENT_TABLES].sort())
     check(db, studentTables)
   })
 
   it('school room', () => {
     const db = freshDb()
     migrateSchool(db)
-    expect([...Object.keys(schoolTables), 'audit_log'].sort()).toEqual([...school.SCHOOL_TABLES].sort())
     check(db, schoolTables)
   })
 
@@ -134,7 +142,7 @@ describe('DDL matches the contract schemas', () => {
     const db = freshDb()
     migrateStudent(db)
     const appendOnly = new Set(['lens_runs', 'probes', 'usage_events', 'proficiency_ratings', 'draft_citations', 'handoffs', 'audit_log'])
-    for (const table of student.STUDENT_TABLES.filter((t) => !appendOnly.has(t))) {
+    for (const table of Object.keys(studentTables).filter((t) => !appendOnly.has(t))) {
       const cols = db.all<{ name: string }>(`PRAGMA table_info(${table})`).map((c) => c.name)
       expect(cols.includes('version') || cols.includes('row_version'), table).toBe(true)
     }
@@ -154,7 +162,7 @@ describe('audit_log is append-only (PRD NFR Security)', () => {
       expect(() => db.run('DELETE FROM audit_log WHERE id = ?', id)).toThrow(/append-only/)
       expect(() => db.run('DELETE FROM audit_log')).toThrow(/append-only/)
       const row = db.get<Record<string, unknown>>('SELECT * FROM audit_log WHERE id = ?', id)
-      expect(student.AuditEntry.parse(fromRow(row!))).toMatchObject({ action: 'test', after: { a: 1 }, before: null })
+      expect(AuditEntry.parse(fromRow(row!))).toMatchObject({ action: 'test', after: { a: 1 }, before: null })
     })
   }
 })
@@ -235,22 +243,6 @@ describe('constraints', () => {
         "INSERT INTO consents (id, kind, granted_by, recorded_by, granted_at) VALUES ('c', 'student_mode', 'p', 'p', '2026-01-01')",
       ),
     ).toThrow(/CHECK/)
-  })
-
-  it('allows only one cached analysis per lesson (PRD 1A-2)', () => {
-    const db = freshDb()
-    migrateSchool(db)
-    db.run("INSERT INTO classes (id, name, subject, grade) VALUES ('c1', 'Numeracy', 'math', '4')")
-    db.run(
-      "INSERT INTO lessons (id, class_id, title, source_kind, created_by, created_at) VALUES ('l1', 'c1', 'Arrays', 'text', 'u', 'now')",
-    )
-    const add = (id: string) =>
-      db.run(
-        "INSERT INTO lesson_analyses (id, lesson_id, analysis_json, provider, created_at) VALUES (?, 'l1', '{}', 'fixture', 'now')",
-        id,
-      )
-    add('a1')
-    expect(() => add('a2')).toThrow(/UNIQUE/)
   })
 })
 

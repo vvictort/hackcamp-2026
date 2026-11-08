@@ -4,11 +4,11 @@ import { runRoomOp } from '../rooms/core'
 import { applyCounterIncrements } from '../rooms/insights-core'
 import type { SchoolRoomRpc, InsightsRoomRpc } from '../rooms/rpc'
 import { loadActor, listStudentIds } from '../middleware/actor'
-import { DISTRICT, SCHOOL, USER_IDS, demoPeerIncrements } from '../fixtures'
+import { DISTRICT, SCHOOL, USER_IDS } from '../fixtures'
+import { demoPeerIncrements, closeAll, insightsRoom, schoolRoom } from './testing'
 import { createAltamyraApi } from '../routes/app'
 import type { AltamyraRouteDeps } from '../routes/deps'
 import { insightsOps, schoolOps } from '../services/registry'
-import { closeAll, insightsRoom, schoolRoom } from './testing'
 
 afterEach(closeAll)
 

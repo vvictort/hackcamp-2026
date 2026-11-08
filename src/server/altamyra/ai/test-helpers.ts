@@ -1,4 +1,4 @@
-import { FIXTURE_NAMES } from '../fixtures'
+import { FIXTURE_NAMES } from '../e2e/testing'
 
 /** Test-only helpers for the AI module. */
 

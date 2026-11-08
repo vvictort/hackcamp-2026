@@ -48,15 +48,6 @@ export const SchoolStudent = z.object({
 })
 export type SchoolStudent = z.infer<typeof SchoolStudent>
 
-/** Members of a student's team beyond the scoped roles (informational, not used for access). */
-export const StudentTeamMember = z.object({
-  id: Id,
-  studentId: Id,
-  userId: Id,
-  teamRole: z.string().min(1),
-})
-export type StudentTeamMember = z.infer<typeof StudentTeamMember>
-
 export const SchoolClass = z.object({
   id: Id,
   name: z.string().min(1),
@@ -118,15 +109,6 @@ export const LessonAnalysisBody = z.object({
 })
 export type LessonAnalysisBody = z.infer<typeof LessonAnalysisBody>
 
-/** PRD 1A-2: cached, exactly one per lesson (lesson_id is UNIQUE). */
-export const LessonAnalysis = z.object({
-  id: Id,
-  lessonId: Id,
-  analysis: LessonAnalysisBody,
-  provider: z.string().min(1),
-  createdAt: Timestamp,
-})
-export type LessonAnalysis = z.infer<typeof LessonAnalysis>
 
 /** Printed sheet code: maps to student, lesson and check without a name. */
 export const SheetCode = z.object({
@@ -158,22 +140,3 @@ export const CaptureBatch = z.object({
 })
 export type CaptureBatch = z.infer<typeof CaptureBatch>
 
-export const SCHOOL_TABLES = [
-  'users',
-  'memberships',
-  'parent_links',
-  'students',
-  'student_team',
-  'classes',
-  'roster',
-  'schedule_blocks',
-  'lessons',
-  'lesson_files',
-  'lesson_analyses',
-  'sheet_codes',
-  'capture_batches',
-  'lesson_plans',
-  'iep_change_tickets',
-  'audit_log',
-] as const
-export type SchoolTable = (typeof SCHOOL_TABLES)[number]

@@ -3,7 +3,8 @@ import type { MeResponse } from '../contract/api'
 import { AltamyraError } from '../contract/errors'
 import { userActor } from '../contract/permissions'
 import type { Lesson, SheetCode } from '../contract/school'
-import { CLASS_IDS, FIXTURE_NAMES, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures'
+import { CLASS_IDS, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures'
+import { FIXTURE_NAMES } from '../e2e/testing'
 import { ACTORS, closeAll, runSchool, schoolRoom } from '../e2e/testing'
 
 afterEach(closeAll)
