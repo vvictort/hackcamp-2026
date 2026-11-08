@@ -1,8 +1,9 @@
 {
   "enabled": true,
-  "checkpoints": {
-    "primary": {
-      "type": "git-refs"
+  "strategy_options": {
+    "checkpoint_remote": {
+      "provider": "github",
+      "repo": "vvictort/hackcamp-2026-checkpoints"
     }
   },
   "redaction": {
@@ -10,6 +11,11 @@
       "enabled": true,
       "email": true,
       "phone": true
+    }
+  },
+  "checkpoints": {
+    "primary": {
+      "type": "git-refs"
     }
   }
 }
