@@ -34,7 +34,16 @@ Who uses it: classroom teachers (primary), resource/case-manager teachers, educa
 
 ### Current state
 
-Working in the app today: the landing page, sign-in and sign-up, the teacher dashboard (today's schedule, suggestions to review, Pulse progress, progress drafts, coming up), and Settings (profile, school, position, preferences). The dashboard runs on **example data with fictional students** (`src/components/altamira/exampleData.ts`). The module features themselves are designed and described on the landing page but are not wired to real data yet. Every page reads its text through the language system, with a language picker on the landing page, auth pages, dashboard and Settings.
+Working in the app today:
+
+- **Landing page** with Lenis smooth scrolling and light, CSS-only motion.
+- **Sign-in** (Google or GitHub first; email for existing accounts) and a **four-stage sign-up** (account, about you, school and language, a consent step for fictional or de-identified data only).
+- **Teacher dashboard** on per-teacher data stored in DeepSpace (`src/lib/classroom.ts`): today's schedule, Pulse progress, progress drafts and what's coming up. A new teacher can **load an example classroom** with fictional students (`src/components/altamira/exampleData.ts` is the seed).
+- **Lesson Lens**, powered by an AI agent on Maritime: **Get suggestions** on any class, then approve or reject each adaptation or modification (see [Lesson Lens on Maritime](#lesson-lens-on-maritime)).
+- **Settings**: profile, school and position, preferences, text size and signed-in devices (sign out per device).
+- **36 interface languages** with a picker on the landing page, auth pages, dashboard and Settings.
+
+Still to come: the remaining modules described on the landing page (Pulse capture, Progress Drafts generation, Team and Today View, Transition Handoff, Family Bridge, District Insights). The app uses fictional data only until a district privacy approval.
 
 ## Tech stack
 
@@ -57,6 +66,8 @@ wrangler.toml           Cloudflare config
 prerender.ts            Build-time prerender of the static landing page
 public/                 Static assets (favicon, images, illustrations)
 tests/                  Playwright suites (smoke, api, collab)
+agent/                  Lesson Lens AI agent deployed on Maritime (Node, Gemini; own README)
+.entire/                Entire config and the agent guide (Graph and Brain)
 src/
   main.tsx              App entry
   constants.ts          App name and other constants
@@ -76,9 +87,9 @@ src/
     altamira/             Example data for the dashboard
     Navigation.tsx, LogoMark.tsx, Seo.tsx, ErrorScreen.tsx
   i18n/                 Language provider, t() helper, language list, English strings
-  lib/                  Small shared utilities
+  lib/                  Shared hooks and utilities (classroom data, Lesson Lens, sessions, positions)
   schemas.ts, schemas/  Collection schemas and permissions (shared by worker and app)
-  actions/              Server actions (privileged worker functions)
+  actions/              Server actions (Lesson Lens: de-identify, call the agent, save suggestions)
   server/               Backend modules: HTTP, realtime and action routes, i18n route,
                         AI agent and tools, integrations billing, jobs
 ```
