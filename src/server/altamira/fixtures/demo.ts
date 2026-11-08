@@ -4,11 +4,12 @@ import { defineOp } from '../contract/ops'
 import type { AdaptationType } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import type { Lesson } from '../contract/school'
-import type { DataPoint, Decision, Objective, Suggestion, UsageEvent } from '../contract/student'
+import type { DataPoint, Decision, Objective, Probe, Suggestion, UsageEvent } from '../contract/student'
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
 import type { SqlExecutor } from '../db/sql'
 import { CLASS_IDS, STUDENT_IDS, USER_IDS } from './school'
+import { seedSchool } from './seed'
 import { STUDENT_FIXTURES, type StudentFixture } from './students'
 
 /**
@@ -87,7 +88,7 @@ const PLANS: Record<string, Plan> = {
         recorder: USER_IDS.teacher,
         classId: CLASS_IDS.literacy,
         // Only one point in the last 14 days: Pulse shows this goal as Stale.
-        points: [[40, 2], [35, 2], [31, 3], [27, 2], [23, 3], [19, 3], [15, 4], [4, 3]],
+        points: [[40, 3], [35, 3], [31, 4], [27, 4], [23, 4], [19, 5], [15, 4], [4, 5]],
         adaptation: 'sentence_frames',
         adaptationMinDays: 19,
       },
@@ -102,7 +103,7 @@ const PLANS: Record<string, Plan> = {
         source: 'photo',
         recorder: USER_IDS.ea,
         classId: CLASS_IDS.numeracy,
-        points: [[41, 50], [38, 51], [34, 52], [30, 52], [27, 53], [23, 54], [19, 55], [15, 55], [11, 56], [7, 57], [3, 57]],
+        points: [[41, 50], [38, 54], [34, 58], [30, 62], [27, 65], [23, 68], [19, 71], [15, 73], [11, 75], [7, 77], [3, 78]],
         adaptation: 'visual_supports',
         adaptationMinDays: 3,
       },
@@ -113,8 +114,8 @@ const PLANS: Record<string, Plan> = {
         classId: null,
         // Nothing in the last 14 days: Pulse shows this goal as Data needed.
         points: [[42, 0], [39, 0], [36, 1], [33, 0], [30, 1], [27, 0], [24, 1], [20, 1], [17, 0], [16, 1]],
-        adaptation: null,
-        adaptationMinDays: 0,
+        adaptation: 'sentence_frames',
+        adaptationMinDays: 16,
       },
     ],
     decisions: [{ objectiveIndex: 1, rule: 'data_needed', daysAgo: 2 }],
@@ -131,6 +132,29 @@ const ADAPTATION_TEXT: Record<string, { title: string; text: string; why: string
 export const DEMO_LESSON_IDS = {
   salmon: 'e5500000-0000-4000-8000-000000000001',
   counting: 'e5500000-0000-4000-8000-000000000002',
+}
+
+/** A short retell probe with an answer key for Kai's confirmed reading goal, so student mode has an item (fictional content). */
+function kaiProbe(objectiveId: string, letter: string): Probe {
+  return {
+    id: hexId('b0000000', letter, 1),
+    objectiveId,
+    skill: 'retell',
+    level: 'grade 2',
+    form: {
+      items: [
+        { id: 'p1', prompt: 'Salmon hatch from eggs in a stream. Where do salmon hatch?', format: 'multiple_choice', options: ['In a stream', 'On a mountain', 'In a tree'] },
+        { id: 'p2', prompt: 'Salmon swim to the ocean. What do they do there?', format: 'multiple_choice', options: ['They grow bigger', 'They sleep all year', 'They climb trees'] },
+        { id: 'p3', prompt: 'How many parts does the salmon story have: hatch, grow, return? Type the number.', format: 'numeric', options: null },
+      ],
+      answerKey: [
+        { itemId: 'p1', accepted: ['In a stream'] },
+        { itemId: 'p2', accepted: ['They grow bigger'] },
+        { itemId: 'p3', accepted: ['3', 'three'] },
+      ],
+      timeLimitSeconds: null,
+    },
+  }
 }
 
 /** Pure: the re-dated fixture plus the extra demo rows for one student. */
@@ -175,7 +199,11 @@ export function buildDemoStudent(fixture: StudentFixture, now: string) {
       version: 1,
     })
   }
-  const usage: UsageEvent[] = suggestions.map((s, i) => ({ id: hexId('7e000000', letter, i + 1), suggestionId: s.id, approvedBy: USER_IDS.teacher, at: daysAgo(now, 43) }))
+  // Each approved adaptation is used in several lessons, so the timeline and "Used in lessons" show real counts.
+  const USAGE_DAYS = [43, 30, 12]
+  const usage: UsageEvent[] = suggestions.flatMap((s, i) =>
+    USAGE_DAYS.map((d, j) => ({ id: hexId('7e000000', letter, i * USAGE_DAYS.length + j + 1), suggestionId: s.id, approvedBy: USER_IDS.teacher, at: daysAgo(now, d) })),
+  )
 
   let n = 0
   const dataPoints: DataPoint[] = []
@@ -248,8 +276,10 @@ export function buildDemoStudent(fixture: StudentFixture, now: string) {
   const reviewItems = dataPoints
     .filter((d) => d.status === 'pending_review')
     .map((d, i) => ({ id: hexId('ee000000', letter, i + 1), dataPointId: d.id, kind: 'low_confidence' as const, status: 'open' as const, createdAt: d.recordedAt, resolvedBy: null, resolvedAt: null, version: 1 }))
+  const probes: Probe[] = key === 'kai' ? [kaiProbe(objectives[0].id, letter)] : []
   return {
     iep,
+    probes,
     goals: fixture.goals,
     objectives,
     dataPoints,
@@ -275,6 +305,7 @@ export function seedDemoStudent(sql: SqlExecutor, fixture: StudentFixture, now: 
       d.suggestions.forEach((s) => insertRow(sql, 'suggestions', toRow(s)))
       d.usage.forEach((u) => insertRow(sql, 'usage_events', toRow(u)))
     }
+    d.probes.forEach((p) => insertRow(sql, 'probes', toRow(p)))
     d.dataPoints.forEach((p) => insertRow(sql, 'data_points', toRow(p, ['sessionDetail'])))
     d.reviewItems.forEach((r) => insertRow(sql, 'review_queue', toRow(r)))
     d.decisions.forEach((x) => insertRow(sql, 'decisions', toRow(x)))
@@ -284,15 +315,40 @@ export function seedDemoStudent(sql: SqlExecutor, fixture: StudentFixture, now: 
   })
 }
 
+/** Tables a reset keeps: the migration marker and the append-only audit trail. */
+const KEEP_TABLES = new Set(['schema_version', 'audit_log'])
+
+/** Dev only: deletes every demo row of a room (all tables except the audit trail). Retries so foreign keys never block. */
+export function wipeRoom(sql: SqlExecutor): void {
+  const tables = sql
+    .all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .map((r) => r.name)
+    .filter((n) => !KEEP_TABLES.has(n))
+  let pending = tables
+  for (let pass = 0; pass < tables.length + 1 && pending.length > 0; pass++) {
+    const failed: string[] = []
+    for (const name of pending) {
+      try {
+        sql.run(`DELETE FROM "${name}"`)
+      } catch {
+        failed.push(name)
+      }
+    }
+    pending = failed
+  }
+  if (pending.length > 0) throw new AltamiraError('bad_request', `could not clear ${pending.join(', ')}`)
+}
+
 /** Dev only: seeds one student room with dates relative to now. */
 export const studentDevSeedDemo = defineOp({
   name: 'dev.seedDemo',
   room: 'student',
-  args: z.object({ studentId: Id, now: z.string().optional() }),
+  args: z.object({ studentId: Id, now: z.string().optional(), reset: z.boolean().optional() }),
   run(sql, args) {
     const fixture = STUDENT_FIXTURES.find((f) => f.studentId === args.studentId)
     if (!fixture) throw new AltamiraError('not_found', `no fixture for student ${args.studentId}`)
-    if (sql.get('SELECT 1 AS x FROM iep_versions LIMIT 1')) throw new AltamiraError('bad_request', 'student room is already seeded')
+    if (args.reset) wipeRoom(sql)
+    else if (sql.get('SELECT 1 AS x FROM iep_versions LIMIT 1')) throw new AltamiraError('bad_request', 'student room is already seeded')
     seedDemoStudent(sql, fixture, args.now ?? new Date().toISOString())
     return { studentId: fixture.studentId, key: fixture.key }
   },
@@ -311,16 +367,23 @@ export function seedSchoolDemo(sql: SqlExecutor, now: string): void {
 }
 
 /**
- * Dev only: "Act as student" links the caller to Kai as a staff-style
+ * Dev only: with {reset:true} wipes the school room and reloads it. Otherwise "Act as student" links the caller to Kai as a staff-style
  * membership, so POST /students/:id/sessions (evidence.capture) is in scope
  * for his student-mode consent. Run after the role switch.
  */
 export const devLinkStudent = defineOp({
   name: 'dev.linkStudent',
   room: 'school',
-  args: z.object({}),
-  run(sql, _args, actor) {
+  args: z.object({ reset: z.boolean().optional() }),
+  run(sql, args, actor) {
     const at = new Date().toISOString()
+    if (args.reset) {
+      // Dev reset of the school room: clear it and load the fictional school again (the route then re-seeds the students).
+      wipeRoom(sql)
+      seedSchool(sql)
+      seedSchoolDemo(sql, at)
+      return { studentId: STUDENT_IDS.kai }
+    }
     sql.run('DELETE FROM parent_links WHERE parent_user_id = ?', actor.userId)
     sql.run("DELETE FROM memberships WHERE user_id = ? AND role = 'ea'", actor.userId)
     insertRow(

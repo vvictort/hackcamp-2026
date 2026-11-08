@@ -16,6 +16,7 @@ import type { AltamiraEnv } from '../middleware/auth'
 import { digestWeekly } from '../services/insight'
 import { insightsGet } from '../services/insights'
 import { studentDevSeedDemo, devLinkStudent } from '../fixtures/demo'
+import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
 import { ComingUpResponse, comingUpList } from '../services/coming-up'
 import { proposalsList } from '../services/measurement'
 import { meOverview, membershipsAssign, schoolDevSeed } from '../services/school'
@@ -88,8 +89,13 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     await next()
   }, signedIn, async (c) => {
     const r = req(c)
-    const seeded = await r.school(schoolDevSeed, {})
-    for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo)
+    // {reset:true} wipes the demo rows and reloads them dated from now. Same dev flag gate as the route.
+    const reset = (await c.req.json().catch(() => ({})))?.reset === true
+    if (reset) await r.school(devLinkStudent, { reset: true })
+    const seeded = reset
+      ? { schoolId: SCHOOL.id, districtId: DISTRICT.id, studentIds: Object.values(STUDENT_IDS), userIds: { ...USER_IDS } as Record<string, string> }
+      : await r.school(schoolDevSeed, {})
+    for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeedDemo, reset ? { reset: true } : {})
     // The caller acts as the case manager by default.
     await r.school(devRoleSwitch, { role: 'case_manager' })
     return r.json(DevSeedResponse, seeded)
