@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRequest, clipLesson, LIMITS, parseReply, sha256Hex, studentKey, type LensStudent } from './lesson-lens-core'
+import { AnalysisCache, analysisCacheKey, buildAnalysis, decideLabel, fixtureReply, parseGaps, removeCheck, buildRequest, clipLesson, LIMITS, parseReply, sha256Hex, studentKey, type LensStudent } from './lesson-lens-core'
 
 // Fictional students, same shape as the example classroom.
 const sofia: LensStudent = {
@@ -123,5 +123,53 @@ describe('lesson lens: reply validation', () => {
     expect(buildRequest({ ...base, language: 'French' }).request.language).toBe('French')
     expect(buildRequest({ ...base, language: 'English' }).request.language).toBeUndefined()
     expect(buildRequest(base).request.language).toBeUndefined()
+  })
+})
+
+describe('Lesson Lens 1A', () => {
+  const run = (students: LensStudent[], subject: string) => {
+    const { request, map } = buildRequest({ teacher: 'h', subject, lesson: 'Multiplication with arrays', inClass: students, roster: students })
+    const body = fixtureReply(request)
+    const reply = parseReply(body, map)!
+    return buildAnalysis({ subject, students: [...map.students.values()], suggestions: reply.suggestions, gaps: parseGaps(body, map) })
+  }
+
+  it('gives typed gaps tied to a real goal', () => {
+    const [a] = run([kai], 'reading')
+    expect(a.gaps[0]).toMatchObject({ type: 'skill', goalId: 'kai-r', goalText: 'Retell the main idea' })
+    expect(a.checks.map((c) => c.code)).toEqual(['G1-C1', 'G1-C2'])
+  })
+
+  it('shows modify only with an IEP basis for the subject', () => {
+    expect(run([sofia], 'math')[0].suggestions[0].label).toBe('modify')
+    // Same modified goal, different subject: no basis, so downgraded to adapt.
+    expect(run([sofia], 'reading')[0].suggestions[0].label).toBe('adapt')
+    // No modified goal at all: a model "modification" is never shown as modify.
+    expect(decideLabel({ kind: 'modification', text: 'Shorter task' }, kai, 'reading')).toBe('adapt')
+  })
+
+  it('drops a suggestion whose own text lowers the outcome without a basis', () => {
+    expect(decideLabel({ kind: 'adaptation', text: 'Use a lower grade-level outcome instead.' }, kai, 'reading')).toBeNull()
+    expect(decideLabel({ kind: 'adaptation', text: 'Use sentence frames.' }, kai, 'reading')).toBe('adapt')
+  })
+
+  it('caches by normalized lesson and student set', async () => {
+    const k1 = await analysisCacheKey('u', 'Arrays  and\nGroups', ['b', 'a'])
+    expect(await analysisCacheKey('u', ' arrays and groups ', ['a', 'b'])).toBe(k1)
+    expect(await analysisCacheKey('u', 'arrays and groups', ['a'])).not.toBe(k1)
+    const c = new AnalysisCache(1)
+    const an = { cached: false, source: 'rules' as const, subject: 'math', students: run([kai], 'reading') }
+    c.set(k1, an)
+    expect(c.get(k1)).toBe(an)
+    c.update('', { state: 'approved' })
+    c.set('other', an)
+    expect(c.get(k1)).toBeUndefined()
+  })
+
+  it('removes one check only', () => {
+    const an = { cached: false, source: 'rules' as const, subject: 'reading', students: run([kai], 'reading') }
+    const out = removeCheck(an, 'kai', 'G1-C1')
+    expect(out.students[0].checks.map((c) => c.code)).toEqual(['G1-C2'])
+    expect(an.students[0].checks).toHaveLength(2)
   })
 })

@@ -10,7 +10,17 @@ import { useCallback, useMemo, useState } from 'react'
 import { getAuthToken, useQuery, useUser } from 'deepspace'
 import { useToast } from '@/components/ui'
 import { useLang } from '@/i18n'
-import type { MessageKey } from '@/i18n/en'
+import { lens, type LensKey } from '@/i18n/en/lens'
+import { removeCheck as removeCheckPure, type LessonAnalysis, type LensSuggestionView, type StudentAnalysis } from '@/actions/lesson-lens-core'
+
+export { removeCheckPure as removeCheck }
+export type { LessonAnalysis, LensSuggestionView, StudentAnalysis }
+
+/** English lens strings with {vars}; swap for t() once lens.ts is registered in en.ts. */
+export function lensText(key: LensKey, vars?: Record<string, string | number>): string {
+  const text: string = lens[key]
+  return vars ? text.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : text
+}
 
 export type Decision = 'approved' | 'rejected'
 
@@ -44,17 +54,17 @@ async function callAction<T>(name: string, params: Record<string, unknown>): Pro
   }
 }
 
-const ERRORS: Record<string, MessageKey> = {
-  agent_not_configured: 'app.home.lensNotConnected',
-  agent_unreachable: 'app.home.lensNoAnswer',
-  agent_bad_reply: 'app.home.lensBadReply',
-  not_found: 'app.home.lensNotFound',
-  unauthorized: 'app.home.lensSignedOut',
+const ERRORS: Record<string, LensKey> = {
+  agent_not_configured: 'lens.err.agent_unreachable',
+  agent_unreachable: 'lens.err.agent_unreachable',
+  agent_bad_reply: 'lens.err.agent_bad_reply',
+  not_found: 'lens.err.not_found',
+  unauthorized: 'lens.err.unauthorized',
 }
 
 export function useLessonLens() {
   const { user } = useUser()
-  const { t, lang } = useLang()
+  const { lang } = useLang()
   const toast = useToast()
   const ownerId = user?.id ?? ''
   const rows = useQuery<SuggestionRow>('suggestions', { where: { ownerId, state: 'pending' } })
@@ -81,8 +91,8 @@ export function useLessonLens() {
   )
 
   const fail = useCallback(
-    (code?: string) => toast.error(t(ERRORS[code ?? ''] ?? 'app.home.lensFailed')),
-    [toast, t],
+    (code?: string) => toast.error(lensText(ERRORS[code ?? ''] ?? 'lens.err.generic')),
+    [toast],
   )
 
   const suggest = useCallback(
@@ -92,13 +102,12 @@ export function useLessonLens() {
         const r = await callAction<{ created: number; source: string }>('lessonLensSuggest', { classBlockId: id, details, language: lang })
         if (!r.success) return fail(r.code)
         const n = r.data.created
-        if (n === 0) toast.info(t('app.home.lensNoneTitle'), t('app.home.lensNoneBody'))
-        else toast.success(n === 1 ? t('app.home.lensAddedOne') : t('app.home.lensAddedMany', { n }))
+        if (n > 0) toast.success(lensText('lens.toast.saved'))
       } finally {
         setSuggesting(null)
       }
     },
-    [fail, toast, t, lang],
+    [fail, toast, lang],
   )
 
   const decide = useCallback(
@@ -107,13 +116,114 @@ export function useLessonLens() {
       try {
         const r = await callAction<{ state: Decision }>('lessonLensFeedback', { suggestionId: id, decision })
         if (!r.success) return fail(r.code)
-        toast.success(decision === 'approved' ? t('app.home.lensApproved') : t('app.home.lensRejected'))
+        toast.success(lensText(decision === 'approved' ? 'lens.toast.approved' : 'lens.toast.rejected'))
       } finally {
         setDeciding(null)
       }
     },
-    [fail, toast, t],
+    [fail, toast],
   )
 
   return { pending, classBlockId, suggest, decide, suggesting, deciding }
+}
+
+export interface AnalyzeInput {
+  lessonText: string
+  subject?: string
+  studentIds?: string[]
+}
+
+/** 1A: analyze a lesson, then review each suggestion. The analysis lives in page state; the worker caches and saves rows. */
+export function useLensAnalysis() {
+  const { lang } = useLang()
+  const toast = useToast()
+  const [analysis, setAnalysis] = useState<LessonAnalysis | null>(null)
+  const [running, setRunning] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [last, setLast] = useState<AnalyzeInput | null>(null)
+
+  const fail = useCallback((code?: string) => toast.error(lensText(ERRORS[code ?? ''] ?? 'lens.err.generic')), [toast])
+
+  const patch = useCallback((id: string, p: Partial<LensSuggestionView>) => {
+    setAnalysis((a) =>
+      a && { ...a, students: a.students.map((st) => ({ ...st, suggestions: st.suggestions.map((s) => (s.id === id ? { ...s, ...p } : s)) })) },
+    )
+  }, [])
+
+  const analyze = useCallback(
+    async (input: AnalyzeInput) => {
+      setRunning(true)
+      try {
+        const r = await callAction<LessonAnalysis>('lessonLensAnalyze', { ...input, language: lang })
+        if (!r.success) return fail(r.code)
+        setAnalysis(r.data)
+        setLast(input)
+      } finally {
+        setRunning(false)
+      }
+    },
+    [fail, lang],
+  )
+
+  const decide = useCallback(
+    async (id: string, decision: Decision, quiet = false) => {
+      setBusy(id)
+      try {
+        const r = await callAction<{ state: Decision }>('lessonLensFeedback', { suggestionId: id, decision })
+        if (!r.success) return fail(r.code), false
+        patch(id, { state: decision })
+        if (!quiet) toast.success(lensText(decision === 'approved' ? 'lens.toast.approved' : 'lens.toast.rejected'))
+        return true
+      } finally {
+        setBusy(null)
+      }
+    },
+    [fail, patch, toast],
+  )
+
+  const approveAll = useCallback(
+    async (student: StudentAnalysis) => {
+      const todo = student.suggestions.filter((s) => s.id && s.state === 'pending')
+      const done = await Promise.all(todo.map((s) => decide(s.id, 'approved', true)))
+      const n = done.filter(Boolean).length
+      if (n) toast.success(lensText('lens.toast.approvedMany', { n }))
+    },
+    [decide, toast],
+  )
+
+  const edit = useCallback(
+    async (id: string, text: string) => {
+      setBusy(id)
+      try {
+        const r = await callAction<{ text: string }>('lessonLensEdit', { suggestionId: id, text })
+        if (!r.success) return fail(r.code), false
+        patch(id, { text: r.data.text })
+        toast.success(lensText('lens.toast.saved'))
+        return true
+      } finally {
+        setBusy(null)
+      }
+    },
+    [fail, patch, toast],
+  )
+
+  const regenerate = useCallback(
+    async (id: string) => {
+      if (!last) return
+      setBusy(id)
+      try {
+        const r = await callAction<LensSuggestionView>('lessonLensRegenerate', { suggestionId: id, lessonText: last.lessonText, subject: analysis?.subject, language: lang })
+        if (!r.success) return fail(r.code)
+        patch(id, r.data)
+        toast.success(lensText('lens.toast.regenerated'))
+      } finally {
+        setBusy(null)
+      }
+    },
+    [analysis?.subject, fail, lang, last, patch, toast],
+  )
+
+  const dropCheck = useCallback((studentId: string, code: string) => setAnalysis((a) => a && removeCheckPure(a, studentId, code)), [])
+
+  return { analysis, running, busy, analyze, decide, approveAll, edit, regenerate, dropCheck }
 }

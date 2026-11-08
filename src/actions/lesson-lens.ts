@@ -11,8 +11,18 @@
 import type { ActionHandler, ActionResult, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import {
+  AnalysisCache,
+  analysisCacheKey,
+  buildAnalysis,
   buildRequest,
   clipLesson,
+  fixtureReply,
+  inferSubject,
+  parseGaps,
+  decideLabel,
+  LIMITS,
+  type LessonAnalysis,
+  type LensSuggestionView,
   parseReply,
   scrubNames,
   sha256Hex,
@@ -33,7 +43,10 @@ declare module '../../worker' {
 
 type StudentRow = { ownerId?: string; key: string; name: string; firstName: string; goals: string }
 type ClassRow = { ownerId?: string; subject: string; lesson: string; studentIds: string }
-type SuggestionRow = { ownerId?: string; kind: string; text: string; state: string }
+type SuggestionRow = { ownerId?: string; studentKey?: string; goalId?: string; kind: string; text: string; why?: string; state: string }
+
+const cache = new AnalysisCache()
+const MAX_LESSON = 12_000
 
 const fail = (code: string, error: string): ActionResult => ({ success: false, code, error })
 
@@ -155,7 +168,113 @@ const lessonLensFeedback: ActionHandler<Env> = async ({ userId, params, tools, e
       console.warn('[lesson-lens] feedback not delivered')
     }
   }
+  cache.update(suggestionId, { state: decision })
   return { success: true, data: { state: decision } }
 }
 
-export const lessonLensActions = { lessonLensSuggest, lessonLensFeedback }
+/** Reads the shared params of analyze and regenerate. */
+function lessonParams(params: Record<string, unknown>) {
+  const lesson = typeof params.lessonText === 'string' ? params.lessonText.trim().slice(0, MAX_LESSON) : ''
+  const subject = typeof params.subject === 'string' && params.subject.trim() ? params.subject.trim().slice(0, 80) : inferSubject(lesson)
+  const language = findLanguage(typeof params.language === 'string' ? params.language : undefined)?.name
+  return { lesson, subject, language }
+}
+
+/** One agent round (or the local fixture when no agent is set up). */
+async function runLens(env: Env, request: ReturnType<typeof buildRequest>['request']) {
+  if (!env.MARITIME_AGENT_URL) return fixtureReply(request)
+  return callAgent(env, request, 25_000)
+}
+
+/**
+ * 1A: analyze one lesson for a set of students. Same lesson + same students
+ * returns the cached analysis. Suggestions are saved as pending rows.
+ */
+const lessonLensAnalyze: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
+  const { lesson, subject, language } = lessonParams(params)
+  if (!lesson) return fail('bad_request', 'lessonText is required.')
+  const roster = await loadRoster(tools, userId)
+  if (!roster) return fail('load_failed', 'Could not load students.')
+  const wanted = Array.isArray(params.studentIds) ? new Set((params.studentIds as unknown[]).filter((x): x is string => typeof x === 'string')) : null
+  const selected = roster.filter((s) => s.goals.length && (!wanted || wanted.has(s.id)))
+  if (!selected.length) return fail('no_students', 'No students with IEP goals to analyze.')
+
+  const key = await analysisCacheKey(userId, `${subject}\n${lesson}`, selected.map((s) => s.id))
+  const hit = cache.get(key)
+  if (hit) return { success: true, data: { ...hit, cached: true } }
+
+  const { request, map } = buildRequest({ teacher: await sha256Hex(userId), subject, lesson, language, inClass: selected, roster })
+  let body: unknown
+  try {
+    body = await runLens(env, request)
+  } catch (e) {
+    console.warn(`[lesson-lens] agent call failed: ${(e as Error).name}`)
+    return fail('agent_unreachable', 'Lesson Lens did not answer.')
+  }
+  const reply = parseReply(body, map)
+  if (!reply) return fail('agent_bad_reply', 'Lesson Lens sent a reply we could not read.')
+
+  const students = buildAnalysis({ subject, students: [...map.students.values()], suggestions: reply.suggestions, gaps: parseGaps(body, map) })
+  const clipped = clipLesson(lesson)
+  for (const st of students) {
+    for (const s of st.suggestions) {
+      const r = await tools.create('suggestions', {
+        ownerId: userId, studentKey: st.studentId, goalId: s.goalId, lesson: clipped,
+        kind: s.label === 'modify' ? 'modification' : 'adaptation', text: s.text, why: s.why, state: 'pending',
+      })
+      s.id = r.success ? r.data.recordId : ''
+    }
+  }
+  const analysis: LessonAnalysis = { cached: false, source: reply.source, subject, students }
+  cache.set(key, analysis)
+  return { success: true, data: analysis }
+}
+
+/** Regenerates one suggestion in place (new text, back to pending). */
+const lessonLensRegenerate: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
+  const { lesson, subject, language } = lessonParams(params)
+  const id = params.suggestionId
+  if (typeof id !== 'string' || !id || !lesson) return fail('bad_request', 'suggestionId and lessonText are required.')
+  const row = await tools.get<SuggestionRow>('suggestions', id)
+  if (!row.success || row.data.record.data.ownerId !== userId) return fail('not_found', 'Suggestion not found.')
+  const old = row.data.record.data
+  const roster = await loadRoster(tools, userId)
+  const student = roster?.find((s) => s.id === old.studentKey)
+  if (!roster || !student) return fail('not_found', 'Student not found.')
+
+  const { request, map } = buildRequest({
+    teacher: await sha256Hex(userId), subject, lesson, language, inClass: [student], roster,
+    details: `Offer a different approach than: ${old.text ?? ''}`,
+  })
+  let body: unknown
+  try {
+    body = await runLens(env, request)
+  } catch {
+    return fail('agent_unreachable', 'Lesson Lens did not answer.')
+  }
+  const reply = parseReply(body, map)
+  if (!reply) return fail('agent_bad_reply', 'Lesson Lens sent a reply we could not read.')
+  const pick = reply.suggestions.find((s) => s.goalId === old.goalId) ?? reply.suggestions[0]
+  const label = pick ? decideLabel(pick, student, subject) : null
+  if (!pick || !label) return fail('agent_bad_reply', 'Lesson Lens had no new suggestion.')
+  const upd = await tools.update('suggestions', id, { text: pick.text, why: pick.why, kind: label === 'modify' ? 'modification' : 'adaptation', goalId: pick.goalId, state: 'pending' })
+  if (!upd.success) return upd
+  const view: LensSuggestionView = { id, goalId: pick.goalId, label, text: pick.text, why: pick.why, state: 'pending' }
+  cache.update(id, view)
+  return { success: true, data: view }
+}
+
+/** The teacher's own wording for a suggestion. */
+const lessonLensEdit: ActionHandler<Env> = async ({ userId, params, tools }) => {
+  const id = params.suggestionId
+  const text = typeof params.text === 'string' ? params.text.trim().slice(0, LIMITS.text) : ''
+  if (typeof id !== 'string' || !id || !text) return fail('bad_request', 'suggestionId and text are required.')
+  const row = await tools.get<SuggestionRow>('suggestions', id)
+  if (!row.success || row.data.record.data.ownerId !== userId) return fail('not_found', 'Suggestion not found.')
+  const upd = await tools.update('suggestions', id, { text })
+  if (!upd.success) return upd
+  cache.update(id, { text })
+  return { success: true, data: { text } }
+}
+
+export const lessonLensActions = { lessonLensSuggest, lessonLensFeedback, lessonLensAnalyze, lessonLensRegenerate, lessonLensEdit }
