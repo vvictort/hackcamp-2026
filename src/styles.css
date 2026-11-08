@@ -35,6 +35,10 @@
 
   /* The one accent. Dots, progress fills, today's date. */
   --color-signal: #6C47FF;
+  /* Soft second tone for a word inside a large heading (the greeting's name):
+     mid grey, 4.12:1 on the canvas and 4.10:1 against ink, so it sits evenly
+     between the two. Large text only (needs 3:1). */
+  --color-highlight: #757575;
 
   /* Ink cards (and the landing footer). */
   --color-ink: #111111;

@@ -91,7 +91,14 @@ export default function HomePage() {
     <div className="flex flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:px-0 lg:py-0">
       <header className="flex flex-wrap items-start justify-between gap-6 lg:pt-1">
         <div className="flex flex-col gap-3">
-          <h1 className="text-display font-extrabold sm:text-hero">Good morning{firstName && `, ${firstName}`}.</h1>
+          <h1 className="text-display font-extrabold sm:text-hero">Good morning
+            {firstName && (
+              <>
+                , <span className="text-highlight">{firstName}</span>
+              </>
+            )}
+            .
+          </h1>
           <p className="max-w-[60ch] text-body-lg text-muted-foreground">
             Two Pulse check-ins are due before lunch, and three suggestions are waiting for you.
           </p>
