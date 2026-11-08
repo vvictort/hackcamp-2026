@@ -407,6 +407,8 @@ export type SessionSupports = z.infer<typeof SessionSupports>
 export const SessionNextResponse = z.object({
   item: z.object({ itemId: z.string(), prompt: z.string(), format: CheckItem.shape.format, options: z.array(z.string()).nullable() }).nullable(),
   supports: SessionSupports,
+  /** Where this item sits in the practice list (1-based position of the next item, total items). */
+  progress: z.object({ position: z.number().int().min(0), total: z.number().int().min(0) }).optional(),
 })
 export type SessionNextResponse = z.infer<typeof SessionNextResponse>
 

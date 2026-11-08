@@ -50,6 +50,37 @@ function kaiWithApprovedCheck(): SqlExecutor {
   return sql
 }
 
+/** Kai with one approved adaptation whose check has no answer key (self-rated). */
+function kaiWithSelfRatedCheck(): SqlExecutor {
+  const sql = studentRoom('kai')
+  const run = runStudent<LensStudentResult>(
+    sql,
+    'lens.saveRun',
+    {
+      studentId: kai,
+      lessonId: 'lesson-2',
+      analysisId: 'analysis-2',
+      subject: 'literacy',
+      gaps: [],
+      adaptations: [
+        { adaptationType: 'visual_supports', title: 'Picture steps', text: 'Use the picture steps.', why: 'Visual schedule', goalIds: [KAI.goals[0].id], changesOutcome: false, modelLabel: 'adaptation', label: 'adaptation' },
+      ],
+      checks: [
+        {
+          goalId: KAI.goals[0].id,
+          objectiveId: KAI.objectives[0].id,
+          items: [{ id: 's1', prompt: 'Did you use the picture steps?', format: 'work_sample', options: null }],
+          answerKey: null,
+          rubric: { criteria: [{ id: 'c1', description: 'Uses the picture steps' }], levels: [{ score: 0, description: 'Needs help' }, { score: 1, description: 'Did it' }] },
+        },
+      ],
+    },
+    ACTORS.teacher,
+  )
+  runStudent(sql, 'suggestions.approve', { studentId: kai, suggestionId: run.suggestions[0].id, expectedVersion: 1 }, ACTORS.teacher)
+  return sql
+}
+
 /** Every IEP string that must never reach student mode. */
 const iepStrings = [
   ...KAI.iep.sections.goals.map((g) => g.text),
@@ -191,5 +222,32 @@ describe('scoreItem', () => {
     expect(scoreItem(item('multiple_choice'), { itemId: 'i', accepted: ['B'] }, 'c')).toBe(false)
     expect(scoreItem(item('work_sample'), { itemId: 'i', accepted: ['x'] }, 'x')).toBeNull()
     expect(scoreItem(item('numeric'), undefined, '1')).toBeNull()
+  })
+})
+
+describe('self-rated check items (approved Lens check without an answer key)', () => {
+  it('offers the item with self-rating options and a position', () => {
+    const sql = kaiWithSelfRatedCheck()
+    const next = runStudent<SessionNextResponse>(sql, 'sessions.next', { studentId: kai, now: NOW }, session())
+    expect(next.item).toMatchObject({ prompt: 'Did you use the picture steps?', options: ['I did it', 'I need help'] })
+    expect(next.progress).toEqual({ position: 1, total: 1 })
+  })
+
+  it('stores rubric 1 or 0 as pending review with a review item, then finishes', () => {
+    const sql = kaiWithSelfRatedCheck()
+    const next = runStudent<SessionNextResponse>(sql, 'sessions.next', { studentId: kai, now: NOW }, session())
+    runStudent(sql, 'sessions.respond', { studentId: kai, itemId: next.item?.itemId, response: 'I need help', now: NOW }, session())
+    const dp = sql.get<{ id: string; value: number; status: string; source: string }>("SELECT id, value, status, source FROM data_points WHERE source = 'student'")
+    expect(dp).toMatchObject({ value: 0, status: 'pending_review', source: 'student' })
+    expect(sql.get<{ n: number }>("SELECT COUNT(*) AS n FROM review_queue WHERE data_point_id = ? AND status = 'open'", dp?.id ?? '')?.n).toBe(1)
+    const after = runStudent<SessionNextResponse>(sql, 'sessions.next', { studentId: kai, now: NOW }, session())
+    expect(after.item).toBeNull()
+    expect(after.progress).toEqual({ position: 1, total: 1 })
+  })
+
+  it('rejects an answer that is not one of the options', () => {
+    const sql = kaiWithSelfRatedCheck()
+    const next = runStudent<SessionNextResponse>(sql, 'sessions.next', { studentId: kai, now: NOW }, session())
+    expect(() => runStudent(sql, 'sessions.respond', { studentId: kai, itemId: next.item?.itemId, response: 'maybe', now: NOW }, session())).toThrow(/choose one/)
   })
 })

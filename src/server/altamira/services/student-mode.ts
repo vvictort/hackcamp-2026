@@ -7,10 +7,12 @@ import { defineOp } from '../contract/ops'
 import { ProbeForm, type AnswerKeyEntry, type CheckItem, type IepVersion, type Probe } from '../contract/student'
 import type { SqlExecutor } from '../db/sql'
 import { audit, insertEntity, newId, nowIso } from '../repos/base'
+import type { ReviewItem } from '../contract/student'
 import * as ev from '../repos/evidence'
 import { currentConfirmedObjectives, currentIep, objectiveById } from '../repos/iep'
 import { approvedChecks } from '../repos/lens'
 import { probesForObjectives } from '../repos/records'
+import type { Actor } from '../contract/permissions'
 import { Now, StudentArgs, authorize, authorizeStaff, requireStudentSession } from './authz'
 import { isObjectiveItem, scoreItem } from './scoring'
 import { parseSourceRef, studentResponseRef } from './sources'
@@ -29,9 +31,14 @@ type SessionItem = {
   item: CheckItem
   key: AnswerKeyEntry | undefined
   fromProbe: boolean
+  /** Check without an answer key: the student rates themselves, a teacher reviews it. */
+  selfRated?: boolean
   /** Lesson of the approved adaptation that holds the check; null for probes. */
   lessonId: string | null
 }
+
+/** Options of a self-rated item; the first one is "done" (rubric 1), the other asks for help (rubric 0). */
+export const SELF_RATE_OPTIONS = ['I did it', 'I need help'] as const
 
 const lessonOfSuggestion = (sql: SqlExecutor, suggestionId: string): string | null =>
   sql.get<{ lesson_id: string }>('SELECT r.lesson_id FROM suggestions s JOIN lens_runs r ON r.id = s.lens_run_id WHERE s.id = ?', suggestionId)?.lesson_id ??
@@ -72,7 +79,20 @@ function sessionItems(sql: SqlExecutor): SessionItem[] {
         lessonId: lessonOfSuggestion(sql, c.suggestionId),
       })),
   ]
-  return forms.flatMap((f) =>
+  const selfRated: SessionItem[] = approvedChecks(sql)
+    .filter((c) => !c.answerKey?.length && objectives.includes(c.objectiveId))
+    .flatMap((c) =>
+      c.items.map((item) => ({
+        itemKey: `${c.id}/${item.id}`,
+        objectiveId: c.objectiveId,
+        item: { ...item, format: 'multiple_choice' as const, options: [...SELF_RATE_OPTIONS] },
+        key: undefined,
+        fromProbe: false,
+        selfRated: true,
+        lessonId: lessonOfSuggestion(sql, c.suggestionId),
+      })),
+    )
+  const keyed = forms.flatMap((f) =>
     f.items
       .filter((item) => isObjectiveItem(item) && f.key.some((k) => k.itemId === item.id))
       .map((item) => ({
@@ -84,6 +104,7 @@ function sessionItems(sql: SqlExecutor): SessionItem[] {
         lessonId: f.lessonId,
       })),
   )
+  return [...keyed, ...selfRated]
 }
 
 /** Student-mode responses already stored, by item key and session. */
@@ -134,8 +155,11 @@ export const sessionsNext = defineOp({
     requireStudentSession(actor, args.studentId, nowIso(args.now))
     requireConsent(sql, 'student_mode')
     const done = new Set(responses(sql).map((r) => r.itemKey))
-    const next = sessionItems(sql).find((i) => !done.has(i.itemKey))
+    const all = sessionItems(sql)
+    const next = all.find((i) => !done.has(i.itemKey))
+    const answered = all.filter((i) => done.has(i.itemKey)).length
     return {
+      progress: { position: next ? answered + 1 : answered, total: all.length },
       item: next ? { itemId: next.itemKey, prompt: next.item.prompt, format: next.item.format, options: next.item.options } : null,
       supports: supportsFrom(currentIep(sql)),
     }
@@ -159,6 +183,7 @@ export const sessionsRespond = defineOp({
     const item = sessionItems(sql).find((i) => i.itemKey === args.itemId)
     if (!item) throw new AltamiraError('not_found', 'unknown item')
     if (responses(sql).some((r) => r.itemKey === item.itemKey)) throw new AltamiraError('bad_request', 'this item is already answered')
+    if (item.selfRated) return respondSelfRated(sql, actor, session, item, args, at)
     // Deterministic scoring against the key, never by the model.
     const correct = scoreItem(item.item, item.key, args.response)
     if (correct === null) throw new AltamiraError('bad_request', 'this item cannot be scored automatically')
@@ -185,6 +210,42 @@ export const sessionsRespond = defineOp({
     return { correct }
   },
 })
+
+/** Self-rated check item: the pick is stored as rubric 1 or 0 and waits for teacher review. */
+function respondSelfRated(
+  sql: SqlExecutor,
+  actor: Actor,
+  session: { tokenId: string; startedBy?: string | null },
+  item: SessionItem,
+  args: { response: string; durationMs?: number; readAloudUsed: boolean },
+  at: string,
+): { correct: boolean } {
+  const pick = SELF_RATE_OPTIONS.find((o) => o === args.response.trim())
+  if (!pick) throw new AltamiraError('bad_request', 'choose one of the answers shown')
+  const objective = objectiveById(sql, item.objectiveId)
+  if (!objective) throw new AltamiraError('not_found', 'objective not found')
+  const dataPoint = newDataPoint({
+    id: newId(),
+    objectiveId: objective.id,
+    value: pick === SELF_RATE_OPTIONS[0] ? 1 : 0,
+    unit: objective.unit,
+    source: 'student',
+    recorderId: session.startedBy ?? actor.userId,
+    recordedAt: at,
+    lessonId: item.lessonId,
+    activeAdaptations: activeAdaptationIds(sql, item.lessonId),
+    status: 'pending_review',
+    sourceRef: studentResponseRef(session.tokenId, item.itemKey),
+    sessionDetail: { timeOnTaskMs: args.durationMs ?? null, readAloud: args.readAloudUsed },
+  })
+  ev.insertDataPoint(sql, dataPoint)
+  audit(sql, actor, 'data_points.create', 'data_points', dataPoint.id, undefined, dataPoint, at)
+  const review: ReviewItem = { id: newId(), dataPointId: dataPoint.id, kind: 'sampled', status: 'open', createdAt: at, resolvedBy: null, resolvedAt: null, version: 1 }
+  insertEntity(sql, 'review_queue', review)
+  audit(sql, actor, 'review_queue.create', 'review_queue', review.id, undefined, review, at)
+  // Nothing is "wrong" in a self rating; the teacher decides, so the student always sees encouragement.
+  return { correct: true }
+}
 
 /** Strengths-based self view: what the student has completed and their current streak, no IEP wording. */
 export const sessionsProgress = defineOp({
