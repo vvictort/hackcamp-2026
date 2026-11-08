@@ -10,10 +10,13 @@ const PORT = Number(process.env.PORT || 8080)
 const DATA_DIR = process.env.DATA_DIR || '/data'
 const AGENT_TOKEN = process.env.AGENT_TOKEN || ''
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
+// Model chain: next model on 429, 503, 404 or a timeout. GEMINI_MODEL (one model) still works.
+const DEFAULT_MODELS = 'gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
+const GEMINI_MODELS = (process.env.ALTAMIRA_GEMINI_MODELS || process.env.GEMINI_MODEL || DEFAULT_MODELS)
+  .split(',').map((m) => m.trim()).filter(Boolean)
 // Test seam: lets the suite point at a fake Gemini. Production leaves it unset.
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'
-const GEMINI_TIMEOUT_MS = 20_000
+const GEMINI_TIMEOUT_MS = 25_000
 const MAX_CHARS = 300
 const PER_STUDENT = 2
 const MEMORY_CAP = 50
@@ -47,11 +50,13 @@ function parseLessonLens(req) {
       text: str(g?.text, 600),
       level: str(g?.level, 40),
     })).filter((g) => g.id),
+    accommodations: (Array.isArray(s?.accommodations) ? s.accommodations : []).slice(0, 10).map((a) => str(a, 200)).filter(Boolean),
+    strengths: (Array.isArray(s?.strengths) ? s.strengths : []).slice(0, 10).map((a) => str(a, 200)).filter(Boolean),
   })).filter((s) => s.key && s.goals.length)
   return {
     teacher,
     subject: str(req.subject, 80),
-    lesson: str(req.lesson, 200),
+    lesson: str(req.lesson, 4000),
     details: str(req.details, 4000),
     language: checkLanguage(req.language),
     students,
@@ -158,12 +163,14 @@ function rulesSuggest(l) {
 
 const SYSTEM = `You help a BC (Canada) grade-school teacher adapt one lesson for students with IEP goals.
 For each student whose goals relate to the lesson, suggest at most 2 concrete actions the teacher can take in this lesson.
+Also list gaps: where the student may get stuck in this lesson. Each gap has a type (access, skill, behaviour, engagement or communication), the goalId it relates to and one sentence of text.
 Each suggestion names the goalId it serves. Skip students whose goals do not relate to the lesson.
 kind is "modification" ONLY when the learning outcome itself changes for the student (BC definition: modified outcomes differ from the curriculum's learning standards); otherwise "adaptation" (same outcome, changed support, materials, time or format).
 "text" is one concrete teacher action, at most 300 characters. "why" is one sentence tied to the goal, at most 300 characters.
 Use Canadian spelling. Do not use em dashes. Refer to students only by the key given. Never invent names.
 teacherFeedback lists this teacher's recent approved and rejected suggestions: write more like the approved ones, avoid what was rejected.`
 
+const GAP_TYPES = ['access', 'skill', 'behaviour', 'engagement', 'communication']
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -184,6 +191,19 @@ const RESPONSE_SCHEMA = {
   },
   required: ['suggestions'],
 }
+RESPONSE_SCHEMA.properties.gaps = {
+  type: 'ARRAY',
+  items: {
+    type: 'OBJECT',
+    properties: {
+      studentKey: { type: 'STRING' },
+      goalId: { type: 'STRING' },
+      type: { type: 'STRING', enum: GAP_TYPES },
+      text: { type: 'STRING' },
+    },
+    required: ['studentKey', 'goalId', 'type', 'text'],
+  },
+}
 
 // Gemini writes "text" and "why" in the teacher's language. Keys, goal ids and kind stay exactly as given.
 const languageRule = (language) =>
@@ -195,27 +215,53 @@ async function geminiSuggest(l, memory) {
   const teacherFeedback = memory.filter((m) => m.decision === 'approved' || m.decision === 'rejected')
     .slice(-FEW_SHOT).map(({ kind, text, decision }) => ({ kind, text, decision }))
   const input = { subject: l.subject, lesson: l.lesson, details: l.details, students: l.students, teacherFeedback }
-  const res = await fetch(`${GEMINI_BASE_URL}/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: languageRule(l.language) + SYSTEM }] },
-      contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
-    }),
-    signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: languageRule(l.language) + SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
   })
-  if (!res.ok) throw new Error(`gemini http ${res.status}`)
-  const data = await res.json()
-  const text = data?.candidates?.[0]?.content?.parts?.find((p) => typeof p?.text === 'string')?.text
-  if (!text) throw new Error('gemini returned no text')
-  const parsed = JSON.parse(text)
-  if (!Array.isArray(parsed?.suggestions)) throw new Error('gemini returned no suggestions array')
-  return parsed.suggestions
+  let lastErr = new Error('no gemini model answered')
+  for (const model of GEMINI_MODELS) {
+    let res
+    try {
+      res = await fetch(`${GEMINI_BASE_URL}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+        body,
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      })
+    } catch (e) {
+      lastErr = e // timeout or network: next model
+      continue
+    }
+    if (res.status === 429 || res.status === 503 || res.status === 404 || res.status >= 500) {
+      lastErr = new Error(`gemini http ${res.status}`)
+      continue
+    }
+    if (!res.ok) throw new Error(`gemini http ${res.status}`)
+    const data = await res.json()
+    const text = data?.candidates?.[0]?.content?.parts?.find((p) => typeof p?.text === 'string')?.text
+    if (!text) throw new Error('gemini returned no text')
+    const parsed = JSON.parse(text)
+    if (!Array.isArray(parsed?.suggestions)) throw new Error('gemini returned no suggestions array')
+    return parsed
+  }
+  throw lastErr
 }
 
 // Never trust model output: keep only known student/goal pairs, the two kinds,
 // the length limits and the per-student cap.
+function sanitizeGaps(raw, l) {
+  const goals = new Map(l.students.map((s) => [s.key, new Set(s.goals.map((g) => g.id))]))
+  const out = []
+  for (const g of Array.isArray(raw) ? raw : []) {
+    if (!goals.get(g?.studentKey)?.has(g?.goalId) || !GAP_TYPES.includes(g.type)) continue
+    const text = typeof g.text === 'string' ? clamp(g.text) : ''
+    if (text) out.push({ studentKey: g.studentKey, goalId: g.goalId, type: g.type, text })
+  }
+  return out.slice(0, 80)
+}
+
 function sanitize(raw, l) {
   const goals = new Map(l.students.map((s) => [s.key, new Set(s.goals.map((g) => g.id))]))
   const count = new Map()
@@ -238,7 +284,8 @@ async function lessonLens(req) {
   const l = parseLessonLens(req)
   if (GEMINI_API_KEY) {
     try {
-      return { suggestions: sanitize(await geminiSuggest(l, await loadMemory(l.teacher)), l), source: 'gemini' }
+      const parsed = await geminiSuggest(l, await loadMemory(l.teacher))
+      return { suggestions: sanitize(parsed.suggestions, l), gaps: sanitizeGaps(parsed.gaps, l), source: 'gemini' }
     } catch (e) {
       // Status or error name only: never the prompt, the body or the key.
       // A SyntaxError message quotes the model's text, which echoes goal text: log its name only.

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, CircleDashed, FileText, Pencil, RefreshCw, Trash2, X } from 'lucide-react'
+import { Check, CircleDashed, FileText, History, Pencil, RefreshCw, Trash2, X } from 'lucide-react'
 import { Badge, Button, Card, StatusBadge, Textarea } from '@/components/ui'
 import { lensText, type LensSuggestionView, type StudentAnalysis } from '@/lib/lessonLens'
 import type { LensKey } from '@/i18n/en/lens'
@@ -36,6 +36,12 @@ function Suggestion({ s, a }: { s: LensSuggestionView; a: ResultActions }) {
           {lensText(s.label === 'modify' ? 'lens.modify' : 'lens.adapt')}
         </Badge>
         <StateBadge state={s.state} />
+        {s.workedBefore && (
+          <Badge variant="info" title={lensText('lens.workedBeforeHint')}>
+            <History aria-hidden />
+            {lensText('lens.workedBefore')}
+          </Badge>
+        )}
       </div>
       {editing ? (
         <>

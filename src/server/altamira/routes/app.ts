@@ -4,7 +4,7 @@ import { captureRoutes } from './capture'
 import { createKit } from './context'
 import type { AltamiraRouteDeps } from './deps'
 import { familyRoutes } from './family'
-import { lessonRoutes } from './lessons'
+import { lensUsageRoutes } from './lens-usage'
 import { meRoutes } from './me'
 import { progressRoutes } from './progress'
 import { studentRoutes } from './students'
@@ -24,7 +24,7 @@ export function createAltamiraApi(deps: AltamiraRouteDeps): Hono<AltamiraEnv> {
   const kit = createKit(deps)
   meRoutes(api, kit)
   studentRoutes(api, kit)
-  lessonRoutes(api, kit)
+  lensUsageRoutes(api, kit)
   captureRoutes(api, kit)
   progressRoutes(api, kit)
   familyRoutes(api, kit)

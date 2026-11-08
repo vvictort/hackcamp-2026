@@ -10,6 +10,7 @@
 
 import type { ActionHandler, ActionResult, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
+import type { AdaptationType } from '../server/altamira/contract/enums'
 import {
   AnalysisCache,
   analysisCacheKey,
@@ -20,6 +21,8 @@ import {
   inferSubject,
   parseGaps,
   decideLabel,
+  adaptationTypeFor,
+  rankSuggestions,
   LIMITS,
   type LessonAnalysis,
   type LensSuggestionView,
@@ -31,6 +34,7 @@ import {
   type LensStudent,
 } from './lesson-lens-core'
 import { findLanguage } from '../i18n/languages'
+import { DEMO_IMAGE_TEXT, parseImage, transcribeImage } from './lesson-lens-gemini'
 
 declare module '../../worker' {
   interface Env {
@@ -38,6 +42,8 @@ declare module '../../worker' {
     MARITIME_AGENT_URL?: string
     /** Sent as `Authorization: Bearer ...`; must match the agent's AGENT_TOKEN. */
     MARITIME_AGENT_TOKEN?: string
+    GEMINI_API_KEY?: string
+    ALTAMIRA_GEMINI_MODELS?: string
   }
 }
 
@@ -47,6 +53,8 @@ type SuggestionRow = { ownerId?: string; studentKey?: string; goalId?: string; k
 
 const cache = new AnalysisCache()
 const MAX_LESSON = 12_000
+// The agent has up to 25 s per Gemini attempt and may try several models.
+const AGENT_TIMEOUT_MS = 80_000
 
 const fail = (code: string, error: string): ActionResult => ({ success: false, code, error })
 
@@ -57,6 +65,48 @@ const parseJson = <T,>(s: unknown, fallback: T): T => {
   } catch {
     return fallback
   }
+}
+
+const strs = (v: unknown, n: number, max: number): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, n).map((x) => x.trim().slice(0, max)) : []
+const AD_TYPES: readonly string[] = ['simplified_text', 'chunked_steps', 'sentence_frames', 'visual_supports', 'alternative_demonstration', 'modified_assessment']
+
+/**
+ * The students come from the app's /api/v1 caseload (the browser reads goals,
+ * accommodations and What works there). Every field is checked and clipped; the
+ * server never trusts shape or size. Students without goals are dropped.
+ */
+export function parseStudents(v: unknown): LensStudent[] {
+  if (!Array.isArray(v)) return []
+  const out: LensStudent[] = []
+  for (const raw of v.slice(0, 60) as Record<string, unknown>[]) {
+    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id) continue
+    const goals = (Array.isArray(raw.goals) ? (raw.goals as Record<string, unknown>[]) : [])
+      .filter((g) => g && typeof g.id === 'string' && typeof g.text === 'string' && g.text.trim())
+      .slice(0, 12)
+      .map((g) => ({ id: String(g.id).slice(0, 80), area: String(g.area ?? '').slice(0, 80), text: String(g.text).slice(0, 600), level: String(g.level ?? '').slice(0, 40) }))
+    const whatWorks = (Array.isArray(raw.whatWorks) ? (raw.whatWorks as Record<string, unknown>[]) : [])
+      .filter((r) => r && typeof r.adaptationType === 'string' && AD_TYPES.includes(r.adaptationType))
+      .slice(0, 10)
+      .map((r) => ({
+        adaptationType: r.adaptationType as AdaptationType,
+        n: Number(r.n) || 0,
+        meanOutcome: typeof r.meanOutcome === 'number' ? r.meanOutcome : null,
+        hidden: r.hidden === true,
+      }))
+    const firstName = typeof raw.firstName === 'string' ? raw.firstName.trim().slice(0, 60) : ''
+    out.push({
+      id: raw.id.slice(0, 80),
+      name: (typeof raw.name === 'string' ? raw.name.trim() : firstName).slice(0, 80),
+      firstName,
+      goals,
+      accommodations: strs(raw.accommodations, 10, 200),
+      strengths: strs(raw.strengths, 10, 200),
+      modificationSubjects: strs(raw.modificationSubjects, 10, 60),
+      whatWorks,
+    })
+  }
+  return out.filter((s) => s.goals.length)
 }
 
 async function loadRoster(tools: ActionTools, userId: string): Promise<LensStudent[] | null> {
@@ -118,7 +168,7 @@ const lessonLensSuggest: ActionHandler<Env> = async ({ userId, params, tools, en
 
   let reply
   try {
-    reply = parseReply(await callAgent(env, request, 25_000), map)
+    reply = parseReply(await callAgent(env, request, AGENT_TIMEOUT_MS), map)
   } catch (e) {
     // The error names a status or a timeout, never the payload.
     console.warn(`[lesson-lens] agent call failed: ${(e as Error).name}`)
@@ -156,7 +206,7 @@ const lessonLensFeedback: ActionHandler<Env> = async ({ userId, params, tools, e
 
   // Best effort: the teacher's decision is saved whatever the agent does.
   if (env.MARITIME_AGENT_URL) {
-    const roster = (await loadRoster(tools, userId)) ?? []
+    const roster = parseStudents(params.students).length ? parseStudents(params.students) : ((await loadRoster(tools, userId)) ?? [])
     const { kind, text } = row.data.record.data
     try {
       await callAgent(
@@ -183,7 +233,7 @@ function lessonParams(params: Record<string, unknown>) {
 /** One agent round (or the local fixture when no agent is set up). */
 async function runLens(env: Env, request: ReturnType<typeof buildRequest>['request']) {
   if (!env.MARITIME_AGENT_URL) return fixtureReply(request)
-  return callAgent(env, request, 25_000)
+  return callAgent(env, request, AGENT_TIMEOUT_MS)
 }
 
 /**
@@ -191,17 +241,27 @@ async function runLens(env: Env, request: ReturnType<typeof buildRequest>['reque
  * returns the cached analysis. Suggestions are saved as pending rows.
  */
 const lessonLensAnalyze: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
-  const { lesson, subject, language } = lessonParams(params)
-  if (!lesson) return fail('bad_request', 'lessonText is required.')
-  const roster = await loadRoster(tools, userId)
-  if (!roster) return fail('load_failed', 'Could not load students.')
+  const { subject: givenSubject, language } = lessonParams(params)
+  let { lesson } = lessonParams(params)
+  const image = parseImage(params.image)
+  if (!lesson && !image) return fail('bad_request', 'lessonText or image is required.')
+  const roster = parseStudents(params.students)
   const wanted = Array.isArray(params.studentIds) ? new Set((params.studentIds as unknown[]).filter((x): x is string => typeof x === 'string')) : null
-  const selected = roster.filter((s) => s.goals.length && (!wanted || wanted.has(s.id)))
+  const selected = roster.filter((s) => !wanted || wanted.has(s.id))
   if (!selected.length) return fail('no_students', 'No students with IEP goals to analyze.')
 
-  const key = await analysisCacheKey(userId, `${subject}\n${lesson}`, selected.map((s) => s.id))
+  // An image is keyed by its bytes, so the same photo hits the cache without a Gemini call.
+  const keyText = lesson || `image:${await sha256Hex(image!.data)}`
+  const subjectKey = givenSubject
+  const key = await analysisCacheKey(userId, `${subjectKey}\n${keyText}`, selected.map((s) => s.id))
   const hit = cache.get(key)
   if (hit) return { success: true, data: { ...hit, cached: true } }
+
+  if (!lesson && image) {
+    lesson = ((await transcribeImage(env, image)) ?? (env.GEMINI_API_KEY ? '' : DEMO_IMAGE_TEXT)).slice(0, MAX_LESSON)
+    if (!lesson) return fail('image_unreadable', 'No lesson text could be read from the image.')
+  }
+  const subject = params.subject && typeof params.subject === 'string' && params.subject.trim() ? givenSubject : inferSubject(lesson)
 
   const { request, map } = buildRequest({ teacher: await sha256Hex(userId), subject, lesson, language, inClass: selected, roster })
   let body: unknown
@@ -225,7 +285,7 @@ const lessonLensAnalyze: ActionHandler<Env> = async ({ userId, params, tools, en
       s.id = r.success ? r.data.recordId : ''
     }
   }
-  const analysis: LessonAnalysis = { cached: false, source: reply.source, subject, students }
+  const analysis: LessonAnalysis = { cached: false, source: reply.source, subject, lessonText: lesson, students }
   cache.set(key, analysis)
   return { success: true, data: analysis }
 }
@@ -238,9 +298,9 @@ const lessonLensRegenerate: ActionHandler<Env> = async ({ userId, params, tools,
   const row = await tools.get<SuggestionRow>('suggestions', id)
   if (!row.success || row.data.record.data.ownerId !== userId) return fail('not_found', 'Suggestion not found.')
   const old = row.data.record.data
-  const roster = await loadRoster(tools, userId)
-  const student = roster?.find((s) => s.id === old.studentKey)
-  if (!roster || !student) return fail('not_found', 'Student not found.')
+  const roster = parseStudents(params.students)
+  const student = roster.find((s) => s.id === old.studentKey)
+  if (!student) return fail('not_found', 'Student not found.')
 
   const { request, map } = buildRequest({
     teacher: await sha256Hex(userId), subject, lesson, language, inClass: [student], roster,
@@ -259,9 +319,12 @@ const lessonLensRegenerate: ActionHandler<Env> = async ({ userId, params, tools,
   if (!pick || !label) return fail('agent_bad_reply', 'Lesson Lens had no new suggestion.')
   const upd = await tools.update('suggestions', id, { text: pick.text, why: pick.why, kind: label === 'modify' ? 'modification' : 'adaptation', goalId: pick.goalId, state: 'pending' })
   if (!upd.success) return upd
-  const view: LensSuggestionView = { id, goalId: pick.goalId, label, text: pick.text, why: pick.why, state: 'pending' }
-  cache.update(id, view)
-  return { success: true, data: view }
+  const view = rankSuggestions(
+    [{ id, goalId: pick.goalId, label, adaptationType: adaptationTypeFor(pick.text, label), text: pick.text, why: pick.why, state: 'pending' } as LensSuggestionView],
+    student.whatWorks,
+  )[0]!
+  cache.update(id, { ...view, workedBefore: view.workedBefore ?? false })
+  return { success: true, data: { ...view, workedBefore: view.workedBefore ?? false } }
 }
 
 /** The teacher's own wording for a suggestion. */

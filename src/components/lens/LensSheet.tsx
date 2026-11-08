@@ -5,14 +5,21 @@ import { lensText, type StudentAnalysis } from '@/lib/lessonLens'
 
 const PRINT_CSS = `@media print{body *{visibility:hidden}#lens-sheet,#lens-sheet *{visibility:visible}#lens-sheet{position:absolute;inset:0;padding:24px;background:#fff;color:#000;box-shadow:none}.lens-noprint{display:none!important}}`
 
+/** Checks grouped by IEP goal: each goal has its own capture code. */
+export const goalGroups = (student: StudentAnalysis): [string, StudentAnalysis['checks']][] => {
+  const m = new Map<string, StudentAnalysis['checks']>()
+  for (const c of student.checks) m.set(c.goalId, [...(m.get(c.goalId) ?? []), c])
+  return [...m]
+}
+
 /** One student's printable sheet: adaptations, then goal-coded checks (G1-C2 ...). */
-export function LensSheet({ student, subject, onClose }: { student: StudentAnalysis; subject: string; onClose: () => void }) {
+export function LensSheet({ student, subject, codes, onClose }: { student: StudentAnalysis; subject: string; codes: Record<string, string>; onClose: () => void }) {
   const [making, setMaking] = useState(false)
   const pdf = async () => {
     setMaking(true)
     try {
       const { downloadSheetPdf } = await import('./lensPdf')
-      await downloadSheetPdf(student, subject)
+      await downloadSheetPdf(student, subject, codes)
     } finally {
       setMaking(false)
     }
@@ -33,17 +40,27 @@ export function LensSheet({ student, subject, onClose }: { student: StudentAnaly
           ))}
       </ul>
       <h3 className="text-label font-bold">{lensText('lens.sheetChecks')}</h3>
+      <p className="text-small text-muted-foreground">{lensText('lens.sheetCodeHelp')}</p>
       {student.checks.length ? (
-        <ul className="flex flex-col gap-2">
-          {student.checks.map((c) => (
-            <li key={c.code} className="flex items-start gap-3 text-body">
-              <span aria-hidden className="mt-1 size-4 shrink-0 rounded-sm border-2 border-foreground" />
-              <span className="sr-only">{lensText('lens.sheetDone')}</span>
-              <span className="w-14 shrink-0 font-bold tabular-nums">{c.code}</span>
-              <span>{c.text}</span>
-            </li>
-          ))}
-        </ul>
+        goalGroups(student).map(([goalId, checks]) => (
+          <section key={goalId} aria-label={lensText('lens.sheetChecks')} className="flex flex-col gap-2">
+            {codes[goalId] ? (
+              <p className="text-label font-bold tabular-nums tracking-wider" data-testid="sheet-code">{lensText('lens.sheetCode', { code: codes[goalId] })}</p>
+            ) : (
+              <p className="lens-noprint text-small text-muted-foreground">{lensText('lens.sheetNoCode')}</p>
+            )}
+            <ul className="flex flex-col gap-2">
+              {checks.map((c) => (
+                <li key={c.code} className="flex items-start gap-3 text-body">
+                  <span aria-hidden className="mt-1 size-4 shrink-0 rounded-sm border-2 border-foreground" />
+                  <span className="sr-only">{lensText('lens.sheetDone')}</span>
+                  <span className="w-14 shrink-0 font-bold tabular-nums">{c.code}</span>
+                  <span>{c.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
       ) : (
         <p className="text-body text-muted-foreground">{lensText('lens.noChecks')}</p>
       )}

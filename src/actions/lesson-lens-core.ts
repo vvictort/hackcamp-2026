@@ -11,6 +11,14 @@
 import { classifyAdaptation } from '../server/altamira/ai/guardrail'
 import type { AdaptationType } from '../server/altamira/contract/enums'
 
+/** One row of the student's What works (GET /students/:id/what-works). */
+export interface LensWhatWorks {
+  adaptationType: AdaptationType
+  n: number
+  meanOutcome: number | null
+  hidden: boolean
+}
+
 export type Kind = 'adaptation' | 'modification'
 export type Decision = 'approved' | 'rejected'
 
@@ -26,6 +34,13 @@ export interface LensStudent {
   name: string
   firstName: string
   goals: LensGoal[]
+  /** IEP accommodations and strengths: de-identified and sent as context. */
+  accommodations?: string[]
+  strengths?: string[]
+  /** Subjects the IEP modifies (the basis a 'modify' label needs). */
+  modificationSubjects?: string[]
+  /** 1A-9: past outcomes; used to rank suggestions in the app, never sent. */
+  whatWorks?: LensWhatWorks[]
 }
 
 export interface LensRequest {
@@ -36,7 +51,7 @@ export interface LensRequest {
   details?: string
   /** English name of the teacher's language (e.g. "French"); omitted for English. The agent writes its suggestions in it. */
   language?: string
-  students: { key: string; goals: LensGoal[] }[]
+  students: { key: string; goals: LensGoal[]; accommodations?: string[]; strengths?: string[] }[]
 }
 
 export interface LensSuggestion {
@@ -146,6 +161,8 @@ export function buildRequest(input: {
     ...(input.language && input.language !== 'English' ? { language: input.language } : {}),
     students: [...keys].map(([key, s]) => ({
       key,
+      ...(s.accommodations?.length ? { accommodations: s.accommodations.slice(0, 10).map((a) => clip(scrub(a), 200)) } : {}),
+      ...(s.strengths?.length ? { strengths: s.strengths.slice(0, 10).map((a) => clip(scrub(a), 200)) } : {}),
       goals: s.goals.map((g) => {
         const id = `g${goals.size + 1}`
         goals.set(id, { key, id: g.id })
@@ -233,9 +250,13 @@ export interface LensSuggestionView {
   id: string
   goalId: string
   label: LensLabel
+  /** Kind of adaptation, guessed in code from the text; matches What works rows. */
+  adaptationType: AdaptationType
   text: string
   why: string
   state: SuggestionState
+  /** 1A-9: this kind of adaptation had a good outcome for this student before. */
+  workedBefore?: boolean
 }
 export interface StudentAnalysis {
   studentId: string
@@ -249,6 +270,8 @@ export interface LessonAnalysis {
   cached: boolean
   source: 'gemini' | 'rules'
   subject: string
+  /** The lesson text the analysis ran on (read from an image when none was typed). */
+  lessonText?: string
   students: StudentAnalysis[]
 }
 
@@ -290,11 +313,11 @@ export class AnalysisCache {
 }
 
 /** Subjects the student's IEP modifies, read from goal areas like "Math (modified)". */
-export function modificationSubjects(student: Pick<LensStudent, 'goals'>): string[] {
-  return student.goals
+export function modificationSubjects(student: Pick<LensStudent, 'goals' | 'modificationSubjects'>): string[] {
+  const fromGoals = student.goals
     .filter((g) => /\bmodif/i.test(g.area))
     .map((g) => g.area.replace(/\(.*?\)/g, '').trim().toLowerCase())
-    .filter(Boolean)
+  return [...new Set([...fromGoals, ...(student.modificationSubjects ?? []).map((x) => x.trim().toLowerCase())].filter(Boolean))]
 }
 
 /**
@@ -304,7 +327,7 @@ export function modificationSubjects(student: Pick<LensStudent, 'goals'>): strin
  */
 export function decideLabel(
   s: Pick<LensSuggestion, 'kind' | 'text'>,
-  student: Pick<LensStudent, 'goals'>,
+  student: Pick<LensStudent, 'goals' | 'modificationSubjects'>,
   subject: string,
 ): LensLabel | null {
   const r = classifyAdaptation(
@@ -385,10 +408,40 @@ export function buildChecks(student: Pick<LensStudent, 'goals'>, goalIds: string
     if (!goalIds.includes(g.id)) return
     out.push(
       { code: `G${i + 1}-C1`, goalId: g.id, text: `Can the student show: ${g.text}?` },
-      { code: `G${i + 1}-C2`, goalId: g.id, text: `Note evidence toward this goal (now: ${g.level}).` },
+      { code: `G${i + 1}-C2`, goalId: g.id, text: g.level ? `Note evidence toward this goal (now: ${g.level}).` : 'Note evidence toward this goal.' },
     )
   })
   return out
+}
+
+/** Guesses the kind of adaptation from its wording, so it can be matched to What works rows. */
+export function adaptationTypeFor(text: string, label: LensLabel = 'adapt'): AdaptationType {
+  if (label === 'modify') return 'modified_assessment'
+  if (/\b(chunk|step[- ]by[- ]step|steps?\b|first[- ]then|break (it|the \w+) (down|into))/i.test(text)) return 'chunked_steps'
+  if (/\b(sentence (frame|starter)s?|starters?|word bank|frames?)\b/i.test(text)) return 'sentence_frames'
+  if (/\b(visual|picture|diagram|manipulative|icon|image|graphic|colou?r[- ]cod)/i.test(text)) return 'visual_supports'
+  if (/\b(dictate|speech[- ]to[- ]text|voice note|record|choice of|two ways|alternative|oral|present|show (the )?learning)/i.test(text)) return 'alternative_demonstration'
+  return 'simplified_text'
+}
+
+/** A row counts as "worked before" when it is not hidden by the minimum-sample rule and its mean outcome is at least this. */
+export const WORKED_BEFORE_MIN = 0.5
+
+const outcomeOf = (type: AdaptationType, ww: LensWhatWorks[] | undefined): number | null => {
+  const row = ww?.find((r) => r.adaptationType === type && !r.hidden && r.meanOutcome !== null)
+  return row ? (row.meanOutcome as number) : null
+}
+
+/**
+ * 1A-9: strategies with a good outcome for this student come first (best outcome first),
+ * flagged workedBefore. Everything else keeps the agent's order (stable sort).
+ */
+export function rankSuggestions(list: LensSuggestionView[], ww: LensWhatWorks[] | undefined): LensSuggestionView[] {
+  const scored = list.map((s, i) => {
+    const o = outcomeOf(s.adaptationType, ww)
+    return { s: o !== null && o >= WORKED_BEFORE_MIN ? { ...s, workedBefore: true } : s, o: o !== null && o >= WORKED_BEFORE_MIN ? o : -1, i }
+  })
+  return scored.sort((a, b) => b.o - a.o || a.i - b.i).map((x) => x.s)
 }
 
 /** Per-student analysis from the parsed reply. Suggestions the guardrail drops are left out. */
@@ -402,7 +455,7 @@ export function buildAnalysis(input: {
     const suggestions: LensSuggestionView[] = []
     for (const s of input.suggestions.filter((x) => x.studentId === st.id)) {
       const label = decideLabel(s, st, input.subject)
-      if (label) suggestions.push({ id: '', goalId: s.goalId, label, text: s.text, why: s.why, state: 'pending' })
+      if (label) suggestions.push({ id: '', goalId: s.goalId, label, adaptationType: adaptationTypeFor(s.text, label), text: s.text, why: s.why, state: 'pending' })
     }
     const gaps = input.gaps.filter((g) => g.studentId === st.id).map(({ studentId: _x, ...g }) => g)
     // A suggestion without a typed gap from the agent still gets one, typed from its goal's area.
@@ -413,7 +466,7 @@ export function buildAnalysis(input: {
       }
     }
     const goalIds = [...new Set([...gaps.map((g) => g.goalId), ...suggestions.map((s) => s.goalId)])]
-    return { studentId: st.id, name: st.name, firstName: st.firstName, gaps, suggestions, checks: buildChecks(st, goalIds) }
+    return { studentId: st.id, name: st.name, firstName: st.firstName, gaps, suggestions: rankSuggestions(suggestions, st.whatWorks), checks: buildChecks(st, goalIds) }
   })
 }
 
