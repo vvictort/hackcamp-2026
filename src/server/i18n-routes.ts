@@ -21,6 +21,7 @@ import type { Hono } from 'hono'
 import { apiWorkerFetch } from 'deepspace/worker'
 import { en } from '../i18n/en.js'
 import { findLanguage } from '../i18n/languages.js'
+import { KEEP, catalogueVersion } from '../i18n/version.js'
 import type { AppContext, Env } from '../../worker.js'
 
 const MODEL = 'claude-haiku-5-5'
@@ -28,16 +29,8 @@ const MODEL = 'claude-haiku-5-5'
 const CHUNK = 20
 const CONCURRENCY = 6
 const MAX_TOKENS = 8192
-const KEEP = 'Altamyra, MyEd, MyEducation BC, IEP, FESL, Pulse, Lesson Lens, Progress Drafts, Today View, Family Bridge, District Insights, QR'
 
 type Catalogue = Record<string, string>
-
-/** Version of the catalogue and the do-not-translate list; changing either invalidates cached translations. */
-function catalogueVersion(): string {
-  let h = 5381
-  for (const ch of JSON.stringify([en, KEEP])) h = ((h << 5) + h + ch.charCodeAt(0)) | 0
-  return (h >>> 0).toString(36)
-}
 
 async function room(env: Env, tool: string, params: Record<string, unknown>) {
   const stub = env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(`app:${env.DEEPSPACE_APP_ID}`))

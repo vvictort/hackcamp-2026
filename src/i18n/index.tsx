@@ -8,11 +8,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { en, type MessageKey } from './en'
 import { DEFAULT_LANG, LANGUAGES, findLanguage, type Language } from './languages'
+import { catalogueVersion } from './version'
 
 type Messages = Partial<Record<MessageKey, string>>
 type Vars = Record<string, string | number>
 
 const STORAGE_KEY = 'altamyra.lang'
+
+/** Translations committed to the repo (scripts/i18n-sync.mjs). Each loads on demand as its own small file. */
+const locales = import.meta.glob<{ default: { v: string; messages: Messages } }>('./locales/*.json')
 
 export function translate(messages: Messages, key: MessageKey, vars?: Vars): string {
   const text = messages[key] ?? en[key]
@@ -86,7 +90,8 @@ export function LangProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    // Show the last good copy at once so a returning visitor never sees English flash, then refresh it.
+    // Show the best copy we already have at once, so there is no wait: the committed file, else the last
+    // good copy this browser saw. Then ask the server only if that copy is missing or out of date.
     const saved = readSaved(lang)
     setMessages(saved ?? {})
     const ctrl = new AbortController()
@@ -104,7 +109,19 @@ export function LangProvider({ children }: { children: ReactNode }) {
         .catch(() => !ctrl.signal.aborted && !saved && setFailed(true))
         .finally(() => !ctrl.signal.aborted && setLoading(false))
     }
-    load(0)
+    const file = locales[`./locales/${lang}.json`]
+    if (!file) load(0)
+    else {
+      setLoading(true)
+      file()
+        .then((m) => {
+          if (ctrl.signal.aborted) return
+          setMessages(m.default.messages)
+          if (m.default.v === catalogueVersion()) setLoading(false)
+          else load(0) // the file is behind the English text: use it meanwhile, refresh from the server
+        })
+        .catch(() => !ctrl.signal.aborted && load(0))
+    }
     return () => {
       ctrl.abort()
       clearTimeout(timer)
