@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { LensAdaptation } from '../contract/ai'
 import { DateString, Id, RowVersion } from '../contract/common'
 import { AltamyraError } from '../contract/errors'
 import { defineOp } from '../contract/ops'
@@ -7,6 +8,7 @@ import { LessonPlan, PlanPatchBody, ProposedChange, type LessonPlanView, type Pl
 import { audit, insertEntity, newId, nowIso, updateVersioned, json } from '../repos/base'
 import * as repo from '../repos/school'
 import { Now, StudentArgs, authorize } from './authz'
+import { guardrail } from './student-common'
 
 /** Per-student lesson plans (school room): original, proposed changes, tailored. AI content stays draft until the teacher approves. */
 
@@ -15,6 +17,13 @@ export function composeTailored(original: string, proposed: readonly ProposedCha
   const accepted = proposed.filter((p) => p.accepted)
   if (accepted.length === 0) return original
   return `${original.trimEnd()}\n\nChanges for this student:\n${accepted.map((p) => `- ${p.text}`).join('\n')}`
+}
+
+export function toProposedChanges(adaptations: readonly LensAdaptation[], subject: string, modificationSubjects: readonly string[]): ProposedChange[] {
+  return adaptations.flatMap((a) => {
+    const { label, blocked } = guardrail(a.changesOutcome, a.modelLabel, subject, modificationSubjects)
+    return blocked ? [] : [{ id: newId(), text: `${a.title}: ${a.text}`, label, accepted: true }]
+  })
 }
 
 export function toView(p: LessonPlan): LessonPlanView {

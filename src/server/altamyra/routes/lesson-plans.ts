@@ -5,10 +5,8 @@ import { aiFailureResponse } from '../middleware/errors'
 import { PlanApproveBody, PlanCreateBody, PlanPatchBody, PlansTodayResponse, StudentPlansResponse, LessonPlanView, type ProposedChange } from '../contract/plans'
 import { DateString } from '../contract/common'
 import { maritimeAgent, maritimeFeedback, teacherHash } from '../ai/providers/maritime'
-import { newId } from '../repos/base'
 import { lensContext } from '../services/lens'
-import { composeTailored, lessonPlansApprove, lessonPlansCreate, lessonPlansForStudent, lessonPlansToday, lessonPlansUpdate, toView } from '../services/lesson-plans'
-import { guardrail } from '../services/student-common'
+import { composeTailored, lessonPlansApprove, lessonPlansCreate, lessonPlansForStudent, lessonPlansToday, lessonPlansUpdate, toProposedChanges, toView } from '../services/lesson-plans'
 import type { Kit, Req } from './context'
 import { studentToken } from './student-flows'
 
@@ -25,16 +23,10 @@ async function proposeChanges(r: Req, studentId: string, title: string, text: st
   const { token, grade } = await studentToken(r, studentId)
   const { profile, whatWorks } = await r.student(studentId, lensContext, { studentToken: token, grade })
   const ai = await r.ai([studentId])
-  const lessonId = newId()
+  const lessonId = crypto.randomUUID()
   const analysis = await ai.analyseLesson({ lessonId, title, subject: GENERAL_SUBJECT, grade, text, file: null })
   const lens = await ai.lensForStudent({ lessonId, subject: GENERAL_SUBJECT, analysis, lessonText: text, profile, whatWorks })
-  const proposed: ProposedChange[] = []
-  for (const a of lens.adaptations) {
-    const { label, blocked } = guardrail(a.changesOutcome, a.modelLabel, GENERAL_SUBJECT, profile.modificationSubjects)
-    if (blocked) continue
-    proposed.push({ id: newId(), text: `${a.title}: ${a.text}`, label, accepted: true })
-  }
-  return proposed
+  return toProposedChanges(lens.adaptations, GENERAL_SUBJECT, profile.modificationSubjects)
 }
 
 function teachAgent(r: Req, studentId: string, proposed: ProposedChange[]): void {
