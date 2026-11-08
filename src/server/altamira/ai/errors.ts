@@ -1,4 +1,5 @@
-import type { AiFunctionName } from '../contract/ai'
+/** Any AI function name, including the summary functions in summaries.ts. */
+type AiFunctionName = string
 
 /** The provider returned something that does not parse with the contract output schema. */
 export class AiOutputError extends Error {
