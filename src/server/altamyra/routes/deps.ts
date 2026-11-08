@@ -18,8 +18,8 @@ export type AltamyraRouteDeps = {
   }
   /** The DeepSpace userId for the request, or null when not signed in. */
   resolveUserId(req: Request, env: Env): Promise<string | null>
-  /** AI provider (env ALTAMYRA_AI_PROVIDER; fixture by default). */
-  aiProvider(env: Env): AiProvider
+  /** AI provider (env ALTAMYRA_AI_PROVIDER; fixture by default). `teacher` is the caller's opaque hash (Maritime memory). */
+  aiProvider(env: Env, teacher?: string): AiProvider
   /**
    * Base de-identification roster: names no room stores (the school and
    * district names). Req.ai() adds every user's name and the IEP names of the

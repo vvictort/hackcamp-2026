@@ -20,5 +20,5 @@ Lesson Lens needs an AI agent that keeps per-teacher memory of approvals and rej
 
 ## Evidence
 - Commits: 6210da6, 3f002ad, 8e25999 (2.5 returns 404), 05b78e8 (3.5-flash-lite), ce8f092, 7233fb5.
-- Code: `agent/server.mjs`, `agent/README.md`, `src/actions/lesson-lens.ts`.
+- Code: `agent/server.mjs`, `agent/README.md`, `src/server/altamyra/ai/providers/maritime.ts`.
 - Brain: `architecture.boundaries.rationale` (facts ee32da02, 1c54c98c), `architecture.data.flow` (fact 42b215c9), `project.tooling.stack` (facts 513a61f8, d1b96ffa).

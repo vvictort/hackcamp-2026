@@ -70,7 +70,7 @@ DeepSpace rewrites `.dev.vars` on every dev, test and deploy run, so anything ad
 
 - Use fictional or de-identified student data only, in code, tests, fixtures, screenshots and docs.
 - Never paste real student information or any secret into an agent prompt. Entire captures sessions, and redaction is best effort: it covers email, phone and the rules in `.entire/redactors/altamyra.yaml` (BC student PEN, Maritime and Google key formats, DeepSpace secret lines), and only for checkpoints written after it was turned on.
-- Student names never reach an AI model. Follow the existing de-identification in `src/actions/lesson-lens.ts` for any new AI call.
+- Student names never reach an AI model. Send every new AI call through `createAi` in `src/server/altamyra/ai/functions.ts`, which de-identifies it.
 
 ## 7. Checkpoints stay local
 

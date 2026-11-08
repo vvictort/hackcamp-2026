@@ -17,6 +17,6 @@ BC IEPs are kept in MyEducation BC. Altamyra drafts adaptations and reports with
 
 ## Evidence
 - Commits: 3f002ad (approve/reject on the dashboard), 490a3c3 (README principles).
-- Code: `src/actions/lesson-lens.ts`, `src/i18n/en/landing.ts` (`landing.control.p5`, `landing.faq.q1`).
+- Code: `src/server/altamyra/routes/lesson-plans.ts`, `src/i18n/en/landing.ts` (`landing.control.p5`, `landing.faq.q1`).
 - Brain: `project.product.rules` (fact 6b9a4e69).
 - Memory: project-altamyra.md (hard rules).

@@ -14,7 +14,7 @@ export const productionDeps: AltamyraRouteDeps = {
     insights: (env) => insightsRoom(env),
   },
   resolveUserId: defaultAuthDeps.resolveUserId,
-  aiProvider: (env) => getProvider(env),
+  aiProvider: (env, teacher) => getProvider(env, teacher),
   // Real names come from the rooms per request (Req.ai). Assumption: this single-school deployment serves the
   // fixture school until a school-name record exists, so its school and district names are the base roster.
   roster: () => ({ students: [], people: [], schools: [SCHOOL.name, DISTRICT.name] }),

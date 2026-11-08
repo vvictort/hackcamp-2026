@@ -69,7 +69,7 @@ Everything runs in a local demo on fictional data. Settings (profile, preference
 | Platform | [DeepSpace](https://docs.deep.space) SDK on Cloudflare Workers: auth, record storage, server actions, deploys |
 | Frontend | React 19, TypeScript, Vite, React Router 7 (file-based routes), Tailwind CSS v4, Base UI, Atkinson Hyperlegible |
 | Backend | Cloudflare Worker (`worker.ts`) with Hono; SQLite Durable Objects for the `/api/v1` domain (`src/server/altamyra/`) |
-| AI | Gemini through the Lesson Lens agent on [Maritime](https://maritime.sh); Claude (via DeepSpace) for interface translation; fixture provider when no key is set |
+| AI | One de-identifying pipeline (`src/server/altamyra/ai/`): Lesson Lens goes to the agent on [Maritime](https://maritime.sh), which calls Gemini; everything else (and Lesson Lens when the agent fails) calls Gemini directly; fixture provider when no key is set. Claude (via DeepSpace) for interface translation |
 | Motion | Plain CSS and Tailwind, shared timing tokens, Lenis smooth scroll; off under `prefers-reduced-motion` |
 | Testing | Vitest (unit), Playwright (smoke, API, end-to-end), axe-core accessibility, ESLint, `tsc` |
 | Agent workflow | [Entire](https://docs.entire.com): session capture, code graph, shared project memory |
@@ -92,7 +92,7 @@ src/
   lib/                   Shared hooks; lib/altamyra/ holds the API clients
   i18n/                  Language provider, en/*.ts strings, locales/*.json translations
   schemas/, schemas.ts   Record collections and permissions (shared by worker and app)
-  actions/               Server actions (Lesson Lens)
+  actions/               Server action map (empty; AI runs in /api/v1)
   server/                HTTP, realtime and action routes, i18n route, AI tools,
                          altamyra/ = the /api/v1 domain backend (own README)
 ```
@@ -107,10 +107,9 @@ flowchart LR
   subgraph APP["Inside the app: student names stay here"]
     W --> V1["/api/v1 domain backend (SQLite Durable Objects)"]
     W --> REC["DeepSpace record collections"]
-    W --> ACT["Server actions (Lesson Lens)"]
     W --> I18N["/api/i18n/:lang"]
   end
-  ACT -->|"anonymized, Student A and B"| M["Maritime Lesson Lens agent"]
+  V1 -->|"de-identified, tokens only"| M["Maritime Lesson Lens agent"]
   M --> G["Gemini"]
   I18N -->|"static English strings only"| P["DeepSpace integration proxy"]
   P --> C["Claude (translation only)"]
@@ -194,29 +193,29 @@ flowchart LR
 
 Suggestions come from an AI agent in `agent/`: a small Node server on [Maritime](https://maritime.sh) that calls Gemini (`gemini-3.5-flash-lite`) and falls back to a rules engine. Each teacher's approvals and rejections are kept in the agent's `/data` and used as examples next time.
 
-1. A teacher clicks **Get suggestions** on a class in Today (optionally pasting lesson details).
-2. The `lessonLensSuggest` action (`src/actions/lesson-lens.ts`) loads that teacher's own class and students on the server, replaces every student name with "Student A, B…" (also inside pasted text), sends goal ids as `g1, g2…`, hashes the teacher id, and sends the teacher's language.
-3. It calls Maritime's chat API with a `deploy`-scoped key. The reply is validated strictly, names are put back inside the app, and suggestions are saved as pending.
-4. The teacher approves or rejects each one. Approving a **modification** asks for confirmation, because it changes the learning outcome. Decisions go back to the agent with names removed.
+1. A teacher pastes or uploads a lesson plan on a student's **Plan** tab.
+2. `POST /api/v1/students/:id/lesson-plans` (`src/server/altamyra/routes/lesson-plans.ts`) runs Lesson Lens through the app's one AI pipeline (`ai/functions.ts`): the IEP profile and lesson text are de-identified (names become tokens such as `S-K7Q4`), and the call is refused if any identifier survives.
+3. `ai/providers/maritime.ts` sends that de-identified input to the agent's chat API (`lesson-lens` task) with a hashed teacher id and an `mk_` key. The reply is validated against the lens contract. On any failure (error status, no answer in 25 s, unreadable reply) the app calls Gemini directly, or the fixture without a key. Names are put back inside the app, and each adaptation becomes a proposed change; a modification the IEP does not authorize is left out.
+4. The teacher accepts or drops each change and approves the plan. The accepted and dropped changes go back to the agent (`feedback` task) with names removed.
 
 What one request does, step by step:
 
 ```mermaid
 sequenceDiagram
   actor T as Teacher
-  participant A as App and server action
+  participant A as App (/api/v1)
   participant M as Maritime agent
   participant G as Gemini
-  T->>A: Get suggestions
-  A->>A: Load own class, swap names for Student A and B
-  A->>M: Chat request with g1, g2 goal ids
+  T->>A: Lesson plan
+  A->>A: De-identify IEP profile and lesson
+  A->>M: lesson-lens task, hashed teacher id
   M->>G: Prompt, rules fallback if unavailable
   G-->>M: Suggestions
   M-->>A: Reply
-  A->>A: Validate strictly, restore names
-  A-->>T: Pending suggestions
-  T->>A: Approve or reject
-  A->>M: Decision, names removed
+  A->>A: Validate, restore names (Gemini or fixture if the agent fails)
+  A-->>T: Proposed changes
+  T->>A: Approve plan
+  A->>M: Accepted and dropped changes, names removed
 ```
 
 Configure it in DeepSpace's secret store, then restart the dev server:
@@ -226,7 +225,7 @@ npx deepspace secrets set MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/
 read -rs MK && printf %s "$MK" | npx deepspace secrets set MARITIME_AGENT_TOKEN --stdin; unset MK   # mk_ key, deploy scope
 ```
 
-Without them, **Get suggestions** says "Lesson Lens isn't connected yet." Deploy and test steps: [agent/README.md](agent/README.md).
+Without them, Lesson Lens calls Gemini directly (or the fixture without a key). Deploy and test steps: [agent/README.md](agent/README.md).
 
 ## Working together
 

@@ -143,6 +143,10 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   ALTAMYRA_DISTRICT_ID?: string
   /** Altamyra AI provider: "fixture" (default) or "vertex" (stub until approved). */
   ALTAMYRA_AI_PROVIDER?: string
+  GEMINI_API_KEY?: string
+  ALTAMYRA_GEMINI_MODELS?: string
+  MARITIME_AGENT_URL?: string
+  MARITIME_AGENT_TOKEN?: string
 }
 
 export type AppContext = { Bindings: Env }
