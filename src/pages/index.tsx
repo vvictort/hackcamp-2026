@@ -448,7 +448,7 @@ export default function Landing() {
         </main>
 
         <footer className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
-          <div className="reveal relative flex flex-col items-center gap-8 overflow-hidden rounded-panel bg-ink px-6 py-16 text-center text-ink-foreground shadow-ink">
+          <div className="reveal relative flex flex-col items-center gap-8 overflow-hidden rounded-panel bg-ink px-6 pt-16 pb-8 text-center text-ink-foreground shadow-ink">
             <h2 className="relative max-w-[16ch] text-display-sm sm:text-hero">
               Less paperwork. <span className="text-ink-muted">More teaching.</span>
             </h2>
