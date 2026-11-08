@@ -275,7 +275,7 @@ function ProfileStages({ next }: { next: string }) {
       headingRef={headingRef}
       eyebrow={<StepIndicator step={stage} />}
       title={stepTitle(t, stage, t(STAGES[stage].title))}
-      description={t(STAGES[stage].description)}
+      description={t(STAGES[stage].description, { app: APP_NAME })}
       aside={t('auth.signUp.aside')}
       footer={
         <>
