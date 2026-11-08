@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Button, FormField, Input, StatusBadge, useToast } from '@/components/ui'
-import { PROFICIENCY_CHOICES, defaultPeriod, saveProficiency, suggestProficiency } from '@/lib/altamira/profile-api'
-import type { GoalStatusResponse } from '@/server/altamira/contract/api'
-import type { Proficiency } from '@/server/altamira/contract/enums'
+import { PROFICIENCY_CHOICES, defaultPeriod, saveProficiency, suggestProficiency } from '@/lib/altamyra/profile-api'
+import type { GoalStatusResponse } from '@/server/altamyra/contract/api'
+import type { Proficiency } from '@/server/altamyra/contract/enums'
 import { s, type SKey } from './text'
 
 const levelLabel = (l: Proficiency) => (l === 'IE' ? s('students.prof.IE') : l)

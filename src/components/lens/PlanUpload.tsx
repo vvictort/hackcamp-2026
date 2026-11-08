@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { FileUp, Sparkles, X } from 'lucide-react'
 import { Button, Card, Textarea } from '@/components/ui'
 import { s } from '@/components/students/text'
-import { titleFromText } from '@/lib/altamira/plans-api'
+import { titleFromText } from '@/lib/altamyra/plans-api'
 import { lensText } from '@/lib/lessonLens'
-import { extractPdfText } from '@/server/altamira/routes/pdf-text'
+import { extractPdfText } from '@/server/altamyra/routes/pdf-text'
 
 /** Text of an uploaded lesson, read in the browser (PDF or Word). */
 export async function readLessonFile(file: File): Promise<string> {

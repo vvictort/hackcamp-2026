@@ -19,7 +19,7 @@ import {
   useToast,
 } from '@/components/ui'
 import { useLang } from '@/i18n'
-import { RoleGate } from '@/lib/altamira/RoleGate'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
 import {
   applyTicket,
   canDecline,
@@ -28,7 +28,7 @@ import {
   type Ticket,
   type TicketFilter,
   type TicketStatus,
-} from '@/lib/altamira/admin-tickets-api'
+} from '@/lib/altamyra/admin-tickets-api'
 
 const TONE: Record<TicketStatus, 'warning' | 'success' | 'destructive'> = { pending: 'warning', applied: 'success', declined: 'destructive' }
 

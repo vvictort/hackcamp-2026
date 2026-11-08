@@ -5,8 +5,8 @@ import { PlanUpload } from '@/components/lens/PlanUpload'
 import {
   approvePlan, canApprove, createPlan, editChange, getStudentPlans, pickPlan, PlanConflictError, todayIso, toggleChange, updatePlan,
   type LessonPlan, type ProposedChange,
-} from '@/lib/altamira/plans-api'
-import { ApiError } from '@/lib/altamira/students-api'
+} from '@/lib/altamyra/plans-api'
+import { ApiError } from '@/lib/altamyra/students-api'
 import { s } from './text'
 import { useLoad } from './useLoad'
 

@@ -37,10 +37,10 @@ NATIVE_AUTH_REDIRECT_URIS = ""
 tag = "v1"
 new_sqlite_classes = ["AppRecordRoom", "AppYjsRoom", "AppCanvasRoom", "AppPresenceRoom", "AppCronRoom", "AppJobRoom"]
 
-# Altamira rooms: one per student, school and district (opaque ids).
+# Altamyra rooms: one per student, school and district (opaque ids).
 [[migrations]]
 tag = "v2"
-new_sqlite_classes = ["AltamiraStudentRoom", "AltamiraSchoolRoom", "AltamiraInsightsRoom"]
+new_sqlite_classes = ["AltamyraStudentRoom", "AltamyraSchoolRoom", "AltamyraInsightsRoom"]
 
 [durable_objects]
 bindings = [
@@ -50,9 +50,9 @@ bindings = [
   { name = "PRESENCE_ROOMS", class_name = "AppPresenceRoom" },
   { name = "CRON_ROOMS", class_name = "AppCronRoom" },
   { name = "JOB_ROOMS", class_name = "AppJobRoom" },
-  { name = "STUDENT_ROOMS", class_name = "AltamiraStudentRoom" },
-  { name = "SCHOOL_ROOMS", class_name = "AltamiraSchoolRoom" },
-  { name = "INSIGHTS_ROOMS", class_name = "AltamiraInsightsRoom" },
+  { name = "STUDENT_ROOMS", class_name = "AltamyraStudentRoom" },
+  { name = "SCHOOL_ROOMS", class_name = "AltamyraSchoolRoom" },
+  { name = "INSIGHTS_ROOMS", class_name = "AltamyraInsightsRoom" },
 ]
 
 # For per-app resources (D1, KV, Vectorize, R2, Queues, AI Search), set the id

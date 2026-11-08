@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormField, Input, Progress, Textarea, useToast } from '@/components/ui'
-import { extractIepText, importIepTimed } from '@/lib/altamira/profile-api'
-import { confirmIep, confirmObjective, fileToBase64, getObjectives } from '@/lib/altamira/students-api'
-import type { IepImportResponse } from '@/server/altamira/contract/api'
-import type { IepSections, Objective } from '@/server/altamira/contract/student'
+import { extractIepText, importIepTimed } from '@/lib/altamyra/profile-api'
+import { confirmIep, confirmObjective, fileToBase64, getObjectives } from '@/lib/altamyra/students-api'
+import type { IepImportResponse } from '@/server/altamyra/contract/api'
+import type { IepSections, Objective } from '@/server/altamyra/contract/student'
 import { SAMPLE_IEP_TEXT } from './sampleIep'
 import { lines, s } from './text'
 

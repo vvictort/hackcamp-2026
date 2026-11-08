@@ -1,7 +1,7 @@
 import { APP_NAME } from '../constants'
 import { cn } from '@/lib/utils'
 
-/** Altamyra mark: one arch (a nod to the Altamira cave) and an "A". Keep in sync with public/favicon.svg. */
+/** Altamyra mark: one arch and an "A". Keep in sync with public/favicon.svg. */
 export function LogoMark({ inverted = false, className = 'size-9' }: { inverted?: boolean; className?: string }) {
   return (
     <svg aria-hidden viewBox="0 0 32 32" className={className}>

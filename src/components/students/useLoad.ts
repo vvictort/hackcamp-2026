@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError } from '@/lib/altamira/students-api'
+import { ApiError } from '@/lib/altamyra/students-api'
 
 export type Loaded<T> =
   | { status: 'loading'; data: null; error: null; reload: () => void }

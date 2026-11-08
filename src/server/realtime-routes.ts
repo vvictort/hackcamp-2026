@@ -11,7 +11,7 @@ import type { Context, Hono } from 'hono'
 import { authenticatedRoomRequest, resolveAppRole, verifyJwt } from 'deepspace/worker'
 import type { JwtVerifierConfig, VerifyResult } from 'deepspace/worker'
 import type { AppContext, Env } from '../../worker.js'
-import { isAltamiraRoomId } from './altamira/middleware/room-guard.js'
+import { isAltamyraRoomId } from './altamyra/middleware/room-guard.js'
 
 function jwtConfig(env: Env): JwtVerifierConfig {
   return { publicKey: env.AUTH_JWT_PUBLIC_KEY, issuer: env.AUTH_JWT_ISSUER }
@@ -122,10 +122,10 @@ async function resolveDocsYjsRole(
 }
 
 export function registerRealtimeRoutes(app: Hono<AppContext>): void {
-  // Altamira rooms (student:, school:, district:) are reachable only through
+  // Altamyra rooms (student:, school:, district:) are reachable only through
   // the /api/v1 router's auth and scope checks, never by a direct socket.
   app.get('/ws/:roomId', async (c, next) => {
-    if (isAltamiraRoomId(c.req.param('roomId'))) return new Response('Forbidden', { status: 403 })
+    if (isAltamyraRoomId(c.req.param('roomId'))) return new Response('Forbidden', { status: 403 })
     await next()
   })
   app.get(

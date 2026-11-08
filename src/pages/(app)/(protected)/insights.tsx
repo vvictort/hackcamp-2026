@@ -1,10 +1,10 @@
-import { RoleGate } from '@/lib/altamira/RoleGate'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
 import { useMemo } from 'react'
 import { useAsyncResource, getAuthToken } from 'deepspace'
 import { CircleX, EyeOff, Lock, Sparkles } from 'lucide-react'
 import { useLang } from '@/i18n'
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/components/ui'
-import { useAltamiraMe } from '@/lib/altamira/role'
+import { useAltamyraMe } from '@/lib/altamyra/role'
 
 type Group = { dims: Record<string, string | null>; students: number | null; count: number | null; suppressed: boolean }
 type InsightsData = { groups: Group[]; minGroupSize: number; monthlyNarrative?: string | { text?: string; period?: string | null } | null }
@@ -46,7 +46,7 @@ function monthLabel(d: InsightsData | null): string | null {
 
 function InsightsPageBody() {
   const { t } = useLang()
-  const { role, loading } = useAltamiraMe()
+  const { role, loading } = useAltamyraMe()
   if (loading) {
     return (
       <div className="flex w-full max-w-3xl flex-col gap-6">
@@ -73,7 +73,7 @@ function InsightsPageBody() {
 
 function InsightsView() {
   const { t } = useLang()
-  const { me } = useAltamiraMe()
+  const { me } = useAltamyraMe()
   const districtId = me?.memberships.find((m) => m.role === 'district_lead')?.districtId ?? null
   const data = useAsyncResource<InsightsData>((signal) => fetchInsights(districtId, signal), [districtId], { retry: 0 })
 

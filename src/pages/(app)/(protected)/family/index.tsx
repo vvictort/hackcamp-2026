@@ -17,7 +17,7 @@ import {
 } from '@/components/ui'
 import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { useLang } from '@/i18n'
-import { RoleGate } from '@/lib/altamira/RoleGate'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
 import {
   FAMILY_CONSENT_KINDS,
   familyText,
@@ -28,7 +28,7 @@ import {
   type FamilyConsentKind,
   type FamilySummary,
   type MeResponse,
-} from '@/lib/altamira/family-api'
+} from '@/lib/altamyra/family-api'
 
 type Student = MeResponse['students'][number]
 

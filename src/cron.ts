@@ -28,16 +28,16 @@
 
 import type { CronTask } from 'deepspace/worker'
 import type { Env } from '../worker.js'
-import { ALTAMIRA_CRON, runAltamiraCronTask } from './server/altamira/rooms/jobs-core.js'
-import { jobDeps } from './server/altamira/rooms/job-deps.js'
+import { ALTAMYRA_CRON, runAltamyraCronTask } from './server/altamyra/rooms/jobs-core.js'
+import { jobDeps } from './server/altamyra/rooms/job-deps.js'
 
-// Altamira (design doc "Jobs"). BC schools, so school-day local time.
+// Altamyra (design doc "Jobs"). BC schools, so school-day local time.
 const SCHOOL_TZ = 'America/Vancouver'
 
 export const tasks: CronTask[] = [
-  { name: ALTAMIRA_CRON.dataNeeded, schedule: '0 6 * * *', timezone: SCHOOL_TZ },
+  { name: ALTAMYRA_CRON.dataNeeded, schedule: '0 6 * * *', timezone: SCHOOL_TZ },
 ]
 
 export async function runTask(name: string, env: Env): Promise<void> {
-  await runAltamiraCronTask(name, jobDeps(env))
+  await runAltamyraCronTask(name, jobDeps(env))
 }

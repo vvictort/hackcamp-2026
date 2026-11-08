@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CaptureEventBody } from '@/server/altamira/contract/api'
+import { CaptureEventBody } from '@/server/altamyra/contract/api'
 import { eventKindsFor, formatClock } from './EaPanel'
 
 describe('EA goal controls', () => {

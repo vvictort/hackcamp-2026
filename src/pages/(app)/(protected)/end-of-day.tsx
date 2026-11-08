@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CircleCheck, ClipboardCheck, FileText } from 'lucide-react'
-import { RoleGate } from '@/lib/altamira/RoleGate'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
 import { Button, buttonVariants, Card, EmptyState, PageHeader, Progress, StatusBadge, Textarea, useToast } from '@/components/ui'
-import { sendNote } from '@/lib/altamira/capture-api'
+import { sendNote } from '@/lib/altamyra/capture-api'
 import {
   approveSummary,
   completeDay,
@@ -20,7 +20,7 @@ import {
   type DayRecord,
   type DayStudent,
   type EntryGroup,
-} from '@/lib/altamira/eod-api'
+} from '@/lib/altamyra/eod-api'
 import { ReviewList } from '@/components/capture/ReviewList'
 import { useCt, type CaptureKey } from '@/components/capture/useCt'
 

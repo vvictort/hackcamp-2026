@@ -12,8 +12,8 @@ import { useToast } from '@/components/ui'
 import { useLang } from '@/i18n'
 import { lens, type LensKey } from '@/i18n/en/lens'
 import { removeCheck as removeCheckPure, type LensWhatWorks, type LessonAnalysis, type LensSuggestionView, type StudentAnalysis } from '@/actions/lesson-lens-core'
-import { apiGet, apiPost, type MeResponse } from '@/lib/altamira/api'
-import type { StudentProfileResponse } from '@/server/altamira/contract/api'
+import { apiGet, apiPost, type MeResponse } from '@/lib/altamyra/api'
+import type { StudentProfileResponse } from '@/server/altamyra/contract/api'
 
 export { removeCheckPure as removeCheck }
 export type { LessonAnalysis, LensSuggestionView, StudentAnalysis }

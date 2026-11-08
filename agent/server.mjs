@@ -12,7 +12,7 @@ const AGENT_TOKEN = process.env.AGENT_TOKEN || ''
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
 // Model chain: next model on 429, 503, 404 or a timeout. GEMINI_MODEL (one model) still works.
 const DEFAULT_MODELS = 'gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
-const GEMINI_MODELS = (process.env.ALTAMIRA_GEMINI_MODELS || process.env.GEMINI_MODEL || DEFAULT_MODELS)
+const GEMINI_MODELS = (process.env.ALTAMYRA_GEMINI_MODELS || process.env.GEMINI_MODEL || DEFAULT_MODELS)
   .split(',').map((m) => m.trim()).filter(Boolean)
 // Test seam: lets the suite point at a fake Gemini. Production leaves it unset.
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'

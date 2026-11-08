@@ -6,15 +6,15 @@
  * nav does not offer.
  */
 
-import type { AltamiraRole } from '@/lib/altamira/role'
+import type { AltamyraRole } from '@/lib/altamyra/role'
 import type { MessageKey } from '@/i18n/en'
 
 export interface NavItem {
   path: string
   /** i18n key, translated at render. */
   label: MessageKey
-  /** Altamira roles that may use the item; omitted = everyone. */
-  roles?: AltamiraRole[]
+  /** Altamyra roles that may use the item; omitted = everyone. */
+  roles?: AltamyraRole[]
   devOnly?: boolean
   /** Reachable by URL and from other pages, but not shown in the sidebar. */
   hidden?: boolean
@@ -40,6 +40,6 @@ export const nav: NavItem[] = [
 ]
 
 /** Roles allowed on a route, or undefined when everyone is. */
-export function rolesForPath(path: string): AltamiraRole[] | undefined {
+export function rolesForPath(path: string): AltamyraRole[] | undefined {
   return nav.find((n) => n.path === path)?.roles
 }

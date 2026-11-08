@@ -101,7 +101,7 @@ describe('Gemini image reading', () => {
       if (c) return new Response('{}', { status: c })
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: ' Page 1 ' }] } }] }), { status: 200 })
     })
-    const text = await transcribeImage({ GEMINI_API_KEY: 'k', ALTAMIRA_GEMINI_MODELS: 'm1,m2,m3,m4' }, { mime: 'image/png', data: 'AA' }, f as unknown as typeof fetch)
+    const text = await transcribeImage({ GEMINI_API_KEY: 'k', ALTAMYRA_GEMINI_MODELS: 'm1,m2,m3,m4' }, { mime: 'image/png', data: 'AA' }, f as unknown as typeof fetch)
     expect(text).toBe('Page 1')
     expect(seen.map((u) => /models\/(m\d)/.exec(u)![1])).toEqual(['m1', 'm2', 'm3', 'm4'])
   })

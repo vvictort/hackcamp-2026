@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CircleCheck, CircleX, Video } from 'lucide-react'
 import { Button, Card, FormField, Input, type FormFieldControlProps } from '@/components/ui'
-import { captureErrorKind, MAX_VIDEO_BYTES, sendVideo } from '@/lib/altamira/capture-api'
+import { captureErrorKind, MAX_VIDEO_BYTES, sendVideo } from '@/lib/altamyra/capture-api'
 import { ObjectivePicker } from './NoteCapture'
 import { useCt } from './useCt'
 

@@ -19,7 +19,7 @@ export async function ensureSeed(page: Page) {
   await page.request.post('/api/v1/dev/seed', { data: {} })
 }
 
-/** Dev only: act as `role` (needs ALTAMIRA_DEV_SEED=true), then open `path`. */
+/** Dev only: act as `role` (needs ALTAMYRA_DEV_SEED=true), then open `path`. */
 export async function actAs(page: Page, role: DemoRole, path = '/home') {
   const res = await page.request.post('/api/v1/dev/role', { data: { role } })
   if (!res.ok()) throw new Error(`dev/role ${role} -> ${res.status()}`)

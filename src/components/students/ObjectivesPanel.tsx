@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormField, Textarea, useToast } from '@/components/ui'
-import { confirmObjective, flagObjective } from '@/lib/altamira/students-api'
-import type { Objective } from '@/server/altamira/contract/student'
+import { confirmObjective, flagObjective } from '@/lib/altamyra/students-api'
+import type { Objective } from '@/server/altamyra/contract/student'
 import { ObjectiveBadge } from './badges'
 import { fmtDate, s } from './text'
 

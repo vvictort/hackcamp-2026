@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Pause, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { useLang } from '@/i18n'
-import { playAloud, type Playback } from '@/lib/altamira/tts'
+import { playAloud, type Playback } from '@/lib/altamyra/tts'
 
 /** Plays text aloud: Gemini audio from the server, else the browser voice. Icon + text, keyboard usable. */
 export function ReadAloudButton({ text, lang = 'en', studentId, className }: { text: string; lang?: string; studentId?: string; className?: string }) {

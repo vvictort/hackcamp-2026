@@ -10,13 +10,13 @@ import { Timeline } from "@/components/students/Timeline";
 import { WhatWorks } from "@/components/students/WhatWorks";
 import { fmtDate, s } from "@/components/students/text";
 import { useLoad } from "@/components/students/useLoad";
-import { RoleGate } from "@/lib/altamira/RoleGate";
+import { RoleGate } from "@/lib/altamyra/RoleGate";
 import {
   getMe,
   getObjectives,
   getProfile,
   getTimeline,
-} from "@/lib/altamira/students-api";
+} from "@/lib/altamyra/students-api";
 
 const List = ({ items }: { items: string[] }) =>
   items.length === 0 ? (

@@ -12,13 +12,13 @@ import { Button, Card, StatusBadge, useToast } from "@/components/ui";
 import {
   PROMPT_LEVELS,
   type PromptLevel,
-} from "@/server/altamira/contract/enums";
+} from "@/server/altamyra/contract/enums";
 import {
   ApiError,
   recordEvent,
   sendVoiceNote,
-} from "@/lib/altamira/capture-api";
-import { getCaptureObjectives } from "@/lib/altamira/practice-api";
+} from "@/lib/altamyra/capture-api";
+import { getCaptureObjectives } from "@/lib/altamyra/practice-api";
 import { capture } from "@/i18n/en/capture";
 import { useCt, type CaptureKey } from "./useCt";
 import { useVoiceConsent } from "./useVoiceConsent";

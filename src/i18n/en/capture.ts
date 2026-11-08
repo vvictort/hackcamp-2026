@@ -10,7 +10,6 @@ export const capture = {
   'capture.common.studentFallback': 'Student {token}',
 
   'capture.photo.title': 'Capture a sheet',
-  'capture.photo.description': 'Photograph a coded sheet. Altamira scores each page, and unsure scores go to review.',
   'capture.photo.sheetCode': 'Sheet code',
   'capture.photo.sheetCodeHint': 'The code printed on the sheet, like AL-K7Q4L1.',
   'capture.photo.sheetCodeInvalid': 'Enter the sheet code printed on the sheet (starts with AL-).',

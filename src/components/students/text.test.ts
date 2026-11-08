@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { students } from '@/i18n/en/students'
-import { ADAPTATION_TYPES, DATA_POINT_SOURCES, METRIC_TYPES } from '@/server/altamira/contract/enums'
+import { ADAPTATION_TYPES, DATA_POINT_SOURCES, METRIC_TYPES } from '@/server/altamyra/contract/enums'
 import { s } from './text'
 
 describe('students strings', () => {

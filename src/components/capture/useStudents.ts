@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { MeResponse } from '@/server/altamira/contract/api'
-import { getMe } from '@/lib/altamira/capture-api'
+import type { MeResponse } from '@/server/altamyra/contract/api'
+import { getMe } from '@/lib/altamyra/capture-api'
 
 export type StudentSummary = MeResponse['students'][number]
 

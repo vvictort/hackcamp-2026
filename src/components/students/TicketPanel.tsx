@@ -4,7 +4,7 @@ import {
   Button, Card, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   FormField, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Textarea, useToast,
 } from '@/components/ui'
-import { createTicket, listTickets, sortTickets, ticketReady, TICKET_TONE, type TicketStatus } from '@/lib/altamira/tickets-api'
+import { createTicket, listTickets, sortTickets, ticketReady, TICKET_TONE, type TicketStatus } from '@/lib/altamyra/tickets-api'
 import { fmtDate, s } from './text'
 import { useLoad } from './useLoad'
 

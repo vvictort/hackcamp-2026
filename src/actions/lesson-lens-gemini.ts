@@ -1,12 +1,12 @@
 /**
  * Reads the text of a lesson photo with Gemini (Google AI Studio REST, no SDK).
- * Model chain from ALTAMIRA_GEMINI_MODELS; the next model is tried on 429, 503,
+ * Model chain from ALTAMYRA_GEMINI_MODELS; the next model is tried on 429, 503,
  * 404 or a timeout. Without a key the caller uses a fixed demo text instead.
  * The image holds lesson material, not student data; the text it returns is
  * scrubbed of student names like any other lesson text before analysis.
  */
 
-import { DEFAULT_GEMINI_MODELS } from '../server/altamira/ai/providers/gemini'
+import { DEFAULT_GEMINI_MODELS } from '../server/altamyra/ai/providers/gemini'
 
 export const ATTEMPT_TIMEOUT_MS = 25_000
 const NEXT_STATUS = new Set([429, 503, 404])
@@ -36,13 +36,13 @@ export function parseImage(v: unknown): LensImage | null {
 
 /** Returns the transcript, or null when every model failed. Never throws. */
 export async function transcribeImage(
-  env: { GEMINI_API_KEY?: string; ALTAMIRA_GEMINI_MODELS?: string },
+  env: { GEMINI_API_KEY?: string; ALTAMYRA_GEMINI_MODELS?: string },
   image: LensImage,
   doFetch: typeof fetch = fetch,
 ): Promise<string | null> {
   const key = env.GEMINI_API_KEY?.trim()
   if (!key) return null
-  for (const model of modelChain(env.ALTAMIRA_GEMINI_MODELS)) {
+  for (const model of modelChain(env.ALTAMYRA_GEMINI_MODELS)) {
     try {
       const res = await doFetch(`${BASE}/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',

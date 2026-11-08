@@ -1,5 +1,5 @@
 import { Badge, StatusBadge, type StatusTone } from '@/components/ui'
-import type { DecisionRule, ObjectiveStatus } from '@/server/altamira/contract/enums'
+import type { DecisionRule, ObjectiveStatus } from '@/server/altamyra/contract/enums'
 import { s, type SKey } from './text'
 
 export const DECISION_TONE: Record<DecisionRule, StatusTone> = { below_aimline: 'warning', above_aimline: 'success', data_needed: 'info' }

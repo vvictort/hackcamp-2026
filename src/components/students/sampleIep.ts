@@ -1,4 +1,4 @@
-/** Copy of the fictional CB-IEP sample (src/server/altamira/fixtures/cbiep-sample.ts) for the demo button. */
+/** Copy of the fictional CB-IEP sample (src/server/altamyra/fixtures/cbiep-sample.ts) for the demo button. */
 export const SAMPLE_IEP_TEXT = `COMPETENCY-BASED INDIVIDUAL EDUCATION PLAN
 FICTIONAL SAMPLE - NOT A REAL STUDENT
 School: Salmonberry Creek Elementary (fictional)    School Year: 2026-27

@@ -2,7 +2,7 @@
  * App navigation: a slim icon sidebar on large screens and a top bar on small
  * ones, rendered ONCE (one grid that becomes a column at lg), so each control
  * and test id exists a single time. Routed items come from src/nav.ts;
- * every item links to a built page, filtered by the Altamira role. Sign-in links
+ * every item links to a built page, filtered by the Altamyra role. Sign-in links
  * to /sign-in?next=<current path>, sign-out from the account menu.
  * Keep the data-testid hooks (`app-navigation`, `nav-sign-in-button`,
  * `nav-user-name`, `nav-user-email`) and the "Account menu" button name: the
@@ -30,7 +30,7 @@ import {
 } from 'lucide-react'
 import { nav } from '../nav'
 import { endSession } from '@/lib/session'
-import { useAltamiraMe } from '@/lib/altamira/role'
+import { useAltamyraMe } from '@/lib/altamyra/role'
 import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
 import { Logo } from './LogoMark'
@@ -73,7 +73,7 @@ export default function Navigation() {
   const { isLoaded, isSignedIn, user, userLoading } = useAuthProfileReady({ requireUser: true })
   const location = useLocation()
   const { t } = useLang()
-  const { role, devEnabled } = useAltamiraMe()
+  const { role, devEnabled } = useAltamyraMe()
   const profileReady = !isSignedIn || (!userLoading && !!user)
   const items = nav
     .filter((n) => !n.devOnly || import.meta.env.DEV)

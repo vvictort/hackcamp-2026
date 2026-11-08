@@ -7,7 +7,7 @@ describe('generic /ws/:roomId', () => {
   const app = new Hono<AppContext>()
   registerRealtimeRoutes(app)
 
-  it('refuses Altamira room ids before reaching any Durable Object', async () => {
+  it('refuses Altamyra room ids before reaching any Durable Object', async () => {
     // No bindings: a request that got past the guard would throw on env.RECORD_ROOMS.
     const env = {} as Env
     for (const id of ['student:57d00000-0000-4000-8000-00000000000a', 'school:x', 'district:y', 'student%3Ax']) {

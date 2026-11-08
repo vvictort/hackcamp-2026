@@ -8,8 +8,8 @@
  * keys map back to real student ids only when the rows are saved.
  */
 
-import { classifyAdaptation } from '../server/altamira/ai/guardrail'
-import type { AdaptationType } from '../server/altamira/contract/enums'
+import { classifyAdaptation } from '../server/altamyra/ai/guardrail'
+import type { AdaptationType } from '../server/altamyra/contract/enums'
 
 /** One row of the student's What works (GET /students/:id/what-works). */
 export interface LensWhatWorks {

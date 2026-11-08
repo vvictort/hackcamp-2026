@@ -23,8 +23,8 @@ import {
   useToast,
 } from '@/components/ui'
 import { useLang } from '@/i18n'
-import { RoleGate } from '@/lib/altamira/RoleGate'
-import { useAltamiraMe } from '@/lib/altamira/role'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
+import { useAltamyraMe } from '@/lib/altamyra/role'
 import {
   approveSummary,
   AUDIENCE_KEY,
@@ -36,7 +36,7 @@ import {
   SUMMARY_KINDS,
   type Summary,
   type SummaryKind,
-} from '@/lib/altamira/summaries-api'
+} from '@/lib/altamyra/summaries-api'
 
 export default function SummariesPage() {
   return (
@@ -48,7 +48,7 @@ export default function SummariesPage() {
 
 function SummariesBody() {
   const { t } = useLang()
-  const { role } = useAltamiraMe()
+  const { role } = useAltamyraMe()
   const cm = role === 'case_manager'
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6 lg:gap-8">
@@ -115,7 +115,7 @@ function LoadError({ onRetry }: { onRetry: () => void }) {
 
 function StaffSummaries() {
   const { t } = useLang()
-  const { me } = useAltamiraMe()
+  const { me } = useAltamyraMe()
   const [params, setParams] = useSearchParams()
   const students = me ? (me.caseload.length ? me.caseload : me.students) : []
   const nameOf = (s: (typeof students)[number]) => s.firstName ?? s.displayToken

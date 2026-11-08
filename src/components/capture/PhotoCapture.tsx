@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Camera, FlaskConical } from 'lucide-react'
 import { Button, buttonVariants, Card, FormField, Input, StatusBadge, type FormFieldControlProps } from '@/components/ui'
-import type { CaptureBatch } from '@/server/altamira/contract/school'
-import type { DataPoint } from '@/server/altamira/contract/student'
+import type { CaptureBatch } from '@/server/altamyra/contract/school'
+import type { DataPoint } from '@/server/altamyra/contract/student'
 import {
   getDataPointSource,
   normalizeSheetCode,
@@ -10,10 +10,10 @@ import {
   pollBatch,
   rememberImage,
   uploadPhotos,
-} from '@/lib/altamira/capture-api'
-import { blobToBase64 } from '@/lib/altamira/capture-api'
-import { useAltamiraMe } from '@/lib/altamira/role'
-import { createSampleSheet, PracticeApiError, sampleFileKey } from '@/lib/altamira/practice-api'
+} from '@/lib/altamyra/capture-api'
+import { blobToBase64 } from '@/lib/altamyra/capture-api'
+import { useAltamyraMe } from '@/lib/altamyra/role'
+import { createSampleSheet, PracticeApiError, sampleFileKey } from '@/lib/altamyra/practice-api'
 import { SAMPLE_SHEET_URL, stampSheetCode } from './stampSheetCode'
 import { StudentSelect } from './StudentSelect'
 import { useCt } from './useCt'
@@ -58,7 +58,7 @@ export function PhotoCapture({ studentId: fixedStudent, onScored }: { studentId?
   const [sample, setSample] = useState(false)
   const [sampleBusy, setSampleBusy] = useState(false)
   const [sampleNote, setSampleNote] = useState<{ ok: boolean; text: string } | null>(null)
-  const { devEnabled } = useAltamiraMe()
+  const { devEnabled } = useAltamyraMe()
 
   useEffect(() => {
     if (!file) return setPreview(null)

@@ -19,12 +19,12 @@ import {
 } from '@/components/ui'
 import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
-import { ApiError, apiGet, apiPost } from '@/lib/altamira/api'
-import { assignBody, NEEDS_STUDENT, type Member } from '@/lib/altamira/roles-admin'
-import { RoleGate } from '@/lib/altamira/RoleGate'
-import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
+import { ApiError, apiGet, apiPost } from '@/lib/altamyra/api'
+import { assignBody, NEEDS_STUDENT, type Member } from '@/lib/altamyra/roles-admin'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
+import { ALTAMYRA_ROLES, useAltamyraMe, type AltamyraRole } from '@/lib/altamyra/role'
 
-const ROLE_KEY: Record<AltamiraRole, MessageKey> = {
+const ROLE_KEY: Record<AltamyraRole, MessageKey> = {
   ea: 'app.role.ea',
   teacher: 'app.role.teacher',
   case_manager: 'app.role.case_manager',
@@ -44,10 +44,10 @@ export default function RolesPage() {
 function RolesBody() {
   const { t } = useLang()
   const toast = useToast()
-  const { me, schoolId } = useAltamiraMe()
+  const { me, schoolId } = useAltamyraMe()
   const [members, setMembers] = useState<Member[] | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [form, setForm] = useState({ userId: '', displayName: '', role: 'teacher' as AltamiraRole, studentId: '' })
+  const [form, setForm] = useState({ userId: '', displayName: '', role: 'teacher' as AltamyraRole, studentId: '' })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -89,7 +89,7 @@ function RolesBody() {
     }
   }
 
-  const roleLabel = (r: string) => (r in ROLE_KEY ? t(ROLE_KEY[r as AltamiraRole]) : r)
+  const roleLabel = (r: string) => (r in ROLE_KEY ? t(ROLE_KEY[r as AltamyraRole]) : r)
 
   return (
     <div className="flex w-full max-w-4xl flex-col gap-6 lg:gap-8">
@@ -110,12 +110,12 @@ function RolesBody() {
               </FormField>
               <FormField label={t('app.roles.role')} required>
                 {(c) => (
-                  <Select value={form.role} onValueChange={(v) => v && setForm({ ...form, role: v as AltamiraRole })}>
+                  <Select value={form.role} onValueChange={(v) => v && setForm({ ...form, role: v as AltamyraRole })}>
                     <SelectTrigger id={c.id} aria-label={t('app.roles.role')}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {ALTAMIRA_ROLES.map((r) => (
+                      {ALTAMYRA_ROLES.map((r) => (
                         <SelectItem key={r} value={r}>
                           {t(ROLE_KEY[r])}
                         </SelectItem>

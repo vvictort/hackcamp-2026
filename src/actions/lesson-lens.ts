@@ -10,7 +10,7 @@
 
 import type { ActionHandler, ActionResult, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
-import type { AdaptationType } from '../server/altamira/contract/enums'
+import type { AdaptationType } from '../server/altamyra/contract/enums'
 import {
   AnalysisCache,
   analysisCacheKey,
@@ -43,7 +43,7 @@ declare module '../../worker' {
     /** Sent as `Authorization: Bearer ...`; must match the agent's AGENT_TOKEN. */
     MARITIME_AGENT_TOKEN?: string
     GEMINI_API_KEY?: string
-    ALTAMIRA_GEMINI_MODELS?: string
+    ALTAMYRA_GEMINI_MODELS?: string
   }
 }
 

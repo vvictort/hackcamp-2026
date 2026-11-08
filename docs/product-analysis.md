@@ -47,7 +47,7 @@ These are not up for trade-offs:
 4. **Names never reach the model.** Student names are replaced (Student A, B, and so on) before any text goes to an AI model, and put back only inside the app.
 5. **Canadian hosting.** Data is stored in a Canadian region.
 
-How the code follows rules 3 and 4 today: Lesson Lens swaps student names for "Student A, B..." (also inside pasted lesson text), remaps goal ids to `g1, g2...` and sends the teacher as a hash (`src/actions/lesson-lens.ts`). The `/api/v1` backend de-identifies every AI call in `src/server/altamira/ai/deidentify.ts` and refuses the call if that fails (commit 374dd12). The translation route sends only the fixed English interface text, never record data. Sign-up includes a consent step for fictional or de-identified data only.
+How the code follows rules 3 and 4 today: Lesson Lens swaps student names for "Student A, B..." (also inside pasted lesson text), remaps goal ids to `g1, g2...` and sends the teacher as a hash (`src/actions/lesson-lens.ts`). The `/api/v1` backend de-identifies every AI call in `src/server/altamyra/ai/deidentify.ts` and refuses the call if that fails (commit 374dd12). The translation route sends only the fixed English interface text, never record data. Sign-up includes a consent step for fictional or de-identified data only.
 
 Open item: this repository does not document which hosting region DeepSpace (Cloudflare Workers), Maritime and Google Gemini use for the prototype. Rule 5 is a design requirement that the team has not yet verified for those services.
 
@@ -68,12 +68,12 @@ Working in the app, as listed in the README's Current state:
 
 - Landing page.
 - Sign-in (Google or GitHub, or email for existing accounts) and a four-stage sign-up, including the consent step.
-- Teacher dashboard from the `/api/v1` backend: Pulse as goal data coverage, today's schedule and the weekly digest. Dev-only demo controls (only with `ALTAMIRA_DEV_SEED=true`) load a fictional school and switch roles.
+- Teacher dashboard from the `/api/v1` backend: Pulse as goal data coverage, today's schedule and the weekly digest. Dev-only demo controls (only with `ALTAMYRA_DEV_SEED=true`) load a fictional school and switch roles.
 - **Lesson Lens**: Get suggestions on a class, then approve or reject each adaptation or modification. Approving a modification asks for confirmation first, which is the Adapt/Modify Guardrail in action. Suggestions come from an AI agent on Maritime that calls Gemini, with a rules fallback.
 - Settings: profile, school and position, preferences, text size and signed-in devices.
 - 36 interface languages with a language picker.
 
-First versions that have landed on `main` since (git log, 2026-11-07), built on the `/api/v1` backend in `src/server/altamira/`. The README's Current state does not list them yet, and this page has not checked how complete each one is:
+First versions that have landed on `main` since (git log, 2026-11-07), built on the `/api/v1` backend in `src/server/altamyra/`. The README's Current state does not list them yet, and this page has not checked how complete each one is:
 
 - A Lesson Lens page with lesson upload, results and PDF export (cf29524).
 - Students list and student profile pages, with goals, a timeline and an IEP import dialog (a27f34a, f41a1b4, 127e638).

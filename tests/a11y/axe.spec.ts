@@ -2,7 +2,7 @@
  * Accessibility audit: axe-core on the main pages per demo role,
  * failing on serious or critical violations. Needs a test account:
  *   npx deepspace test accounts list
- * and a local server with ALTAMIRA_DEV_SEED=true (the secrets config holds it).
+ * and a local server with ALTAMYRA_DEV_SEED=true (the secrets config holds it).
  * Run:  npx deepspace test run a11y
  */
 import AxeBuilder from '@axe-core/playwright'

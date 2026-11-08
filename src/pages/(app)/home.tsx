@@ -1,10 +1,10 @@
 /**
- * Altamira home, built around the school day. Teacher: today's lesson plans to
+ * Altamyra home, built around the school day. Teacher: today's lesson plans to
  * approve and students missing a plan. EA: today's approved plans and the end
  * of day review. Both: summaries waiting for approval. Case manager: weekly
  * summary and students. Parents, district leads and school administrators are
  * sent to their own page. The dev panel (load demo data, act as a role) shows
- * only when the backend has ALTAMIRA_DEV_SEED=true.
+ * only when the backend has ALTAMYRA_DEV_SEED=true.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -37,10 +37,10 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useLang } from '@/i18n'
 import { T } from '@/i18n/rich'
 import type { MessageKey } from '@/i18n/en'
-import { apiPost } from '@/lib/altamira/api'
-import { runDemoDay, type DemoDayResult } from '@/lib/altamira/demo-day-api'
-import { START_PATH } from '@/lib/altamira/RoleGate'
-import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
+import { apiPost } from '@/lib/altamyra/api'
+import { runDemoDay, type DemoDayResult } from '@/lib/altamyra/demo-day-api'
+import { START_PATH } from '@/lib/altamyra/RoleGate'
+import { ALTAMYRA_ROLES, useAltamyraMe, type AltamyraRole } from '@/lib/altamyra/role'
 import {
   getDayReview,
   getPendingSummaries,
@@ -51,9 +51,9 @@ import {
   type DayReview,
   type PendingSummary,
   type TodayPlans,
-} from '@/lib/altamira/home-api'
+} from '@/lib/altamyra/home-api'
 
-const ROLE_LABEL: Record<AltamiraRole, MessageKey> = {
+const ROLE_LABEL: Record<AltamyraRole, MessageKey> = {
   ea: 'app.role.ea',
   teacher: 'app.role.teacher',
   case_manager: 'app.role.case_manager',
@@ -67,7 +67,7 @@ const linkClass = 'rounded-md font-semibold underline-offset-4 hover:underline f
 
 type Today = { plans: TodayPlans; pending: PendingSummary[]; review: DayReview }
 
-function useToday(enabled: boolean, role: AltamiraRole | null) {
+function useToday(enabled: boolean, role: AltamyraRole | null) {
   const [data, setData] = useState<Today | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const load = useCallback(async () => {
@@ -264,7 +264,7 @@ export default function HomePage() {
   const { user } = useAuthProfileReady({ requireUser: true })
   const { error: toastError, success } = useToast()
   const { t } = useLang()
-  const { role, devEnabled, me, loading, seed, switchRole, refresh } = useAltamiraMe()
+  const { role, devEnabled, me, loading, seed, switchRole, refresh } = useAltamyraMe()
   const firstName = user?.name?.split(' ')[0] ?? ''
   const [busy, setBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
@@ -326,12 +326,12 @@ export default function HomePage() {
               <span id="dev-role-label" className="text-label font-semibold">
                 {t('app.home.actAs')}
               </span>
-              <Select value={role ?? ''} disabled={busy || !seeded} onValueChange={(v) => v && void run(() => switchRole(v as AltamiraRole))}>
+              <Select value={role ?? ''} disabled={busy || !seeded} onValueChange={(v) => v && void run(() => switchRole(v as AltamyraRole))}>
                 <SelectTrigger aria-labelledby="dev-role-label" className="w-56">
                   <SelectValue placeholder={t('app.home.chooseRole')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {ALTAMIRA_ROLES.map((r) => (
+                  {ALTAMYRA_ROLES.map((r) => (
                     <SelectItem key={r} value={r}>
                       {t(ROLE_LABEL[r])}
                     </SelectItem>

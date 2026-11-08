@@ -4,11 +4,11 @@ import { ChevronDown, ChevronRight, CircleCheck, CircleDashed, Sparkles, Trendin
 import { Card, EmptyState, PageHeader, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@/components/ui'
 import { fmtDate, s, type SKey } from '@/components/students/text'
 import { useLoad } from '@/components/students/useLoad'
-import { RoleGate } from '@/lib/altamira/RoleGate'
+import { RoleGate } from '@/lib/altamyra/RoleGate'
 import {
   dayTotal, getDay, getDays, getWeeklySummary, lastNDays, sortDays, trendBars, visibleSummary, type DayDetail,
-} from '@/lib/altamira/progress-api'
-import { getMe } from '@/lib/altamira/students-api'
+} from '@/lib/altamyra/progress-api'
+import { getMe } from '@/lib/altamyra/students-api'
 
 const KINDS = ['dataPoints', 'events', 'notes', 'videos', 'voiceNotes'] as const
 

@@ -1,4 +1,4 @@
-import { RoleGate } from "@/lib/altamira/RoleGate";
+import { RoleGate } from "@/lib/altamyra/RoleGate";
 import { Link, useNavigate } from "react-router-dom";
 import { UsersRound } from "lucide-react";
 import {
@@ -10,9 +10,9 @@ import {
 } from "@/components/ui";
 import { s } from "@/components/students/text";
 import { useLoad } from "@/components/students/useLoad";
-import { getMe } from "@/lib/altamira/students-api";
-import { getTodayPlans, missingPlan } from "@/lib/altamira/plans-api";
-import type { StudentSummary } from "@/server/altamira/contract/api";
+import { getMe } from "@/lib/altamyra/students-api";
+import { getTodayPlans, missingPlan } from "@/lib/altamyra/plans-api";
+import type { StudentSummary } from "@/server/altamyra/contract/api";
 
 function StudentsPageBody() {
   const navigate = useNavigate();

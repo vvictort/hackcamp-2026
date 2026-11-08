@@ -68,7 +68,7 @@ Everything runs in a local demo on fictional data. Settings (profile, preference
 | --- | --- |
 | Platform | [DeepSpace](https://docs.deep.space) SDK on Cloudflare Workers: auth, record storage, server actions, deploys |
 | Frontend | React 19, TypeScript, Vite, React Router 7 (file-based routes), Tailwind CSS v4, Base UI, Atkinson Hyperlegible |
-| Backend | Cloudflare Worker (`worker.ts`) with Hono; SQLite Durable Objects for the `/api/v1` domain (`src/server/altamira/`) |
+| Backend | Cloudflare Worker (`worker.ts`) with Hono; SQLite Durable Objects for the `/api/v1` domain (`src/server/altamyra/`) |
 | AI | Gemini through the Lesson Lens agent on [Maritime](https://maritime.sh); Claude (via DeepSpace) for interface translation; fixture provider when no key is set |
 | Motion | Plain CSS and Tailwind, shared timing tokens, Lenis smooth scroll; off under `prefers-reduced-motion` |
 | Testing | Vitest (unit), Playwright (smoke, API, end-to-end), axe-core accessibility, ESLint, `tsc` |
@@ -89,12 +89,12 @@ src/
                          (protected)/ capture, end-of-day, students, progress, summaries,
                          family, insights, admin, settings
   components/            ui/ (design system), auth/, capture/, lens/, students/
-  lib/                   Shared hooks; lib/altamira/ holds the API clients
+  lib/                   Shared hooks; lib/altamyra/ holds the API clients
   i18n/                  Language provider, en/*.ts strings, locales/*.json translations
   schemas/, schemas.ts   Record collections and permissions (shared by worker and app)
   actions/               Server actions (Lesson Lens)
   server/                HTTP, realtime and action routes, i18n route, AI tools,
-                         altamira/ = the /api/v1 domain backend (own README)
+                         altamyra/ = the /api/v1 domain backend (own README)
 ```
 
 Backend: `worker.ts`, `src/server/**`, `src/actions/`. Shared: `src/schemas*`. Everything else under `src/` is frontend.
@@ -123,7 +123,7 @@ npm ci
 npx deepspace login
 ```
 
-Create a secrets config (any name; below it is `avi-local`) with `ALTAMIRA_DEV_SEED=true`. `GEMINI_API_KEY`, `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN` are optional: without a Gemini key the AI features use the built-in fixture provider. Never commit or print secrets, and never edit `.dev.vars` (DeepSpace rewrites it from the secret store).
+Create a secrets config (any name; below it is `avi-local`) with `ALTAMYRA_DEV_SEED=true`. `GEMINI_API_KEY`, `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN` are optional: without a Gemini key the AI features use the built-in fixture provider. Never commit or print secrets, and never edit `.dev.vars` (DeepSpace rewrites it from the secret store).
 
 ```sh
 npx deepspace dev start --host 127.0.0.1 --port 5173 --secrets-config avi-local
@@ -137,7 +137,7 @@ Open http://127.0.0.1:5173, sign in, and on Home press **Load demo data** (a fic
 | **Reset demo data** | Wipes the demo rows and reseeds them dated from today (`POST /api/v1/dev/seed` with `{"reset": true}`) |
 | **Run full demo day** | Adds one fictional student (IEP in `docs/demo/sample-iep-sd23.txt`) and runs a whole school day through the real API, acting as each role in turn, with a link to each result. Live Gemini if `GEMINI_API_KEY` is set (up to a minute), fixtures otherwise (`POST /api/v1/dev/demo-day`) |
 
-The demo controls and `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`; they answer 404 otherwise. Never set it in a deploy.
+The demo controls and `/api/v1/dev/*` routes exist only when `ALTAMYRA_DEV_SEED=true`; they answer 404 otherwise. Never set it in a deploy.
 
 ### Try the daily flow
 
@@ -284,5 +284,5 @@ Ink-first and light only: a soft grey canvas, white and near-black cards, tightl
 | [docs/policy/bc-iep.md](docs/policy/bc-iep.md) | Sourced summary of BC IEP and reporting policy |
 | [docs/decisions/](docs/decisions/README.md) | Architecture decision records |
 | [docs/agent-workflow.md](docs/agent-workflow.md) | How agents and humans work in this repo |
-| [src/server/altamira/README.md](src/server/altamira/README.md) | The `/api/v1` backend: folders, roles, capabilities |
+| [src/server/altamyra/README.md](src/server/altamyra/README.md) | The `/api/v1` backend: folders, roles, capabilities |
 | [agent/README.md](agent/README.md) | Deploying and testing the Lesson Lens agent |

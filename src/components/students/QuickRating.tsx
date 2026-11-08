@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button, useToast } from '@/components/ui'
-import { QUICK_RATINGS, ratingEvent, rateGoal, type QuickRating as Rating } from '@/lib/altamira/profile-api'
-import type { Objective } from '@/server/altamira/contract/student'
+import { QUICK_RATINGS, ratingEvent, rateGoal, type QuickRating as Rating } from '@/lib/altamyra/profile-api'
+import type { Objective } from '@/server/altamyra/contract/student'
 import { s } from './text'
 
 /** One-tap rating for a goal: records a data point on the goal's confirmed objective. */

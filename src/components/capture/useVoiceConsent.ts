@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAuthToken } from 'deepspace'
-import { API_BASE } from '@/lib/altamira/capture-api'
+import { API_BASE } from '@/lib/altamyra/capture-api'
 
 /** Whether the family allows voice notes: 'unknown' until read; a failed read stays 'unknown' and the server still gates the upload. */
 export function useVoiceConsent(studentId: string): 'unknown' | 'allowed' | 'denied' {

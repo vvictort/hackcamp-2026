@@ -1,8 +1,8 @@
 import { ClipboardCheck } from 'lucide-react'
 import { Card, Progress } from '@/components/ui'
 import { useLang } from '@/i18n'
-import { apiFetch, getWhatWorks } from '@/lib/altamira/students-api'
-import type { AdaptationType } from '@/server/altamira/contract/enums'
+import { apiFetch, getWhatWorks } from '@/lib/altamyra/students-api'
+import type { AdaptationType } from '@/server/altamyra/contract/enums'
 import { s } from './text'
 import { useLoad } from './useLoad'
 
