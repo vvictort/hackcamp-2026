@@ -117,7 +117,7 @@ export default function SettingsPage() {
 
       <div className="stagger-rise grid grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-5">
         <nav aria-label={t('app.settings.sections')} className="min-w-0">
-          <ul className="-m-1 flex gap-2 overflow-x-auto p-1 lg:flex-col lg:overflow-visible">
+          <ul className="-m-1 flex flex-wrap gap-2 p-1 lg:flex-col">
             {SECTIONS.map((s) => (
               <li key={s.id} className="shrink-0">
                 <Button

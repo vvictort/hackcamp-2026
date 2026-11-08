@@ -85,7 +85,7 @@ export default function Navigation() {
     const className = cn(
       'inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,box-shadow,color]',
       active
-        ? 'bg-primary text-primary-foreground lg:shadow-ink'
+        ? 'bg-primary text-primary-foreground shadow-ink'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
     )
     const icon = <item.Icon className="size-5.5" strokeWidth={1.9} aria-hidden />
@@ -142,10 +142,10 @@ export default function Navigation() {
       <Link
         data-testid="nav-sign-in-button"
         to={`/sign-in?next=${encodeURIComponent(location.pathname + location.search)}`}
-        className={buttonVariants({ className: 'h-12 lg:size-12 lg:px-0' })}
+        className={buttonVariants({ className: 'h-12 md:size-12 md:px-0' })}
       >
         <LogIn className="size-5" aria-hidden />
-        <span className="lg:sr-only">{t('common.signIn')}</span>
+        <span className="md:sr-only">{t('common.signIn')}</span>
       </Link>
     )
 
@@ -153,16 +153,19 @@ export default function Navigation() {
     <nav
         data-testid="app-navigation"
         aria-label={t('app.nav.main')}
-        className="sticky top-0 z-20 shrink-0 border-b border-border bg-card lg:top-6 lg:h-[calc(100dvh-3rem)] lg:w-22 lg:rounded-2xl lg:border-b-0 lg:py-6 lg:shadow-raised"
+        className="sticky top-0 z-20 shrink-0 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] md:top-4 md:h-[calc(100dvh-2rem)] md:w-22 md:rounded-2xl md:border-b-0 md:bg-card md:py-6 md:shadow-raised lg:top-6 lg:h-[calc(100dvh-3rem)]"
       >
-        {/* Phones: brand + account on one row, icons in a scrollable row below.
-            lg: the same elements stack into a vertical rail, account last. */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 lg:flex lg:h-full lg:flex-col lg:gap-10 lg:p-0">
-          <Link to="/home" aria-hidden tabIndex={-1} className="justify-self-start rounded-md">
-            <Logo className="gap-3 text-h2" markClassName="size-11" labelClassName="lg:sr-only" />
+        {/* Phones: brand + account in a slim top bar, the icons in a tab bar
+            fixed to the bottom (thumb reach). md and up: the same elements
+            stack into the floating rail, account last. One render either way. */}
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 md:h-full md:flex-col md:justify-start md:gap-10 md:p-0">
+          <Link to="/home" aria-hidden tabIndex={-1} className="rounded-md">
+            <Logo className="gap-2.5 text-h3" markClassName="size-9 md:size-11" labelClassName="md:sr-only" />
           </Link>
-          <div className="lg:order-last lg:mt-auto">{account}</div>
-          <ul className="col-span-2 -mx-1 flex justify-between overflow-x-auto p-1 lg:mx-0 lg:flex-col lg:items-center lg:justify-start lg:gap-3 lg:overflow-visible lg:p-0">
+          <div className="md:order-last md:mt-auto">{account}</div>
+          {/* Phones: a floating island like the iOS tab bar, hugging its icons
+              and centred above the home indicator. md: back in the rail. */}
+          <ul className="fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-20 mx-auto flex w-fit max-w-[calc(100vw-2rem)] items-center gap-1 rounded-full bg-card p-1.5 shadow-lift md:static md:mx-0 md:w-auto md:max-w-none md:flex-col md:gap-3 md:rounded-none md:bg-transparent md:p-0 md:shadow-none">
             {items.map(navItem)}
           </ul>
         </div>

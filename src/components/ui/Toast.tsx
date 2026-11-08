@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }): React.Reac
           pushes content. `pointer-events-none` is load-bearing: this layer sits
           over one corner of every page, so without it the container silently
           eats clicks underneath. Each toast re-enables events for itself. */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex max-w-[calc(100vw-2rem)] flex-col gap-2">
+      <div className="pointer-events-none fixed right-4 left-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[100] flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2 md:left-auto md:bottom-4">
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
         ))}

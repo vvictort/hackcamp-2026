@@ -20,7 +20,7 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex min-h-7 items-center gap-1 whitespace-nowrap rounded-full px-2.5 text-small font-semibold [&_svg]:size-4 [&_svg]:shrink-0',
+        'inline-flex min-h-7 items-center gap-1 self-start whitespace-nowrap rounded-full px-2.5 text-small font-semibold [&_svg]:size-4 [&_svg]:shrink-0',
         VARIANTS[variant],
         className,
       )}

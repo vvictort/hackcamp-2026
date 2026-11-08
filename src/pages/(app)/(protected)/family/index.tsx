@@ -120,7 +120,7 @@ function ParentView({ studentId }: { studentId: string }) {
                 {earlier.map((s) => (
                   <li key={s.id}>
                     <details>
-                      <summary className="cursor-pointer text-label font-semibold">{t('app.family.month', { period: s.period })}</summary>
+                      <summary className="flex min-h-11 cursor-pointer items-center text-label font-semibold">{t('app.family.month', { period: s.period })}</summary>
                       <div className="mt-3">
                         <SummaryText s={s} studentId={studentId} />
                       </div>

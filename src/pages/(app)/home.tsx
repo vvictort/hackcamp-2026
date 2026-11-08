@@ -65,7 +65,7 @@ function PendingCard({ pending }: { pending: PendingSummary[] }) {
       ) : (
         <ul className="flex flex-col gap-3">
           {pending.map((s) => (
-            <li key={s.id} className="flex items-center gap-3">
+            <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <FileText className="size-4 shrink-0" aria-hidden />
               <Link to={summaryLink(s)} className={linkClass}>
                 {t('app.home.pendingItem', { kind: t(`app.summaries.kind.${s.kind}`), student: s.label })}
@@ -83,7 +83,7 @@ function TeacherHome({ today }: { today: Today }) {
   const { t } = useLang()
   const { withPlan, missing } = splitToday(today.plans)
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       <Card title={t('app.home.plansTitle')}>
         {withPlan.length === 0 ? (
           <p className="text-body text-muted-foreground">{t('app.home.plansEmpty')}</p>
@@ -128,7 +128,7 @@ function TeacherHome({ today }: { today: Today }) {
           </ul>
         )}
       </Card>
-      <div className="lg:col-span-2">
+      <div className="md:col-span-2">
         <PendingCard pending={today.pending} />
       </div>
     </div>
@@ -139,7 +139,7 @@ function EaHome({ today }: { today: Today }) {
   const { t } = useLang()
   const { done, total } = reviewProgress(today.review)
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       <Card title={t('app.home.eodTitle')}>
         <p className="text-body text-muted-foreground">{t('app.home.eodBody')}</p>
         <p className="text-label font-semibold">{total === 0 ? t('app.home.eodNone') : t('app.home.eodProgress', { done, total })}</p>
@@ -167,7 +167,7 @@ function EaHome({ today }: { today: Today }) {
           </ul>
         )}
       </Card>
-      <div className="lg:col-span-2">
+      <div className="md:col-span-2">
         <PendingCard pending={today.pending} />
       </div>
     </div>
@@ -181,7 +181,7 @@ function CaseManagerHome() {
     { to: '/students', Icon: UsersRound, title: 'app.home.cmTitle', body: 'app.home.cmStudentsBody', cta: 'app.home.cmStudentsOpen' },
   ] as const
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       {cards.map((c) => (
         <Card key={c.to} title={t(c.title)}>
           <p className="text-body text-muted-foreground">{t(c.body)}</p>
@@ -206,7 +206,7 @@ function DemoDayResults({ result }: { result: DemoDayResult }) {
       <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
         {result.steps.map((s, i) => (
           <li key={i} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-body">
-            <span className={`flex w-20 shrink-0 items-center gap-1 font-semibold ${s.ok ? '' : 'text-destructive-strong'}`}>
+            <span className={`flex min-w-20 shrink-0 items-center gap-1 font-semibold ${s.ok ? '' : 'text-destructive-strong'}`}>
               {s.ok ? <CircleCheck className="size-4" aria-hidden /> : <CircleX className="size-4" aria-hidden />}
               {s.ok ? t('app.demoDay.done') : t('app.demoDay.failed')}
             </span>

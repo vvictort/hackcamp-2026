@@ -108,7 +108,7 @@ function SourceBody({ studentId, point }: { studentId: string; point: DataPoint 
             className="max-h-72 rounded-md border border-border object-contain"
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
-          <p className="text-small text-muted-foreground">{t('students.source.photoDetail', { key: x.fileKey, item: x.itemId ?? '-' })}</p>
+          <p className="break-all text-small text-muted-foreground">{t('students.source.photoDetail', { key: x.fileKey, item: x.itemId ?? '-' })}</p>
         </div>
       )
     case 'ea_event':

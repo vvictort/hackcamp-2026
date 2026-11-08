@@ -220,10 +220,10 @@ function SiteNav() {
           aria-label={t('landing.nav.home', { app: APP_NAME })}
           className="rounded-2xl bg-ink px-4 py-2.5 text-ink-foreground shadow-ink transition-colors hover:bg-primary-soft"
         >
-          <Logo inverted />
+          <Logo inverted labelClassName="max-sm:sr-only" />
         </Link>
 
-        <ul className="hidden items-center gap-1 rounded-full bg-card/90 p-1 shadow-raised backdrop-blur md:flex">
+        <ul className="hidden items-center gap-1 rounded-full bg-card/90 p-1 shadow-raised backdrop-blur lg:flex">
           {NAV.map(([href, label]) => (
             <li key={href}>
               <a
@@ -238,13 +238,13 @@ function SiteNav() {
         </ul>
 
         <div className="flex items-center gap-2">
-          <LanguageSwitcher />
+          <LanguageSwitcher className="h-11 w-auto gap-2 rounded-full sm:min-w-36" />
           <span className="hidden sm:contents">
             <Link to="/sign-in" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
               {t('common.signIn')}
             </Link>
           </span>
-          <Link to="/sign-up" className={buttonVariants({ size: 'lg' })}>
+          <Link to="/sign-up" className={buttonVariants({ size: 'lg', className: 'max-sm:h-11 max-sm:px-4 max-sm:text-label' })}>
             {t('common.getStarted')}
           </Link>
         </div>
@@ -273,7 +273,7 @@ export default function Landing() {
               className="pointer-events-none absolute left-1/2 top-24 -z-10 size-[34rem] -translate-x-1/2 rounded-full opacity-70 blur-3xl sm:size-[44rem] bg-signal-orb"
             />
             <div className="flex max-w-5xl flex-col items-center gap-6">
-              <h1 id="hero-title" className="animate-rise text-hero-sm font-medium sm:text-hero lg:text-mega">
+              <h1 id="hero-title" className="animate-rise text-hero-sm font-medium text-balance hyphens-auto [overflow-wrap:anywhere] sm:text-hero lg:text-mega">
                 <T k="landing.hero.title" />
               </h1>
               <p className="animate-rise max-w-[52ch] text-body-lg text-foreground/80" style={delay(1)}>
@@ -362,7 +362,7 @@ export default function Landing() {
           <section id="control" aria-labelledby="control-title" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-8 sm:px-6">
             <div className="reveal relative grid items-center gap-12 overflow-hidden rounded-panel bg-ink p-8 text-ink-foreground shadow-ink sm:p-12 lg:grid-cols-[1.2fr_1fr] lg:p-16">
               <div className="relative flex flex-col gap-8">
-                <h2 id="control-title" className="max-w-[14ch] text-display-sm sm:text-hero">
+                <h2 id="control-title" className="max-w-[14ch] text-display-sm hyphens-auto [overflow-wrap:anywhere] sm:text-hero">
                   {t('landing.control.title')}
                 </h2>
                 <ul className="flex flex-col gap-3">
@@ -439,7 +439,7 @@ export default function Landing() {
 
         <footer className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
           <div className="reveal relative flex flex-col items-center gap-8 overflow-hidden rounded-panel bg-ink px-6 pt-16 pb-8 text-center text-ink-foreground shadow-ink">
-            <h2 className="relative max-w-[16ch] text-display-sm sm:text-hero">
+            <h2 className="relative max-w-[16ch] text-display-sm hyphens-auto [overflow-wrap:anywhere] sm:text-hero">
               {t('landing.footer.title')}
             </h2>
             <div className="relative flex flex-wrap justify-center gap-3">
