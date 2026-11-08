@@ -1,4 +1,4 @@
-import type { SqlExecutor } from './sql'
+import type { SqlExecutor } from '../contract/ops'
 
 export type AuditInput = {
   actorId: string

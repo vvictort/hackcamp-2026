@@ -1,6 +1,6 @@
 import type { ConsentKind, SummaryKind } from '../contract/enums'
 import { Consent, DayReview, Note, ProficiencyRating, Summary, Video } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { findById, parseRow, parseRows } from './base'
 
 type Row = Record<string, unknown>

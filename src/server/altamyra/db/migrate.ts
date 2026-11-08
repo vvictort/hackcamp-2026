@@ -1,4 +1,4 @@
-import type { SqlExecutor } from './sql'
+import type { SqlExecutor } from '../contract/ops'
 
 /** One migration = a list of single SQL statements (no statement splitting is done). */
 export type Migration = readonly string[]

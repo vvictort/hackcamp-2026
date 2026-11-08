@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { Id } from '../contract/common'
-import { defineOp } from '../contract/ops'
-import type { SqlExecutor } from '../db/sql'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 
 /**
  * Roster data for de-identification (design doc "AI module": deidentify()

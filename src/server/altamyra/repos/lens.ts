@@ -1,5 +1,5 @@
 import { Check, Suggestion, type AdaptationSuggestion } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { findById, insertEntity, parseRow } from './base'
 
 type Row = Record<string, unknown>

@@ -148,6 +148,6 @@ describe('createAi', () => {
     const ai = createAi({ provider: createFixtureProvider(), roster })
     const err = await ai.proposeObjectives({ studentToken: '', goalId: 'g1', area: 'Reading', goalText: 'Retell' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(AltamyraError)
-    expect((err as AltamyraError).status).toBe(400)
+    expect((err as AltamyraError).code).toBe('bad_request')
   })
 })

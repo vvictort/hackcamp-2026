@@ -2,7 +2,7 @@ import type { Hono } from 'hono'
 import { z } from 'zod'
 import { FamilyConsentBody, FamilyConsentsResponse, SummariesQuery, SummariesResponse } from '../contract/api'
 import { synthesizeSpeech, type TtsEnv } from '../ai/tts'
-import { HttpError } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { consentsSet } from '../services/family'
 import { familySummariesList } from '../services/summaries'
@@ -45,7 +45,7 @@ export function familyRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
       if (!r.can('summary.edit', studentId)) {
         const { summaries } = await r.student(studentId, familySummariesList)
         const playable = new Set(summaries.flatMap((s) => [s.text, s.translatedText, s.audioScript]).filter((t): t is string => !!t))
-        if (!playable.has(text)) throw new HttpError('forbidden', 'Only approved summaries can be read aloud.')
+        if (!playable.has(text)) throw new AltamyraError('forbidden', 'Only approved summaries can be read aloud.')
       }
     }
     const ai = await r.ai(studentId ? [studentId] : [])

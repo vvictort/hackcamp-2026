@@ -1,7 +1,7 @@
 import { GOAL_PROGRESS, LABELS, PROFICIENCY_LEVELS, REVIEW_TIMELINESS } from '../../contract/enums'
 import { sqlList as l } from '../mapping'
 import { runMigrations, type Migration } from '../migrate'
-import type { SqlExecutor } from '../sql'
+import type { SqlExecutor } from '../../contract/ops'
 
 /**
  * AltamyraInsightsRoom schema: de-identified counters only. Reads must group by

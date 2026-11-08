@@ -4,7 +4,7 @@ import { evaluateObjective } from '../services/measurement'
 import { objectiveById } from '../repos/iep'
 import { activeConsent, latestProficiency } from '../repos/records'
 import type { CounterIncrement } from '../contract/insights'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 
 /** Pure student-room helpers used by AltamyraStudentRoom, testable on node:sqlite. */
 

@@ -3,7 +3,7 @@ import { AdminMembershipBody, type MeResponse, type ScheduleItem, type StudentSu
 import { DateString, Id, MediaRef } from '../contract/common'
 import { LessonSourceKind, type MembershipRole } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import { can, type Actor } from '../contract/permissions'
 import {
   Lesson as LessonSchema,
@@ -13,7 +13,6 @@ import {
   type ParentLink,
   type SheetCode,
 } from '../contract/school'
-import type { SqlExecutor } from '../db/sql'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS, seedSchool, seedSchoolDemo } from '../fixtures'
 import { audit, insertEntity, mustFind, newId, nowIso } from '../repos/base'
 import * as repo from '../repos/school'

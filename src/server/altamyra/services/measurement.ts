@@ -4,7 +4,7 @@ import { ProposeObjectivesOutput } from '../contract/ai'
 import { ExpectedVersion, Id } from '../contract/common'
 import { ReviewKind, promptLevelValue, type MetricType, type PromptLevel } from '../contract/enums'
 import { AltamyraError } from '../contract/errors'
-import { defineOp } from '../contract/ops'
+import { defineOp, type SqlExecutor } from '../contract/ops'
 import type { Actor } from '../contract/permissions'
 import {
   Goal,
@@ -16,7 +16,6 @@ import {
   type Objective,
   type ReviewItem,
 } from '../contract/student'
-import type { SqlExecutor } from '../db/sql'
 import { assertVersion, audit, insertEntity, json, newId, nowIso, parseRows, updateVersioned } from '../repos/base'
 import * as ev from '../repos/evidence'
 import * as iepRepo from '../repos/iep'

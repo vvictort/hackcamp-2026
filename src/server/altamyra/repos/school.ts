@@ -10,7 +10,7 @@ import {
   SheetCode,
   User,
 } from '../contract/school'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 import { findById, parseRow, parseRows } from './base'
 
 type Row = Record<string, unknown>

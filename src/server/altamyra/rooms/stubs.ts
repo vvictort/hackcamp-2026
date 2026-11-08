@@ -3,12 +3,6 @@ import { insightsRoomId, schoolRoomId, studentRoomId } from '../contract/common'
 import { DISTRICT, SCHOOL } from '../fixtures/school'
 import type { InsightsRoomRpc, SchoolRoomRpc, StudentRoomRpc } from './rpc'
 
-/** The Env fields Altamyra uses. */
-export type AltamyraBindings = Pick<
-  Env,
-  'STUDENT_ROOMS' | 'SCHOOL_ROOMS' | 'INSIGHTS_ROOMS' | 'ALTAMYRA_SCHOOL_ID' | 'ALTAMYRA_DISTRICT_ID'
->
-
 /**
  * Single-school deployment: the school and district come from env, defaulting
  * to the fictional fixture school until a membership index exists.

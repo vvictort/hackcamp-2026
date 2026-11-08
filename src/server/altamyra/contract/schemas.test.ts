@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AI_SCHEMAS, LensForStudentOutput, ProposeObjectivesOutput } from './ai'
 import { CaptureEventBody, IepImportBody, InsightsQuery, StudentProfileResponse } from './api'
-import { AltamyraError, ErrorBody } from './errors'
+import { AltamyraError, ERROR_STATUS, ErrorBody } from './errors'
 import { PROMPT_LEVELS, promptLevelFromValue, promptLevelValue } from './enums'
 import { AdaptationSuggestion, Suggestion } from './student'
 
@@ -81,7 +81,7 @@ describe('API contracts', () => {
 
   it('errors serialise to the shared body', () => {
     const err = new AltamyraError('version_conflict', 'stale')
-    expect(err.status).toBe(409)
+    expect(ERROR_STATUS[err.code]).toBe(409)
     expect(ErrorBody.parse(err.toBody())).toEqual({ error: { code: 'version_conflict', message: 'stale' } })
   })
 })

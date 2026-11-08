@@ -10,7 +10,7 @@ import {
 import { DateString } from '../contract/common'
 import type { Summary } from '../contract/student'
 import type { AltamyraEnv } from '../middleware/auth'
-import { HttpError } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
 import { dayReviewToday, daysComplete, daysGet, daysList } from '../services/day-record'
 import { familySummariesList } from '../services/summaries'
 import type { Kit, Req } from './context'
@@ -18,7 +18,7 @@ import { draftSummary, studentToken } from './student-flows'
 
 function dateParam(r: Req): string {
   const parsed = DateString.safeParse(r.param('date'))
-  if (!parsed.success) throw new HttpError('bad_request', 'The date must look like YYYY-MM-DD.')
+  if (!parsed.success) throw new AltamyraError('bad_request', 'The date must look like YYYY-MM-DD.')
   return parsed.data
 }
 
@@ -49,10 +49,10 @@ export function daysRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     try {
       dailySummary = await draftSummary(r, studentId, { kind: 'daily', period: date })
     } catch (err) {
-      if (err instanceof HttpError && err.code === 'bad_request') {
+      if (err instanceof AltamyraError && err.code === 'bad_request') {
         // Already approved: keep it as it is.
         dailySummary = (await r.student(studentId, familySummariesList, { kind: 'daily' })).summaries.find((s) => s.period === date) ?? null
-      } else if (err instanceof HttpError) {
+      } else if (err instanceof AltamyraError) {
         throw err
       } else {
         // The review is done; the summary can be generated again from the day's page.

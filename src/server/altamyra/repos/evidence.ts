@@ -1,7 +1,7 @@
 import { FAMILY_VISIBLE_STATUSES } from '../contract/enums'
 import { DataPoint, Decision, ReviewItem } from '../contract/student'
 import { sqlList } from '../db/mapping'
-import type { SqlExecutor, SqlParam } from '../db/sql'
+import type { SqlExecutor, SqlParam } from '../contract/ops'
 import type { Point } from '../contract/student'
 import { findById, insertEntity, parseRow, parseRows } from './base'
 

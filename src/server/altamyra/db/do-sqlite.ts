@@ -1,4 +1,4 @@
-import type { SqlExecutor, SqlParam } from './sql'
+import type { SqlExecutor, SqlParam } from '../contract/ops'
 
 /**
  * SqlExecutor over a Durable Object's ctx.storage. Used by the three

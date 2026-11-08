@@ -10,7 +10,7 @@ import {
 } from '../contract/api'
 import { z } from 'zod'
 import { ACTOR_ROLES } from '../contract/permissions'
-import { HttpError } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
 import type { AltamyraEnv } from '../middleware/auth'
 import { insightsGet } from '../services/insights'
 import { devRoleSwitch } from '../services/dev'
@@ -37,7 +37,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     async (c) => {
       const r = req(c)
       const schoolId = r.param('id')
-      if (schoolId !== deps.schoolId(r.env)) throw new HttpError('not_found', 'school not found')
+      if (schoolId !== deps.schoolId(r.env)) throw new AltamyraError('not_found', 'school not found')
       return r.json(AdminMembershipsListResponse, await r.school(membershipsList, { schoolId }))
     },
   )
@@ -50,7 +50,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     async (c) => {
       const r = req(c)
       const schoolId = r.param('id')
-      if (schoolId !== deps.schoolId(r.env)) throw new HttpError('not_found', 'school not found')
+      if (schoolId !== deps.schoolId(r.env)) throw new AltamyraError('not_found', 'school not found')
       const grant = await r.body(AdminMembershipBody)
       return r.json(AdminMembershipResponse, await r.school(membershipsAssign, { schoolId, grant }))
     },
@@ -58,7 +58,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
 
   /** Dev only: loads the fictional fixtures. 404 unless env ALTAMYRA_DEV_SEED is "true". */
   app.post('/dev/seed', async (c, next) => {
-    if (!deps.devSeedEnabled(c.env)) throw new HttpError('not_found', 'not found')
+    if (!deps.devSeedEnabled(c.env)) throw new AltamyraError('not_found', 'not found')
     await next()
   }, signedIn, async (c) => {
     const r = req(c)
@@ -72,7 +72,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
 
   /** Dev only: the roles the caller can act as, and the active one. */
   app.get('/dev/roles', async (c, next) => {
-    if (!deps.devSeedEnabled(c.env)) throw new HttpError('not_found', 'not found')
+    if (!deps.devSeedEnabled(c.env)) throw new AltamyraError('not_found', 'not found')
     await next()
   }, signedIn, async (c) => {
     const r = req(c)
@@ -81,7 +81,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
 
   /** Dev only: act as another role. Swaps the caller's memberships for a copy of the fixture user's. */
   app.post('/dev/role', async (c, next) => {
-    if (!deps.devSeedEnabled(c.env)) throw new HttpError('not_found', 'not found')
+    if (!deps.devSeedEnabled(c.env)) throw new AltamyraError('not_found', 'not found')
     await next()
   }, signedIn, async (c) => {
     const r = req(c)
@@ -98,7 +98,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     async (c) => {
       const r = req(c)
       const districtId = r.param('id')
-      if (districtId !== deps.districtId(r.env)) throw new HttpError('not_found', 'district not found')
+      if (districtId !== deps.districtId(r.env)) throw new AltamyraError('not_found', 'district not found')
       const groupBy = c.req.queries('groupBy')?.flatMap((g) => g.split(',')).filter(Boolean)
       const query = r.query(InsightsQuery, { period: c.req.query('period'), groupBy: groupBy?.length ? groupBy : undefined })
       return r.json(InsightsResponse, await r.insights(insightsGet, { districtId, ...query }))

@@ -1,6 +1,6 @@
 import type { MembershipRole } from '../contract/enums'
 import { userActor, type Actor, type StaffRole } from '../contract/permissions'
-import type { SqlExecutor } from '../db/sql'
+import type { SqlExecutor } from '../contract/ops'
 
 /**
  * Builds the caller's Actor from the school room (design doc "Request flow"):

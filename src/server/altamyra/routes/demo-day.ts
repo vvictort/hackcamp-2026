@@ -7,7 +7,7 @@ import { DEMO_IEP_SD23_TEXT, DEMO_LESSON, DEMO_PUNJABI_SAMPLE, DEMO_STUDENT, DEM
 import { devDemoStudent } from '../fixtures/demo-day'
 import { USER_IDS } from '../fixtures/school'
 import type { AltamyraEnv } from '../middleware/auth'
-import { HttpError } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
 import { devRoleSwitch } from '../services/dev'
 import type { Kit } from './context'
 import type { AltamyraRouteDeps } from './deps'
@@ -65,7 +65,7 @@ export function demoDayRoutes(app: Hono<AltamyraEnv>, kit: Kit, createInner: (de
   app.post(
     '/dev/demo-day',
     async (c, next) => {
-      if (!deps.devSeedEnabled(c.env)) throw new HttpError('not_found', 'not found')
+      if (!deps.devSeedEnabled(c.env)) throw new AltamyraError('not_found', 'not found')
       await next()
     },
     signedIn,

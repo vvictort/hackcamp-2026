@@ -1,28 +1,16 @@
-import { AltamyraError, ERROR_STATUS, type ErrorBody, type ErrorCode } from '../contract/errors'
+import { AltamyraError, ERROR_STATUS, type ErrorBody } from '../contract/errors'
 import type { OpResult } from '../contract/ops'
 import type { CanResult } from '../contract/permissions'
 
-/**
- * The one error type the Altamyra middleware and routes throw. It carries the
- * contract error code; status comes from ERROR_STATUS (409 version conflict,
- * 410 expired link). The Hono error handler turns it into { error: { code, message } }.
- */
-export class HttpError extends AltamyraError {
-  constructor(code: ErrorCode, message: string) {
-    super(code, message)
-    this.name = 'HttpError'
-  }
-}
-
-/** Maps a can() refusal to an HttpError: always 403. */
-export function httpErrorFromDeny(result: Extract<CanResult, { allowed: false }>): HttpError {
-  return new HttpError('forbidden', `Not allowed (${result.reason}).`)
+/** Maps a can() refusal to a 403. */
+export function httpErrorFromDeny(result: Extract<CanResult, { allowed: false }>): AltamyraError {
+  return new AltamyraError('forbidden', `Not allowed (${result.reason}).`)
 }
 
 /** Unwraps a room RPC result, or throws the op's error with its contract status. */
 export function unwrapOp<R>(result: OpResult<R>): R {
   if (result.ok) return result.value
-  throw new HttpError(result.error.code, result.error.message)
+  throw new AltamyraError(result.error.code, result.error.message)
 }
 
 export const jsonResponse = (body: unknown, status: number): Response =>

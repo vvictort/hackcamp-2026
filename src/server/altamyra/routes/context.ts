@@ -9,7 +9,8 @@ import { issuesOf } from '../contract/issues'
 import type { AltamyraRoomRpc, RoomOp } from '../contract/ops'
 import { can, type Actor, type CanOptions, type Capability } from '../contract/permissions'
 import { createAltamyraMiddleware, type AltamyraContext, type AltamyraEnv } from '../middleware/auth'
-import { errorResponse, HttpError, httpErrorFromDeny, unwrapOp } from '../middleware/errors'
+import { AltamyraError } from '../contract/errors'
+import { errorResponse, httpErrorFromDeny, unwrapOp } from '../middleware/errors'
 import { deidSchoolRoster, deidStudentNames } from '../services/deid'
 import { schoolDate } from '../services/student-common'
 import type { AltamyraRouteDeps } from './deps'
@@ -21,13 +22,11 @@ export function createKit(deps: AltamyraRouteDeps) {
   const mw = createAltamyraMiddleware({
     resolveUserId: deps.resolveUserId,
     schoolRoom: (env) => deps.rooms.school(env),
-    studentRoom: (env, studentId) => deps.rooms.student(env, studentId),
     schoolId: deps.schoolId,
-    now: deps.now,
   })
   /** Routes whose path has no student id take ?studentId= (contract StudentRefQuery). 400 without it. */
   const studentRef: MiddlewareHandler<AltamyraEnv> = async (c, next) => {
-    if (!c.req.query('studentId')) return errorResponse(new HttpError('bad_request', 'studentId query parameter is required')) ?? undefined
+    if (!c.req.query('studentId')) return errorResponse(new AltamyraError('bad_request', 'studentId query parameter is required')) ?? undefined
     await next()
   }
   return { deps, mw, signedIn: mw.altamyraAuth(), studentRef, req: (c: AltamyraContext) => new Req(deps, c) }
@@ -63,14 +62,14 @@ export class Req {
 
   param(name: string): string {
     const v = this.c.req.param(name)
-    if (!v) throw new HttpError('bad_request', `missing path parameter ${name}`)
+    if (!v) throw new AltamyraError('bad_request', `missing path parameter ${name}`)
     return v
   }
 
   /** The student a route without :id acts on, from ?studentId= (checked by requireCapability). */
   studentRef(): string {
     const id = this.c.req.query('studentId')
-    if (!id) throw new HttpError('bad_request', 'studentId query parameter is required')
+    if (!id) throw new AltamyraError('bad_request', 'studentId query parameter is required')
     return id
   }
 
@@ -82,28 +81,28 @@ export class Req {
       try {
         raw = JSON.parse(text)
       } catch {
-        throw new HttpError('bad_request', 'request body must be JSON')
+        throw new AltamyraError('bad_request', 'request body must be JSON')
       }
     }
     const parsed = schema.safeParse(raw)
-    if (!parsed.success) throw new HttpError('bad_request', issuesOf(parsed.error, 'body').join('; '))
+    if (!parsed.success) throw new AltamyraError('bad_request', issuesOf(parsed.error, 'body').join('; '))
     return parsed.data
   }
 
   query<S extends z.ZodType>(schema: S, raw: Record<string, unknown> = this.c.req.query()): z.output<S> {
     const parsed = schema.safeParse(raw)
-    if (!parsed.success) throw new HttpError('bad_request', issuesOf(parsed.error, 'body').join('; '))
+    if (!parsed.success) throw new AltamyraError('bad_request', issuesOf(parsed.error, 'body').join('; '))
     return parsed.data
   }
 
   /** NFR Security: the permission matrix, checked server-side. 403, or 410 for an expired link. */
   allow(capability: Capability, studentId: string | null, opts: CanOptions = {}): void {
-    const result = can(this.actor, capability, studentId, { now: this.now(), ...opts })
+    const result = can(this.actor, capability, studentId, opts)
     if (!result.allowed) throw httpErrorFromDeny(result)
   }
 
   can(capability: Capability, studentId: string | null, opts: CanOptions = {}): boolean {
-    return can(this.actor, capability, studentId, { now: this.now(), ...opts }).allowed
+    return can(this.actor, capability, studentId, opts).allowed
   }
 
   /** Student ids the caller holds any staff role for (parents excluded). */

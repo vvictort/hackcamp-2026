@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { opErr, opOk } from '../contract/ops'
-import type { SqlExecutor } from '../db/sql'
+import { opErr, opOk, type SqlExecutor } from '../contract/ops'
 import { STUDENT_IDS } from '../fixtures/school'
 import { schoolOps, studentOps } from '../services/registry'
 import { closeAll, schoolRoom, studentRoom } from '../e2e/testing'

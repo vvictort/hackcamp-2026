@@ -26,7 +26,6 @@ import { AltamyraError } from '../contract/errors'
 import type { CapturePageResult } from '../contract/school'
 import type { Check } from '../contract/student'
 import type { AltamyraEnv } from '../middleware/auth'
-import { HttpError } from '../middleware/errors'
 import { captureBatchesCreate, captureBatchesGet, checksForScoring } from '../services/integration'
 import { notesAdd, videosAdd } from '../services/day-record'
 import { lensSaveRun } from '../services/lens'
@@ -99,11 +98,11 @@ export const MAX_PHOTO_BYTES = 7 * 1024 * 1024
  */
 export function normalizePhotoPage(page: MediaRef): MediaRef {
   const contentType = (page.contentType.split(';')[0] ?? '').trim().toLowerCase().replace('image/jpg', 'image/jpeg')
-  if (!PHOTO_TYPES.has(contentType)) throw new HttpError('bad_request', 'Photos must be PNG, JPEG, WebP or HEIC images.')
+  if (!PHOTO_TYPES.has(contentType)) throw new AltamyraError('bad_request', 'Photos must be PNG, JPEG, WebP or HEIC images.')
   if (page.bytesBase64 === undefined) return { ...page, contentType }
   const bytesBase64 = page.bytesBase64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '')
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(bytesBase64)) throw new HttpError('bad_request', 'The photo is not valid base64.')
-  if ((bytesBase64.length * 3) / 4 > MAX_PHOTO_BYTES) throw new HttpError('bad_request', 'A photo must be 7 MB or smaller.')
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(bytesBase64)) throw new AltamyraError('bad_request', 'The photo is not valid base64.')
+  if ((bytesBase64.length * 3) / 4 > MAX_PHOTO_BYTES) throw new AltamyraError('bad_request', 'A photo must be 7 MB or smaller.')
   return { ...page, contentType, bytesBase64 }
 }
 
@@ -131,7 +130,7 @@ async function resolvePages(r: Req, rawPages: MediaRef[]): Promise<ResolvedPage[
 /** An upload key must stay inside the caller's own upload scope: no absolute paths, traversal or odd characters. */
 function assertUploadKey(key: string): void {
   if (key.startsWith('/') || key.includes('\\') || /[\u0000-\u001f]/.test(key) || key.split('/').some((seg) => seg === '' || seg === '.' || seg === '..')) {
-    throw new HttpError('bad_request', 'That file location is not valid. Upload the file again.')
+    throw new AltamyraError('bad_request', 'That file location is not valid. Upload the file again.')
   }
 }
 
@@ -246,13 +245,13 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
    */
   app.post('/captures/sample-sheet', signedIn, async (c) => {
     const r = req(c)
-    if (!deps.devSeedEnabled(r.env)) throw new HttpError('not_found', 'not found')
+    if (!deps.devSeedEnabled(r.env)) throw new AltamyraError('not_found', 'not found')
     const { studentId } = await r.body(SampleSheetBody)
     r.allow('lesson_plan.edit', studentId)
     const { objectives } = await r.student(studentId, objectivesList)
     const confirmed = objectives.filter((o) => o.status === 'confirmed')
     const objective = confirmed.find((o) => o.metricType === 'accuracy') ?? confirmed[0]
-    if (!objective) throw new HttpError('bad_request', 'This student has no confirmed goal to score against.')
+    if (!objective) throw new AltamyraError('bad_request', 'This student has no confirmed goal to score against.')
     let classId: string | null = null
     for (const cls of (await r.school(classesList)).classes) {
       if ((await r.school(rosterList, { classId: cls.id })).studentIds.includes(studentId)) {
@@ -260,7 +259,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
         break
       }
     }
-    if (!classId) throw new HttpError('bad_request', 'This student is not on a class roster.')
+    if (!classId) throw new AltamyraError('bad_request', 'This student is not on a class roster.')
     const { lesson } = await r.school(lessonsCreate, {
       classId,
       title: 'Sample sheet: number facts',
@@ -303,7 +302,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
       ],
     })
     const check = run.checks[0]
-    if (!check) throw new HttpError('bad_request', 'The sample check could not be created.')
+    if (!check) throw new AltamyraError('bad_request', 'The sample check could not be created.')
     const { sheetCode } = await r.school(sheetCodesIssue, { studentId, lessonId: lesson.id, checkId: check.id })
     return r.json(SampleSheetResponse, { code: sheetCode.code, studentId, checkId: check.id })
   })
@@ -332,7 +331,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     }
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('voice_note'))) {
       await deleteQuietly(r, audioFileKey, () => r.student(studentId, voiceNoteAudioDeleted, { audioFileKey, processed: false }))
-      throw new HttpError('forbidden', 'consent_required: voice notes need the parent or guardian\'s consent.')
+      throw new AltamyraError('forbidden', 'consent_required: voice notes need the parent or guardian\'s consent.')
     }
     let processed = false
     try {
@@ -377,7 +376,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     assertUploadKey(body.fileKey)
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('video'))) {
       await deleteQuietly(r, body.fileKey)
-      throw new HttpError('forbidden', "consent_required: videos need the parent or guardian's consent.")
+      throw new AltamyraError('forbidden', "consent_required: videos need the parent or guardian's consent.")
     }
     const { video } = await r.student(studentId, videosAdd, {
       storageKey: body.fileKey,
@@ -395,7 +394,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const only = c.req.query('studentId')
     const reviewable = r.staffStudentIds().filter((id) => r.can('review.confirm', id, { recordedBy: r.actor.userId }))
     // Case managers, parents and everyone else without an EA or teacher role are refused outright.
-    if (reviewable.length === 0) throw new HttpError('forbidden', 'Only the EA or teacher who captured an entry reviews it.')
+    if (reviewable.length === 0) throw new AltamyraError('forbidden', 'Only the EA or teacher who captured an entry reviews it.')
     const items = []
     for (const studentId of reviewable) {
       if (only && only !== studentId) continue
@@ -441,7 +440,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   /** Live timeline socket; the room sends data point ids only, clients refetch through the scoped API. */
   app.get('/students/:id/live', signedIn, mw.requireCapability('progress.view'), async (c) => {
     const r = req(c)
-    if (!deps.openLive) throw new HttpError('not_found', 'live timeline is not available')
+    if (!deps.openLive) throw new AltamyraError('not_found', 'live timeline is not available')
     return deps.openLive(r.env, r.param('id'), c.req.raw)
   })
 }

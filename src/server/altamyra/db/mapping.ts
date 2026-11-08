@@ -1,4 +1,4 @@
-import type { SqlExecutor, SqlParam } from './sql'
+import type { SqlExecutor, SqlParam } from '../contract/ops'
 
 /**
  * Row <-> entity mapping shared by all repositories.

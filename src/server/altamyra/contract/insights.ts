@@ -42,5 +42,3 @@ export type CounterIncrement = z.infer<typeof CounterIncrement>
 export const INSIGHT_DIMENSIONS = ['schoolId', 'goalArea', 'proficiencyLevel', 'label', 'reviewTimeliness', 'goalProgress', 'period'] as const
 export const InsightDimension = z.enum(INSIGHT_DIMENSIONS)
 export type InsightDimension = z.infer<typeof InsightDimension>
-
-export const INSIGHTS_TABLES = ['counters'] as const

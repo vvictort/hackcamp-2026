@@ -30,12 +30,7 @@ export class AltamyraError extends Error {
     this.name = 'AltamyraError'
     this.code = code
   }
-  get status(): number {
-    return ERROR_STATUS[this.code]
-  }
   toBody(): ErrorBody {
     return { error: { code: this.code, message: this.message } }
   }
 }
-
-export const isAltamyraError = (e: unknown): e is AltamyraError => e instanceof AltamyraError
