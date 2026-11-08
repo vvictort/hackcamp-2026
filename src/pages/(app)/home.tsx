@@ -1,12 +1,12 @@
 /**
  * Altamira dashboard. Everything comes from the /api/v1 backend: Pulse is goal
  * data coverage (fresh, stale, data needed), Coming up is today's schedule and
- * the digest lists decision-rule alerts. The dev panel (load demo data, act as
+ * Parents, district leads and school administrators are sent to their own page. The dev panel (load demo data, act as
  * a role) shows only when the backend has ALTAMIRA_DEV_SEED=true.
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
 import { ArrowUpRight, CalendarDays, ClipboardCheck, FlaskConical, Hourglass, type LucideIcon } from 'lucide-react'
 import {
@@ -35,23 +35,18 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useLang } from '@/i18n'
 import { T } from '@/i18n/rich'
 import type { MessageKey } from '@/i18n/en'
-import { apiGet, apiPost, type ComingUpItem, type DigestItem } from '@/lib/altamira/api'
+import { apiGet, apiPost, type ComingUpItem } from '@/lib/altamira/api'
+import { canOpen, START_PATH } from '@/lib/altamira/RoleGate'
 import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
 import { coverageOf, tallyCoverage, type Coverage, type CoverageCounts, type GoalStatusLite } from '@/lib/altamira/coverage'
 
 const ROLE_LABEL: Record<AltamiraRole, MessageKey> = {
-  case_manager: 'app.role.case_manager',
-  teacher: 'app.role.teacher',
   ea: 'app.role.ea',
+  teacher: 'app.role.teacher',
+  case_manager: 'app.role.case_manager',
   parent: 'app.role.parent',
-  student: 'app.role.student',
   district_lead: 'app.role.district_lead',
-}
-
-const RULE_LABEL: Record<DigestItem['decision']['rule'], MessageKey> = {
-  below_aimline: 'app.home.ruleBelow',
-  above_aimline: 'app.home.ruleAbove',
-  data_needed: 'app.home.ruleDataNeeded',
+  school_admin: 'app.role.school_admin',
 }
 
 const UP_META: Record<ComingUpItem['kind'], { Icon: LucideIcon; key: MessageKey; to: (id: string) => string }> = {
@@ -71,7 +66,6 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [pulse, setPulse] = useState<Pulse | null>(null)
-  const [digest, setDigest] = useState<DigestItem[]>([])
   const [upcoming, setUpcoming] = useState<ComingUpItem[]>([])
 
   const staffStudents = me ? (me.caseload.length ? me.caseload : me.students) : []
@@ -94,11 +88,6 @@ export default function HomePage() {
     )
     setPulse({ counts: tallyCoverage(statuses.map(coverageOf)), total: statuses.length })
     try {
-      setDigest((await apiGet<{ items: DigestItem[] }>('/me/digest')).items)
-    } catch {
-      setDigest([])
-    }
-    try {
       setUpcoming((await apiGet<{ items: ComingUpItem[] }>('/me/coming-up')).items)
     } catch {
       setUpcoming([])
@@ -106,7 +95,7 @@ export default function HomePage() {
   }, [staffKey])
 
   useEffect(() => {
-    if (me && role !== 'parent' && role !== 'student' && role !== 'district_lead') void loadPulse()
+    if (me && (role === 'ea' || role === 'teacher' || role === 'case_manager')) void loadPulse()
     else {
       setPulse(null)
       setUpcoming([])
@@ -134,6 +123,8 @@ export default function HomePage() {
   )
   const todayIso = new Date().toLocaleDateString('en-CA')
   const freshPct = pulse && pulse.total ? Math.round((pulse.counts.fresh / pulse.total) * 100) : 0
+
+  if (!loading && role && START_PATH[role] !== '/home' && !devEnabled) return <Navigate to={START_PATH[role]} replace />
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
@@ -240,7 +231,7 @@ export default function HomePage() {
                     <span className="text-body">{b.lessonTitle ? `${b.className}: ${b.lessonTitle}` : b.className}</span>
                   </li>
                 ))}
-                {upcoming.map((u, i) => {
+                {upcoming.filter((u) => canOpen(UP_META[u.kind].to(u.studentId).split('/').slice(0, 2).join('/'), role)).map((u, i) => {
                   const { Icon, key, to } = UP_META[u.kind]
                   return (
                     <li key={`${u.kind}-${u.studentId}-${i}`}>
@@ -258,26 +249,18 @@ export default function HomePage() {
             )}
           </Card>
 
-          {pulse && (
-            <Card title={t('app.home.digestTitle')} className="lg:col-span-1">
-              {digest.length === 0 ? (
-                <p className="text-body text-muted-foreground">{t('app.home.digestEmpty')}</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {digest.map((d) => (
-                    <li key={d.decision.id} className="flex items-center justify-between gap-3">
-                      <span className="text-body font-semibold">{tokenOf(d.studentId)}</span>
-                      <StatusBadge tone={d.decision.rule === 'above_aimline' ? 'success' : d.decision.rule === 'below_aimline' ? 'warning' : 'destructive'}>
-                        {t(RULE_LABEL[d.decision.rule])}
-                      </StatusBadge>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {role === 'ea' && (
+            <Card title={t('app.nav.ea')} className="lg:col-span-3">
+              <Link
+                to="/ea"
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-3 text-label font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                {t('app.nav.ea')} <ArrowUpRight className="size-4" aria-hidden />
+              </Link>
             </Card>
           )}
 
-          {(role === 'teacher' || role === 'case_manager') && (
+          {role === 'teacher' && (
             <Card title={t('app.home.lessonLens')} className="lg:col-span-3">
               <p className="text-body text-muted-foreground">{t('app.home.lensCardBody')}</p>
               <Link

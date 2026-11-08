@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('deepspace', () => ({ getAuthToken: vi.fn(async () => 'tok') }))
 
-import { buildProposalBody, createHandoff, getHandoff, importIepTimed, listParentInput, ratingEvent, saveProficiency, suggestProficiency } from './profile-api'
+import { importIepTimed, ratingEvent, saveProficiency, suggestProficiency } from './profile-api'
 
 function mockFetch(status: number, body: unknown) {
   const fn = vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))
@@ -13,16 +13,6 @@ afterEach(() => {
   vi.useRealTimers()
 })
 const first = (f: ReturnType<typeof mockFetch>) => f.mock.calls[0] as unknown as [string, RequestInit]
-
-describe('proposals', () => {
-  it('maps every form field to its own key', () => {
-    const b = buildProposalBody({ target: 'objective', goalId: 'g1', newText: ' Raise target to 80 ', reason: ' Met 3 times ', evidenceIds: ['d1'] })
-    expect(b).toEqual({ target: 'objective', change: { newText: 'Raise target to 80', goalId: 'g1', reason: 'Met 3 times' }, evidenceIds: ['d1'] })
-  })
-  it('leaves out an empty goal and reason', () => {
-    expect(buildProposalBody({ target: 'iep', goalId: null, newText: 'x', reason: '  ', evidenceIds: [] }).change).toEqual({ newText: 'x' })
-  })
-})
 
 describe('quick rating', () => {
   const o = (metricType: string, target = 4) => ({ id: 'o1', metricType, target }) as Parameters<typeof ratingEvent>[0]
@@ -60,22 +50,6 @@ describe('proficiency', () => {
     expect(url).toBe('/api/v1/goals/g%2F1/proficiency?studentId=s1')
     expect(JSON.parse(init.body as string)).toEqual({ narrative: null, level: 'Developing', period: '2026-11' })
     expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok')
-  })
-})
-
-describe('parent input and handoff', () => {
-  it('reads parent input', async () => {
-    const f = mockFetch(200, { inputs: [] })
-    await listParentInput('s1')
-    expect(first(f)[0]).toBe('/api/v1/students/s1/parent-input')
-  })
-  it('creates and opens a handoff', async () => {
-    const f = mockFetch(201, { handoff: { id: 'h1' } })
-    await createHandoff('s1', 'Ridge High')
-    expect(JSON.parse(first(f)[1].body as string)).toEqual({ toSchool: 'Ridge High' })
-    const g = mockFetch(200, { handoff: { id: 'h1' } })
-    await getHandoff('s1', 'h1')
-    expect(first(g)[0]).toBe('/api/v1/handoffs/h1?studentId=s1')
   })
 })
 

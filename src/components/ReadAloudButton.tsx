@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pause, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { useDraftsT } from '@/components/drafts/useDraftsT'
+import { useLang } from '@/i18n'
 import { playAloud, type Playback } from '@/lib/altamira/tts'
 
 /** Plays text aloud: Gemini audio from the server, else the browser voice. Icon + text, keyboard usable. */
 export function ReadAloudButton({ text, lang = 'en', studentId, className }: { text: string; lang?: string; studentId?: string; className?: string }) {
-  const t = useDraftsT()
+  const { t } = useLang()
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle')
   const [unavailable, setUnavailable] = useState(false)
   const current = useRef<Playback | null>(null)

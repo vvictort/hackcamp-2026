@@ -110,8 +110,6 @@ function SourceBody({ studentId, point }: { studentId: string; point: DataPoint 
           <p className="text-small text-muted-foreground">{s('students.source.photoDetail', { key: x.fileKey, item: x.itemId ?? '-' })}</p>
         </div>
       )
-    case 'student_response':
-      return <p>{s('students.source.studentResponse', { item: x.itemId })}</p>
     case 'ea_event':
       return <p>{s('students.source.eaEvent', { kind: x.eventKind.replace('_', ' ') })}</p>
     case 'usage':

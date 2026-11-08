@@ -6,8 +6,6 @@ import type {
   IepImportResponse,
   MeResponse,
   ObjectiveConfirmBody,
-  ProposalCreateBody,
-  ProposalResolveBody,
   StudentProfileResponse,
 } from '@/server/altamira/contract/api'
 import type {
@@ -15,11 +13,10 @@ import type {
   DataPointSourceResponse,
   IepConfirmResponse,
   ObjectivesResponse,
-  ProposalsResponse,
   TimelineResponse,
   WhatWorksResponse,
 } from '@/server/altamira/contract/api'
-import type { Objective, Proposal } from '@/server/altamira/contract/student'
+import type { Objective } from '@/server/altamira/contract/student'
 
 type R<T extends z.ZodType> = z.infer<T>
 
@@ -101,13 +98,6 @@ export const confirmObjective = (oid: string, studentId: string, body: Objective
   apiFetch<{ objective: Objective }>(`/objectives/${seg(oid)}/confirm`, { body, query: { studentId } })
 export const flagObjective = (oid: string, studentId: string, expectedVersion: number, reason: string) =>
   apiFetch<{ objective: Objective }>(`/objectives/${seg(oid)}/flag`, { body: { expectedVersion, reason }, query: { studentId } })
-
-export const createProposal = (id: string, body: ProposalCreateBody) =>
-  apiFetch<{ proposal: Proposal }>(`/students/${seg(id)}/proposals`, { body })
-export const listMyProposals = (status?: 'open' | 'accepted' | 'declined') =>
-  apiFetch<R<typeof ProposalsResponse>>('/me/proposals', { query: { status } })
-export const resolveProposal = (pid: string, studentId: string, body: ProposalResolveBody) =>
-  apiFetch<{ proposal: Proposal }>(`/proposals/${seg(pid)}/resolve`, { body, query: { studentId } })
 
 export const getTimeline = (id: string, objectiveId?: string) =>
   apiFetch<R<typeof TimelineResponse>>(`/students/${seg(id)}/timeline`, { query: { objectiveId } })
