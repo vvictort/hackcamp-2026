@@ -29,9 +29,6 @@ run_worker_first = ["/api/*", "/ws/*", "/internal/*", "/v1/*", "/_deepspace/*", 
 [vars]
 DEEPSPACE_APP_ID = "app_01M6W5E2JSMTVRXR1DSV6SPHGT"
 APP_NAME = "hackcamp-2026"
-# Exact comma-separated native callback URIs. Set this before deploying an
-# Expo client, for example: "myapp://auth/callback".
-NATIVE_AUTH_REDIRECT_URIS = ""
 
 [[migrations]]
 tag = "v1"
