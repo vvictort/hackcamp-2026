@@ -128,6 +128,23 @@ async function resolvePages(r: Req, rawPages: MediaRef[]): Promise<ResolvedPage[
 }
 
 /** Demo sheets (file key "sample-sheet-code-...") are only recognised when the dev seed is on. */
+/** An upload key must stay inside the caller's own upload scope: no absolute paths, traversal or odd characters. */
+function assertUploadKey(key: string): void {
+  if (key.startsWith('/') || key.includes('\\') || /[\u0000-\u001f]/.test(key) || key.split('/').some((seg) => seg === '' || seg === '.' || seg === '..')) {
+    throw new HttpError('bad_request', 'That file location is not valid. Upload the file again.')
+  }
+}
+
+/** No-consent cleanup: a failed delete is logged and never changes the 403 the caller gets. */
+async function deleteQuietly(r: Req, fileKey: string, afterDelete?: () => Promise<unknown>): Promise<void> {
+  try {
+    await r.deps.deleteFile(r.env, fileKey, r.actor.userId)
+    await afterDelete?.()
+  } catch (err) {
+    console.error('altamira: consent-refused upload could not be deleted', { fileKey, reason: err instanceof Error ? err.message : String(err) })
+  }
+}
+
 const isSampleSheet = (r: Req, page: MediaRef) => r.deps.devSeedEnabled(r.env) && /sample-sheet-code/i.test(page.fileKey)
 
 /**
@@ -211,6 +228,16 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   app.get('/students/:id/capture-objectives', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
     const r = req(c)
     return r.json(CaptureObjectivesResponse, await r.student(r.param('id'), objectivesForCapture))
+  })
+
+  /** Whether the family allows voice notes and videos, so the capture screen can show the state before anything is recorded. */
+  app.get('/students/:id/capture-consent', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
+    const r = req(c)
+    const room = deps.rooms.student(r.env, r.param('id'))
+    return r.json(z.object({ voiceNote: z.boolean(), video: z.boolean() }), {
+      voiceNote: await room.hasConsent('voice_note'),
+      video: await room.hasConsent('video'),
+    })
   })
 
   /**
@@ -299,12 +326,13 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const studentId = r.param('id')
     const body = await r.body(VoiceNoteBody)
     const audioFileKey = body.audio.fileKey
+    assertUploadKey(audioFileKey)
     const deleteAudio = async (processed: boolean) => {
       await deps.deleteFile(r.env, audioFileKey, r.actor.userId)
       await r.student(studentId, voiceNoteAudioDeleted, { audioFileKey, processed })
     }
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('voice_note'))) {
-      await deleteAudio(false)
+      await deleteQuietly(r, audioFileKey, () => r.student(studentId, voiceNoteAudioDeleted, { audioFileKey, processed: false }))
       throw new HttpError('forbidden', 'consent_required: voice notes need the parent or guardian\'s consent.')
     }
     let processed = false
@@ -347,8 +375,9 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     const studentId = r.param('id')
     const body = await r.body(VideoBody)
+    assertUploadKey(body.fileKey)
     if (!(await deps.rooms.student(r.env, studentId).hasConsent('video'))) {
-      await deps.deleteFile(r.env, body.fileKey, r.actor.userId)
+      await deleteQuietly(r, body.fileKey)
       throw new HttpError('forbidden', "consent_required: videos need the parent or guardian's consent.")
     }
     const { video } = await r.student(studentId, videosAdd, {

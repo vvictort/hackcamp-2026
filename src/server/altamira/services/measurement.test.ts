@@ -36,6 +36,8 @@ describe('IEP import and confirmation', () => {
     expect(goals).toEqual([
       { iep_version: 1, status: 'closed' },
       { iep_version: 1, status: 'closed' },
+      { iep_version: 1, status: 'closed' },
+      { iep_version: 1, status: 'closed' },
       { iep_version: 2, status: 'active' },
     ])
   })

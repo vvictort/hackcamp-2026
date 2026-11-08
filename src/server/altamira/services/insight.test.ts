@@ -13,15 +13,15 @@ describe('data needed scan (PRD 1B, principle 6)', () => {
     const now = (d: number) => new Date(Date.parse('2026-11-01T12:00:00.000Z') + (d - 1) * 86_400_000).toISOString()
     type Scan = { scheduled: string[]; probes: string[]; alerted: string[] }
     const scan = (d: number) => runStudent<Scan>(sql, 'dataNeeded.scan', { studentId: kai, now: now(d) }, ACTORS.system)
-    expect(scan(7).scheduled).toHaveLength(2)
+    expect(scan(7).scheduled).toHaveLength(4)
     // The first attempt is still open: daily scans do not count as attempts.
     expect(scan(8)).toEqual({ scheduled: [], probes: [], alerted: [] })
     // One school week without data: attempt 1 failed, attempt 2 is scheduled.
-    expect(scan(14).scheduled).toHaveLength(2)
+    expect(scan(14).scheduled).toHaveLength(4)
     expect(scan(20).alerted).toEqual([])
     const alert = scan(21)
     expect(alert.scheduled).toEqual([])
-    expect(alert.alerted).toHaveLength(2)
+    expect(alert.alerted).toHaveLength(4)
     expect(scan(22).alerted).toEqual([])
     expect(sql.all<{ rule: string }>('SELECT rule FROM decisions').every((d) => d.rule === 'data_needed')).toBe(true)
   })
