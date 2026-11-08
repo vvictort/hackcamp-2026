@@ -32,12 +32,13 @@ export default function AppLayout() {
       <title>{APP_NAME}</title>
       <AuthBoot>
         {/* Grey canvas; the nav rail floats as a white card and pages lay their
-            own cards directly on the canvas (full-bleed on phones). */}
+            own cards directly on the canvas. <main> owns the page gutter, so
+            pages add none of their own. */}
         <div className="min-h-screen bg-background">
-          <div className="mx-auto flex min-h-screen max-w-[1480px] flex-col lg:flex-row lg:gap-8 lg:p-6">
+          <div className="mx-auto flex min-h-screen max-w-370 flex-col lg:flex-row lg:gap-8 lg:p-6">
             <Navigation />
-            <main className="min-w-0 flex-1">
-              <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">Loading...</div>}>
+            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-0 lg:py-0">
+              <Suspense fallback={<div role="status" className="flex h-full items-center justify-center text-muted-foreground">Loading...</div>}>
                 <Outlet />
               </Suspense>
             </main>

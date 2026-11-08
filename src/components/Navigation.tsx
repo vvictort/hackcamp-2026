@@ -25,14 +25,14 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react'
-import { APP_NAME } from '../constants'
 import { nav } from '../nav'
-import { LogoMark } from './LogoMark'
-import { cn } from '../lib/utils'
+import { Logo } from './LogoMark'
+import { cn, initialOf } from '../lib/utils'
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -59,10 +59,6 @@ const PLANNED: Item[] = [
   { label: 'Team', Icon: Handshake },
 ]
 
-function Mark() {
-  return <LogoMark className="size-11" />
-}
-
 export default function Navigation() {
   const { isLoaded, isSignedIn, user, userLoading } = useAuthProfileReady({ requireUser: true })
   const location = useLocation()
@@ -83,7 +79,7 @@ export default function Navigation() {
         ? 'bg-primary text-primary-foreground lg:shadow-ink'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
     )
-    const icon = <item.Icon className="size-[1.375rem]" strokeWidth={1.9} aria-hidden />
+    const icon = <item.Icon className="size-5.5" strokeWidth={1.9} aria-hidden />
     const control = item.to ? (
       <Link to={item.to} aria-label={item.label} aria-current={active ? 'page' : undefined} className={className}>
         {icon}
@@ -115,20 +111,17 @@ export default function Navigation() {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <button
-              aria-label="Account menu"
-              className="inline-flex size-12 cursor-pointer items-center justify-center rounded-full bg-card shadow-raised transition-shadow hover:shadow-lift"
-            >
+            <Button variant="raised" size="icon" aria-label="Account menu" className="size-12">
               <Avatar className="size-10">
                 <AvatarImage src={user.imageUrl ?? undefined} referrerPolicy="no-referrer" />
                 <AvatarFallback className="bg-secondary text-label font-bold text-foreground">
-                  {(user.name?.[0] ?? user.email?.[0] ?? '?').toUpperCase()}
+                  {initialOf(user)}
                 </AvatarFallback>
               </Avatar>
               <span data-testid="nav-user-name" className="sr-only">
                 {user.name || user.email}
               </span>
-            </button>
+            </Button>
           }
         />
         <DropdownMenuContent align="end" className="w-64">
@@ -146,15 +139,10 @@ export default function Navigation() {
         </DropdownMenuContent>
       </DropdownMenu>
     ) : (
-      <button
-        type="button"
-        data-testid="nav-sign-in-button"
-        onClick={() => setShowAuthModal(true)}
-        className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-primary px-4 text-label font-semibold text-primary-foreground shadow-ink transition-colors hover:bg-primary-soft lg:size-12 lg:px-0"
-      >
+      <Button data-testid="nav-sign-in-button" onClick={() => setShowAuthModal(true)} className="h-12 lg:size-12 lg:px-0">
         <LogIn className="size-5" aria-hidden />
         <span className="lg:sr-only">Sign in</span>
-      </button>
+      </Button>
     )
 
   return (
@@ -162,14 +150,13 @@ export default function Navigation() {
       <nav
         data-testid="app-navigation"
         aria-label="Main"
-        className="sticky top-0 z-20 shrink-0 border-b border-border bg-card lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[5.5rem] lg:rounded-2xl lg:border-b-0 lg:py-6 lg:shadow-raised"
+        className="sticky top-0 z-20 shrink-0 border-b border-border bg-card lg:top-6 lg:h-[calc(100dvh-3rem)] lg:w-22 lg:rounded-2xl lg:border-b-0 lg:py-6 lg:shadow-raised"
       >
         {/* Phones: brand + account on one row, icons in a scrollable row below.
             lg: the same elements stack into a vertical rail, account last. */}
         <div className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 lg:flex lg:h-full lg:flex-col lg:gap-10 lg:p-0">
-          <Link to="/home" className="flex items-center gap-3 justify-self-start rounded-md text-h2 font-bold">
-            <Mark />
-            <span className="lg:sr-only">{APP_NAME}</span>
+          <Link to="/home" className="justify-self-start rounded-md">
+            <Logo className="gap-3 text-h2" markClassName="size-11" labelClassName="lg:sr-only" />
           </Link>
           <div className="lg:order-last lg:mt-auto">{account}</div>
           <ul className="col-span-2 -mx-1 flex justify-between overflow-x-auto p-1 lg:mx-0 lg:flex-col lg:items-center lg:justify-start lg:gap-3 lg:overflow-visible lg:p-0">

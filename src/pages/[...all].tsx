@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { APP_NAME } from '../constants'
-import { buttonVariants } from '../components/ui/Button'
+import { buttonVariants } from '@/components/ui'
 
 export default function NotFound() {
   return (
