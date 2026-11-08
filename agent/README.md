@@ -8,14 +8,14 @@ It runs on [Maritime](https://maritime.sh) as a custom container.
   - `{"task":"lesson-lens", ...}` returns a JSON string `{ "suggestions": [...], "source": "gemini" | "rules" }`. There are at most 2 suggestions per student, `text` and `why` are at most 300 characters, and `kind` is `modification` only when the learning outcome changes.
   - `{"task":"feedback", ...}` returns `ok` and stores the decision in `$DATA_DIR/<teacher>.json` (the 50 most recent). The latest approved and rejected items go to Gemini as examples on that teacher's next lesson-lens call.
 - It calls Gemini over REST (`GEMINI_API_KEY`, `GEMINI_MODEL`, default `gemini-3.5-flash-lite`) with a 20 s timeout. With no key, or if the call fails, a keyword rules engine answers with `source: "rules"`.
-- If `AGENT_TOKEN` is set, `/chat` needs `Authorization: Bearer <AGENT_TOKEN>`. `/health` stays open.
+- Optional `AGENT_TOKEN`: if set, `/chat` needs `Authorization: Bearer <AGENT_TOKEN>` (`/health` stays open). Only for a self-hosted, publicly exposed copy; leave it unset on Maritime (see below).
 - Privacy: it only sees pseudonyms ("Student A") and an opaque teacher hash. The app keeps names, ids and emails to itself. The server never logs request bodies, the token or the key.
 
 | Env | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `8080` | Maritime injects it. Do not set it there. |
 | `DATA_DIR` | `/data` | Maritime keeps `/data` across sleep, restart and redeploy. |
-| `AGENT_TOKEN` | unset | Secret. |
+| `AGENT_TOKEN` | unset | Secret. Leave unset on Maritime: its chat API does not forward it. |
 | `GEMINI_API_KEY` | unset | Secret. |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | A fast lite model: Flash models that think first (for example `gemini-3.8-flash`) can exceed the 20 s budget, and `gemini-2.5-flash` returns 404 for new keys. Either way the agent silently answers with `rules`, so if `source` stays `rules`, check the model first. |
 
@@ -62,24 +62,44 @@ maritime create altamyra-lesson-lens --repo https://github.com/vvictort/hackcamp
 maritime deploy altamyra-lesson-lens --source github --repo https://github.com/vvictort/hackcamp-2026 --branch lesson-lens-agent --wait --json
 ```
 
+What worked for Altamyra (2a, from the local folder). `agents create --from-dir` sets no exposed web
+port, so the agent has no public URL: it is reached only through Maritime's chat API, which needs your
+Maritime key. That makes `AGENT_TOKEN` unnecessary, and harmful: Maritime does not forward it, so with
+it set every chat returns `{"error":"unauthorized"}`.
+
 ```bash
-# 3. Secrets: set after create, never in the repo
-maritime env set altamyra-lesson-lens GEMINI_API_KEY=<key> AGENT_TOKEN=<long random string> --reload --json
+# 3. Secrets. Write them to a private file outside the repo, import, check, delete.
+install -m 600 /dev/null ~/altamyra-agent.env && nano ~/altamyra-agent.env   # GEMINI_API_KEY=...
+maritime env import altamyra-lesson-lens ~/altamyra-agent.env --json
+maritime env set altamyra-lesson-lens GEMINI_MODEL=gemini-3.5-flash-lite --no-secret --json
+maritime env list altamyra-lesson-lens --json && rm ~/altamyra-agent.env
 
-# 4. Public URL: https://<agent-id>.mtm.sh/ (shown as URL on the agent's Overview)
-maritime status altamyra-lesson-lens --json     # wait for "status": "active"; note the id
-maritime info altamyra-lesson-lens --json
-maritime agents url visibility <agent-id> public   # only if you did not pass --public at create
+# 4. Restart: the server reads its env at startup, so a "hot" env update is not enough.
+maritime restart altamyra-lesson-lens --json
+maritime status altamyra-lesson-lens --json      # wait for "active"; note the id
 
-# 5. Check it
-curl -s https://<agent-id>.mtm.sh/health
-maritime logs altamyra-lesson-lens --json
-maritime history altamyra-lesson-lens --json    # build failures (buildLog)
+# 5. Test through Maritime (fictional data); expect "source":"gemini" in a few seconds
+maritime agents chat <agent-id> --message '{"task":"lesson-lens","teacher":"demo0001","subject":"Numeracy","lesson":"Multiplication with arrays","students":[{"key":"Student A","goals":[{"id":"g1","area":"Math (modified)","text":"Count, compare and add groups to 20 with cubes","level":"Developing"}]}]}' --json
+
+# 6. A key for the app: chat is in the `deploy` scope (shown once; put it straight into .dev.vars)
+maritime keys create --name altamyra-app --scopes deploy --json
 ```
 
-The app's worker then calls `POST https://<agent-id>.mtm.sh/chat` with `Authorization: Bearer <AGENT_TOKEN>`.
+The app's worker calls `POST https://api.maritime.sh/api/agents/<agent-id>/chat` with
+`Authorization: Bearer <mk_ key>`. Set in `.dev.vars` (and the deploy secrets), then restart the dev server:
 
-Notes:
+```
+MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
+MARITIME_AGENT_TOKEN=<mk_ key with the deploy scope>
+```
 
-- `maritime chat altamyra-lesson-lens ...` and `POST https://api.maritime.sh/api/agents/<id>/chat` reach `/chat` through Maritime, which authenticates with your `mk_` key. They do not send `AGENT_TOKEN`, so with the token set they get `401`. Test with curl on the public URL instead. Or leave `AGENT_TOKEN` unset and use only the private API route.
-- The image runs as the non-root `node` user. If feedback saves fail with `internal error: EACCES` in the logs, `/data` is not writable for that user. Check with `maritime exec <agent-id> --body-json '{"command":"ls -ld /data"}' --json`.
+Troubleshooting:
+
+- `source` stays `rules`: check the model first. `gemini-2.5-flash` returns 404 for new keys, and thinking
+  models such as `gemini-3.8-flash` took over 30 s (their thinking level can't be lowered to `minimal`).
+- `maritime logs` shows platform events, not this server's output. To diagnose from inside the agent:
+  `maritime exec <agent-id> --body-json '{"command":"..."}' --json` (print status codes only, never the key).
+- The image runs as root on purpose: the owner of Maritime's `/data` mount isn't documented, and a non-root
+  user could fail to save feedback. The agent runs alone in its own micro-VM.
+- Redeploy code changes from this folder with `maritime agents upload-source` (see `--help`), or use the
+  GitHub branch route in 2b.

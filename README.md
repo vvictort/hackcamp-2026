@@ -43,6 +43,7 @@ Working in the app today: the landing page, sign-in and sign-up, the teacher das
 - **Styling:** Tailwind CSS v4 with design tokens in `src/styles.css`; Base UI primitives; `class-variance-authority` and `tailwind-merge`; `lucide-react` icons; Atkinson Hyperlegible font
 - **Backend:** a Cloudflare Worker (`worker.ts`) using Hono, with Durable Objects for record rooms
 - **AI and integrations:** DeepSpace's integration proxy (Claude, used for translation); the Vercel AI SDK for the in-app agent
+- **Lesson Lens agent:** a zero-dependency Node service on [Maritime](https://maritime.sh) calling Google Gemini (see [Lesson Lens on Maritime](#lesson-lens-on-maritime))
 - **Motion:** plain CSS and Tailwind only (shared timing tokens, no animation libraries), plus Lenis for smooth scrolling; everything is off under `prefers-reduced-motion`
 - **Languages:** 36 interface languages, machine-translated on first use and cached (see [Languages](#languages))
 - **Testing and tooling:** Vitest (unit), Playwright (smoke, API and end-to-end), ESLint, `tsc`
@@ -104,6 +105,35 @@ npx deepspace deploy # deploy to <app>.app.space
 ```
 
 Version control lives in the app's DeepSpace cloud repo by default (`npx deepspace push`). Commit before you deploy.
+
+## Lesson Lens on Maritime
+
+Lesson Lens suggestions come from an AI agent hosted on [Maritime](https://maritime.sh) (`agent/`), a small
+Node server that calls Google Gemini (`gemini-3.5-flash-lite`) and falls back to a rules engine if Gemini is
+unavailable. Each teacher's approvals and rejections are kept in the agent's persistent `/data` and used as
+examples next time, so suggestions adapt to the teacher.
+
+How it fits together:
+
+1. On the dashboard, a teacher clicks **Get suggestions** on a class in Today (optionally pasting lesson details).
+2. The `lessonLensSuggest` server action (`src/actions/lesson-lens.ts`) loads that teacher's own class and
+   students on the server, replaces every student name with "Student A, B…" (accent-, case- and
+   hyphen-insensitive, also inside pasted text), sends goal ids as `g1, g2…`, and hashes the teacher id.
+3. It calls Maritime's chat API (`POST https://api.maritime.sh/api/agents/<id>/chat`) with a `deploy`-scoped key.
+4. The reply is validated strictly (known students and goals only, `adaptation` or `modification`, length
+   limits), names are put back inside the app, and suggestions are saved as pending.
+5. The teacher approves or rejects each one in the Lesson Lens card. Approving a **modification** asks for
+   confirmation first, because it changes the learning outcome. Decisions are sent back to the agent (names removed).
+
+Configuration (`.dev.vars` locally, deploy secrets in production; restart the dev server after changing):
+
+```
+MARITIME_AGENT_URL=https://api.maritime.sh/api/agents/<agent-id>
+MARITIME_AGENT_TOKEN=<Maritime mk_ key with the deploy scope>
+```
+
+Without them, **Get suggestions** shows "Lesson Lens isn't connected yet." Deploying and testing the agent:
+see [agent/README.md](agent/README.md).
 
 ## Built with agents: Entire
 
