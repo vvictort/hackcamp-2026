@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
-import { ArrowUpRight, FlaskConical } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, ClipboardCheck, FlaskConical, Hourglass, type LucideIcon } from 'lucide-react'
 import {
   Button,
   Card,
@@ -29,7 +29,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useLang } from '@/i18n'
 import { T } from '@/i18n/rich'
 import type { MessageKey } from '@/i18n/en'
-import { apiGet, type DigestItem } from '@/lib/altamira/api'
+import { apiGet, type ComingUpItem, type DigestItem } from '@/lib/altamira/api'
 import { ALTAMIRA_ROLES, useAltamiraMe, type AltamiraRole } from '@/lib/altamira/role'
 import { coverageOf, tallyCoverage, type Coverage, type CoverageCounts, type GoalStatusLite } from '@/lib/altamira/coverage'
 
@@ -48,6 +48,12 @@ const RULE_LABEL: Record<DigestItem['decision']['rule'], MessageKey> = {
   data_needed: 'app.home.ruleDataNeeded',
 }
 
+const UP_META: Record<ComingUpItem['kind'], { Icon: LucideIcon; key: MessageKey; to: (id: string) => string }> = {
+  iep_meeting: { Icon: CalendarDays, key: 'app.home.upIep', to: (id) => `/students/${id}` },
+  review_queue: { Icon: ClipboardCheck, key: 'app.home.upReview', to: () => '/review' },
+  data_due: { Icon: Hourglass, key: 'app.home.upData', to: () => '/capture' },
+}
+
 type Pulse = { counts: CoverageCounts; total: number }
 
 export default function HomePage() {
@@ -59,6 +65,7 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false)
   const [pulse, setPulse] = useState<Pulse | null>(null)
   const [digest, setDigest] = useState<DigestItem[]>([])
+  const [upcoming, setUpcoming] = useState<ComingUpItem[]>([])
 
   const staffStudents = me ? (me.caseload.length ? me.caseload : me.students) : []
   const staffKey = staffStudents.map((s) => s.id).join(',')
@@ -84,11 +91,19 @@ export default function HomePage() {
     } catch {
       setDigest([])
     }
+    try {
+      setUpcoming((await apiGet<{ items: ComingUpItem[] }>('/me/coming-up')).items)
+    } catch {
+      setUpcoming([])
+    }
   }, [staffKey])
 
   useEffect(() => {
     if (me && role !== 'parent' && role !== 'student' && role !== 'district_lead') void loadPulse()
-    else setPulse(null)
+    else {
+      setPulse(null)
+      setUpcoming([])
+    }
   }, [me, role, loadPulse])
 
   const run = async (fn: () => Promise<void>, ok?: string) => {
@@ -110,6 +125,7 @@ export default function HomePage() {
       <span className="text-h2 font-extrabold tabular-nums">{pulse?.counts[key] ?? 0}</span>
     </li>
   )
+  const todayIso = new Date().toLocaleDateString('en-CA')
   const freshPct = pulse && pulse.total ? Math.round((pulse.counts.fresh / pulse.total) * 100) : 0
 
   return (
@@ -175,7 +191,7 @@ export default function HomePage() {
           )}
 
           <Card title={t('app.home.comingUp')} className="lg:col-span-1">
-            {me.todaySchedule.length === 0 ? (
+            {me.todaySchedule.length === 0 && upcoming.length === 0 ? (
               <p className="text-body text-muted-foreground">{t('app.home.nothingToday')}</p>
             ) : (
               <ul className="flex flex-col gap-3">
@@ -187,6 +203,20 @@ export default function HomePage() {
                     <span className="text-body">{b.lessonTitle ? `${b.className}: ${b.lessonTitle}` : b.className}</span>
                   </li>
                 ))}
+                {upcoming.map((u, i) => {
+                  const { Icon, key, to } = UP_META[u.kind]
+                  return (
+                    <li key={`${u.kind}-${u.studentId}-${i}`}>
+                      <Link to={to(u.studentId)} className="flex items-start gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2">
+                        <Icon className="mt-1 size-4 shrink-0" aria-hidden />
+                        <span className="flex flex-col">
+                          <span className="text-label font-semibold">{u.date === todayIso ? t('app.home.upToday') : u.date}</span>
+                          <span className="text-body">{t(key, { n: u.count ?? 0, student: tokenOf(u.studentId) })}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </Card>

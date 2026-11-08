@@ -9,9 +9,14 @@
  */
 import { app } from './en/app'
 import { auth } from './en/auth'
+import { capture } from './en/capture'
 import { common } from './en/common'
+import { drafts } from './en/drafts'
+import { insights } from './en/insights'
 import { landing } from './en/landing'
+import { lens } from './en/lens'
+import { students } from './en/students'
 
-export const en = { ...common, ...landing, ...app, ...auth } as const
+export const en = { ...common, ...landing, ...app, ...auth, ...lens, ...students, ...capture, ...drafts, ...insights } as const
 
 export type MessageKey = keyof typeof en
