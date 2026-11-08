@@ -124,7 +124,7 @@ function StudentProfileBody() {
           review: fmtDate(sec?.reviewDate) || "-",
         })}
         actions={
-          isCm && (
+          isCm && !sec && (
             <Button onClick={() => setImporting(true)}>
               <FileUp aria-hidden />
               {s("students.import.open")}
@@ -259,7 +259,6 @@ function StudentProfileBody() {
                   ["strengths", "students.strengths"],
                   ["accommodations", "students.accommodations"],
                   ["supports", "students.supports"],
-                  ["modifications", "students.modifications"],
                 ].map(([v, k]) => ({
                   value: `section:${v}`,
                   label: s("ticket.section", {

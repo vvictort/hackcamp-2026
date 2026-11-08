@@ -159,17 +159,19 @@ export const iepApplyTicket = defineOp({
     }
     const at = nowIso(args.now)
     const goals = goalsForVersion(sql, current.version)
-    let sections = addToSection(current.sections, args.target, args.proposedChange)
+    // The profile page names targets as "goal:<id>" or "section:<name>"; the bare forms work too.
+    const target = args.target.replace(/^(goal|section):/, '')
+    let sections = addToSection(current.sections, target, args.proposedChange)
     let newGoalText: string | null = null
     let replacedGoalId: string | null = null
-    if (!sections && args.target === 'goals') {
+    if (!sections && target === 'goals') {
       newGoalText = args.proposedChange
       sections = { ...current.sections, goals: [...current.sections.goals, { area: 'Added by change ticket', text: args.proposedChange }] }
     } else if (!sections) {
-      const goalId = goals.find((g) => g.id === args.target)?.id ?? objectiveById(sql, args.target)?.goalId
+      const goalId = goals.find((g) => g.id === target)?.id ?? objectiveById(sql, target)?.goalId
       const index = goals.findIndex((g) => g.id === goalId)
       if (!goalId || index < 0 || !current.sections.goals[index]) {
-        throw new AltamiraError('bad_request', `Unknown ticket target "${args.target}". Use ${[...LIST_SECTIONS, 'goals'].join(', ')} or a goal or objective id.`)
+        throw new AltamiraError('bad_request', `Unknown ticket target "${target}". Use ${[...LIST_SECTIONS, 'goals'].join(', ')} or a goal or objective id.`)
       }
       replacedGoalId = goalId
       sections = { ...current.sections, goals: current.sections.goals.map((g, i) => (i === index ? { ...g, text: args.proposedChange } : g)) }
@@ -202,7 +204,7 @@ export const iepApplyTicket = defineOp({
       'iep_versions',
       iep.id,
       { version: current.version },
-      { version, ticketId: args.ticketId, target: args.target, change: args.proposedChange },
+      { version, ticketId: args.ticketId, target, change: args.proposedChange },
       at,
     )
     return { iepVersion: version }
