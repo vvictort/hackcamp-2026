@@ -1,7 +1,7 @@
 import { appFiles, workerErrorHandler } from 'deepspace/worker'
 import type { Env } from '../../../../worker'
-import { fixtureRoster } from '../ai/fixture-data'
 import { getProvider } from '../ai/provider'
+import { DISTRICT, SCHOOL } from '../fixtures/school'
 import { defaultAuthDeps } from '../middleware'
 import { altamiraDistrictId, altamiraSchoolId, insightsRoom, openStudentLive, schoolRoom, studentRoom } from '../rooms/stubs'
 import { sheetCodeFromFileKey, type AltamiraRouteDeps } from './deps'
@@ -15,8 +15,9 @@ export const productionDeps: AltamiraRouteDeps = {
   },
   resolveUserId: defaultAuthDeps.resolveUserId,
   aiProvider: (env) => getProvider(env),
-  // Assumption: the de-identification roster is the fictional fixture roster until a roster export exists.
-  roster: () => fixtureRoster(),
+  // Real names come from the rooms per request (Req.ai). Assumption: this single-school deployment serves the
+  // fixture school until a school-name record exists, so its school and district names are the base roster.
+  roster: () => ({ students: [], people: [], schools: [SCHOOL.name, DISTRICT.name] }),
   schoolId: (env) => altamiraSchoolId(env),
   districtId: (env) => altamiraDistrictId(env),
   devSeedEnabled: (env) => (env as Env & { ALTAMIRA_DEV_SEED?: string }).ALTAMIRA_DEV_SEED === 'true',
