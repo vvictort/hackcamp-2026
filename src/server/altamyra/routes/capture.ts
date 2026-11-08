@@ -22,6 +22,9 @@ import {
   VoiceNoteResponse,
 } from '../contract/api'
 import { Id, type MediaRef } from '../contract/common'
+import type { AltamyraRoomRpc, RoomOp } from '../contract/ops'
+import type { Actor } from '../contract/permissions'
+import { unwrapOp } from '../middleware/errors'
 import { AltamyraError } from '../contract/errors'
 import type { CapturePageResult } from '../contract/school'
 import type { Check } from '../contract/student'
@@ -247,7 +250,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const r = req(c)
     if (!deps.devSeedEnabled(r.env)) throw new AltamyraError('not_found', 'not found')
     const { studentId } = await r.body(SampleSheetBody)
-    r.allow('lesson_plan.edit', studentId)
+    r.allow('evidence.capture', studentId)
     const { objectives } = await r.student(studentId, objectivesList)
     const confirmed = objectives.filter((o) => o.status === 'confirmed')
     const objective = confirmed.find((o) => o.metricType === 'accuracy') ?? confirmed[0]
@@ -260,13 +263,24 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
       }
     }
     if (!classId) throw new AltamyraError('bad_request', 'This student is not on a class roster.')
-    const { lesson } = await r.school(lessonsCreate, {
+    // The caller passed evidence.capture for this student (teacher or assigned EA). Building the sample lesson and check
+    // is teacher work, so this demo-only setup runs as the caller holding the teacher role for this one student and class.
+    const setupActor: Actor = {
+      ...r.actor,
+      studentRoles: { ...r.actor.studentRoles, [studentId]: [...new Set([...(r.actor.studentRoles[studentId] ?? []), 'teacher' as const])] },
+      classIds: [...new Set([...r.actor.classIds, classId])],
+    }
+    const asSetup = async <R>(room: AltamyraRoomRpc, op: RoomOp<unknown, R>, args: Record<string, unknown>): Promise<R> =>
+      unwrapOp(await room.run(op.name, { now: r.nowIso(), ...args }, setupActor)) as R
+    const schoolRoom = deps.rooms.school(r.env)
+    const { lesson } = await asSetup(schoolRoom, lessonsCreate, {
       classId,
       title: 'Sample sheet: number facts',
       sourceKind: 'text',
       text: 'Add and subtract within 10. Compare two numbers.',
     })
-    const run = await r.student(studentId, lensSaveRun, {
+    const run = await asSetup(deps.rooms.student(r.env, studentId), lensSaveRun, {
+      studentId,
       lessonId: lesson.id,
       analysisId: crypto.randomUUID(),
       subject: 'math',
@@ -303,7 +317,7 @@ export function captureRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     })
     const check = run.checks[0]
     if (!check) throw new AltamyraError('bad_request', 'The sample check could not be created.')
-    const { sheetCode } = await r.school(sheetCodesIssue, { studentId, lessonId: lesson.id, checkId: check.id })
+    const { sheetCode } = await asSetup(schoolRoom, sheetCodesIssue, { studentId, lessonId: lesson.id, checkId: check.id })
     return r.json(SampleSheetResponse, { code: sheetCode.code, studentId, checkId: check.id })
   })
 

@@ -10,7 +10,7 @@ import {
 import type { AltamyraEnv } from '../middleware/auth'
 import { familySummariesApprove, familySummariesList, summariesEdit, summariesPending } from '../services/summaries'
 import type { Kit } from './context'
-import { draftSummary, studentToken } from './student-flows'
+import { draftSummary, studentLabel, studentToken } from './student-flows'
 
 /** Daily, weekly and monthly summaries: AI drafts, edited and approved by the EA or teacher only. */
 export function summariesRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
@@ -45,8 +45,8 @@ export function summariesRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const r = req(c)
     const out = []
     for (const studentId of r.staffStudentIds().filter((id) => r.can('summary.edit', id))) {
-      const { token } = await studentToken(r, studentId)
-      for (const s of (await r.student(studentId, summariesPending)).summaries) out.push({ ...s, studentId, label: token })
+      const label = await studentLabel(r, studentId, (await studentToken(r, studentId)).token)
+      for (const s of (await r.student(studentId, summariesPending)).summaries) out.push({ ...s, studentId, label })
     }
     return r.json(PendingSummariesResponse, { summaries: out })
   })
@@ -56,9 +56,9 @@ export function summariesRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const r = req(c)
     const out = []
     for (const studentId of r.staffStudentIds().filter((id) => r.can('summary.caseload', id))) {
-      const { token } = await studentToken(r, studentId)
+      const label = await studentLabel(r, studentId, (await studentToken(r, studentId)).token)
       for (const s of (await r.student(studentId, familySummariesList, { kind: 'weekly' })).summaries) {
-        if (s.status === 'approved') out.push({ id: s.id, studentId, label: token, period: s.period, text: s.text, approvedAt: s.approvedAt })
+        if (s.status === 'approved') out.push({ id: s.id, studentId, label, period: s.period, text: s.text, approvedAt: s.approvedAt })
       }
     }
     out.sort((a, b) => b.period.localeCompare(a.period))

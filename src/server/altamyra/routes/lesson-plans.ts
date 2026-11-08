@@ -8,7 +8,7 @@ import { maritimeAgent, maritimeFeedback, teacherHash } from '../ai/providers/ma
 import { lensContext } from '../services/lens'
 import { composeTailored, lessonPlansApprove, lessonPlansCreate, lessonPlansForStudent, lessonPlansToday, lessonPlansUpdate, toProposedChanges, toView } from '../services/lesson-plans'
 import type { Kit, Req } from './context'
-import { studentToken } from './student-flows'
+import { studentLabel, studentToken } from './student-flows'
 
 const PlanResponse = z.object({ plan: LessonPlanView })
 const DateQuery = z.object({ date: DateString.optional() })
@@ -52,7 +52,10 @@ export function lessonPlanRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   /** Home screens: teacher sees every class student (draft or missing plan); EA and case manager see approved plans only. */
   app.get('/lesson-plans/today', signedIn, async (c) => {
     const r = req(c)
-    return r.json(PlansTodayResponse, await r.school(lessonPlansToday, { date: r.today() }))
+    const today = await r.school(lessonPlansToday, { date: r.today() })
+    for (const s of today.students) s.label = await studentLabel(r, s.studentId, s.label)
+    today.students.sort((a, b) => a.label.localeCompare(b.label))
+    return r.json(PlansTodayResponse, today)
   })
 
   app.get('/students/:id/lesson-plans', signedIn, mw.requireCapability('lesson_plan.view'), async (c) => {

@@ -117,7 +117,7 @@ function StudentProfileBody() {
     <div className="flex w-full max-w-4xl flex-col gap-6 lg:gap-8">
       {back}
       <PageHeader
-        title={p.displayToken}
+        title={sec?.student.preferredName || sec?.student.firstName || p.displayToken}
         description={t("students.profile.summary", {
           grade: p.grade,
           version: p.iepVersion ?? "-",

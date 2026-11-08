@@ -4,9 +4,28 @@ import { AltamyraError } from '../contract/errors'
 import type { Summary } from '../contract/student'
 import { devResetSchool, studentDevSeedDemo } from '../fixtures/demo'
 import { DISTRICT, SCHOOL, STUDENT_IDS, USER_IDS } from '../fixtures/school'
+import { deidStudentNames } from '../services/deid'
 import { schoolDevSeed, studentsGet } from '../services/school'
 import { familySummariesSave, summariesInputs, type SummaryInputs } from '../services/summaries'
 import type { Req } from './context'
+
+/**
+ * The name people at the school see for a student: the preferred name, else the first name, from the latest IEP.
+ * Only for the student's staff, their parents or guardians, and a school administrator. Null for anyone else, so a
+ * district lead never sees a name. Names never go to the AI: AI calls use the display token (ai/deidentify.ts).
+ */
+export async function studentName(r: Req, studentId: string): Promise<string | null> {
+  const a = r.actor
+  if (!(a.studentRoles[studentId]?.length || a.parentOf.includes(studentId) || a.schoolAdminOf.length)) return null
+  const { names } = await r.student(studentId, deidStudentNames)
+  const latest = names.at(-1)
+  return latest ? (latest.preferredName ?? latest.firstName) : null
+}
+
+/** The student's name when the caller may see it, else the display token. */
+export async function studentLabel(r: Req, studentId: string, token: string): Promise<string> {
+  return (await studentName(r, studentId)) ?? token
+}
 
 /** The student's de-identified display token and grade, shared by the capture, family and progress routes. */
 export async function studentToken(r: Req, studentId: string): Promise<{ token: string; grade: string }> {

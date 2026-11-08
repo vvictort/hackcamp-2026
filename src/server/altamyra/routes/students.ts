@@ -26,6 +26,7 @@ import { studentsGet } from '../services/school'
 import { parseCbIepText } from '../services/cbiep'
 import { extractPdfText } from '../../../lib/pdfText'
 import type { Kit } from './context'
+import { studentName } from './student-flows'
 
 /**
  * The CB-IEP text: pasted, or read from the PDF's text layer here, in the
@@ -57,6 +58,7 @@ export function studentRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
     const studentId = r.param('id')
     const { student } = await r.school(studentsGet, { studentId })
     const profile = await r.student(studentId, profileGet, { displayToken: student.displayToken, grade: student.grade })
+    if (profile.view === 'supports') profile.firstName = await studentName(r, studentId)
     return r.json(StudentProfileResponse, profile)
   })
 

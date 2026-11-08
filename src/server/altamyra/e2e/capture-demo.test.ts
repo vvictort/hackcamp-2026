@@ -32,6 +32,18 @@ describe('capture demo flow (sample sheet, fallback scoring, EA goals)', () => {
     expect(queue.body.items.some((i: { studentId: string }) => i.studentId === sofia)).toBe(true)
   })
 
+  it('an assigned EA can load the sample sheet; a case manager and an unassigned EA cannot', async () => {
+    const h = createHarness({ devSeed: true })
+    const sample = await h.post(U.ea, '/captures/sample-sheet', { studentId: kai })
+    expect(sample.status).toBe(200)
+    expect(sample.body.code).toMatch(/^AL-/)
+    const batch = await h.post(U.ea, '/captures/photos', { pages: [page(sample.body.code)] })
+    expect(batch.status).toBe(201)
+    expect(batch.body.batch.pages[0].status).toBe('scored')
+    expect((await h.post(U.caseManager, '/captures/sample-sheet', { studentId: kai })).status).toBe(403)
+    expect((await h.post(U.ea, '/captures/sample-sheet', { studentId: amara })).status).toBe(403)
+  })
+
   it('an assigned EA reads goals to record against and records an event; a stranger cannot', async () => {
     const h = createHarness()
     const goals = await h.get(U.ea, `/students/${kai}/capture-objectives`)

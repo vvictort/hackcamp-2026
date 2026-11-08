@@ -17,7 +17,7 @@ import { insightsGet } from '../services/insights'
 import { devRoleSwitch } from '../services/dev'
 import { adminDirectory, meOverview, membershipsAssign, membershipsList } from '../services/school'
 import type { Kit, Req } from './context'
-import { seedDemoSchool } from './student-flows'
+import { seedDemoSchool, studentName } from './student-flows'
 
 /** Me, Admin, dev seed and District Insights routes. */
 export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
@@ -26,6 +26,7 @@ export function meRoutes(app: Hono<AltamyraEnv>, kit: Kit): void {
   app.get('/me', signedIn, async (c) => {
     const r = req(c)
     const me = MeResponse.parse(await r.school(meOverview, { date: r.today() }))
+    for (const s of me.students) s.firstName = await studentName(r, s.id)
     // devSeed tells the UI whether to show demo controls; true only when ALTAMYRA_DEV_SEED === 'true'.
     return c.json({ ...me, schoolId: deps.schoolId(c.env), districtId: deps.districtId(c.env), devSeed: deps.devSeedEnabled(c.env) })
   })

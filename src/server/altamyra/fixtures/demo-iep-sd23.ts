@@ -15,8 +15,8 @@ export const DEMO_STUDENT = {
   preferredName: 'Simi',
   grade: '3',
   /** Home language of the family: the monthly family summary is translated into it. BCP 47 tag. */
-  homeLanguage: 'pa',
-  homeLanguageName: 'Punjabi',
+  homeLanguage: 'zh-Hans',
+  homeLanguageName: 'Chinese',
 } as const
 
 /** The fictional parent: a new user linked to the demo student only. */
@@ -33,7 +33,7 @@ Preferred Name: Simi
 PEN: FICT-000-123
 Grade: 3
 Birth Date: 2017-04-14
-Home Language: Punjabi
+Home Language: Chinese (Mandarin)
 Home School: Salmonberry Creek Elementary (fictional)
 Case Manager: Leila Ahmadi
 Designation: Autism Spectrum Disorder (BC Category G)
@@ -121,5 +121,5 @@ Group activity
 In groups of four, cut out the stage cards and arrange them in a circle on a large sheet of paper. Take turns reading one card aloud and tell your group where it goes. Present your life cycle circle to the class.`,
 } as const
 
-/** A short Punjabi sample translation, used only when the AI could not translate the monthly family summary (the fixture provider only writes English). */
-export const DEMO_PUNJABI_SAMPLE = 'ਇਸ ਮਹੀਨੇ ਤੁਹਾਡੇ ਬੱਚੇ ਨੇ ਆਪਣੇ ਟੀਚਿਆਂ ਉੱਤੇ ਕੰਮ ਕੀਤਾ। ਸਾਡੀ ਟੀਮ ਮਦਦ ਕਰ ਰਹੀ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਕਿਸੇ ਵੀ ਸਮੇਂ ਸਾਡੇ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।'
+/** A short Simplified Chinese sample translation, used only when the AI could not translate the monthly family summary (the fixture provider only writes English). */
+export const DEMO_TRANSLATION_SAMPLE = '这个月，您的孩子一直在为自己的目标努力。我们的团队正在提供帮助。如有任何问题，欢迎随时联系我们。'

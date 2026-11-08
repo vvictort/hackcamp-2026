@@ -48,7 +48,7 @@ describe('POST /dev/demo-day', () => {
     const parent = await h.get(DEMO_PARENT.id, `/family/${studentId}/summaries`)
     expect(parent.status).toBe(200)
     expect(parent.body.summaries).toHaveLength(1)
-    expect(parent.body.summaries[0]).toMatchObject({ kind: 'monthly', status: 'approved', language: 'pa' })
+    expect(parent.body.summaries[0]).toMatchObject({ kind: 'monthly', status: 'approved', language: 'zh-Hans' })
     expect(parent.body.summaries[0].translatedText).toBeTruthy()
     expect(parent.body.summaries[0].audioScript).toBeTruthy()
     expect((await h.get(DEMO_PARENT.id, '/me')).body.parentOf).toEqual([studentId])
@@ -93,5 +93,30 @@ describe('POST /dev/demo-day', () => {
     const b = await h.post(CALLER, '/dev/demo-day')
     expect(b.body.studentId).not.toBe(a.body.studentId)
     expect((b.body.steps as { ok: boolean }[]).filter((s) => !s.ok)).toEqual([])
+  })
+
+  it('logs only the events that match the objectives live AI proposed (no prompt-level objective)', async () => {
+    const h = createHarness({
+      seed: false,
+      devSeed: true,
+      ai: {
+        proposeObjectives: async (input: { goalId: string }) => ({
+          measurable: true as const,
+          goalId: input.goalId,
+          metricType: 'frequency' as const,
+          unit: 'times per day',
+          baselineMethod: 'Count for one week',
+          target: 5,
+          masteryRule: '5 a day for 2 weeks',
+          captureMethod: 'ea' as const,
+        }),
+      },
+    })
+    const res = await h.post(CALLER, '/dev/demo-day')
+    const steps = res.body.steps as { action: string; ok: boolean; detail: string }[]
+    const capture = steps.find((s) => s.action === 'Log a prompt level, a count and a timed break')
+    expect(capture, JSON.stringify(capture)).toMatchObject({ ok: true })
+    expect(capture?.detail).toContain('Saved a count of 5')
+    expect(capture?.detail).toContain('Skipped a gesture prompt, a 4 minute return to task')
   })
 })
