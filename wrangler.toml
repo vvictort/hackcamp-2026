@@ -42,6 +42,10 @@ new_sqlite_classes = ["AppRecordRoom", "AppYjsRoom", "AppCanvasRoom", "AppPresen
 tag = "v2"
 new_sqlite_classes = ["AltamyraStudentRoom", "AltamyraSchoolRoom", "AltamyraInsightsRoom"]
 
+[[migrations]]
+tag = "v3"
+deleted_classes = ["AppJobRoom"]
+
 [durable_objects]
 bindings = [
   { name = "RECORD_ROOMS", class_name = "AppRecordRoom" },
@@ -49,7 +53,6 @@ bindings = [
   { name = "CANVAS_ROOMS", class_name = "AppCanvasRoom" },
   { name = "PRESENCE_ROOMS", class_name = "AppPresenceRoom" },
   { name = "CRON_ROOMS", class_name = "AppCronRoom" },
-  { name = "JOB_ROOMS", class_name = "AppJobRoom" },
   { name = "STUDENT_ROOMS", class_name = "AltamyraStudentRoom" },
   { name = "SCHOOL_ROOMS", class_name = "AltamyraSchoolRoom" },
   { name = "INSIGHTS_ROOMS", class_name = "AltamyraInsightsRoom" },

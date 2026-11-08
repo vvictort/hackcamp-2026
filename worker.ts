@@ -3,7 +3,7 @@
  *
  * Backend / frontend split:
  *   backend  = this file + src/server/** (HTTP and realtime routes, AI agent
- *              and tools, integrations, jobs) + src/cron.ts (kept at the path
+ *              and tools, integrations) + src/cron.ts (kept at the path
  *              `deepspace add` writes to).
  *   shared   = src/schemas.ts + src/schemas/ (record schemas, read by both).
  *   frontend = everything else in src/ (pages, components, lib, styles).
@@ -17,18 +17,15 @@ import {
   armCronRoom,
   CanvasRoom,
   CronRoom,
-  JobRoom,
   PresenceRoom,
   RecordRoom,
-  resolveAppRole,
   workerErrorHandler,
   YjsRoom,
 } from 'deepspace/worker'
-import type { DOBindings, DOManifest, Job, JobContext } from 'deepspace/worker'
+import type { DOBindings, DOManifest } from 'deepspace/worker'
 import { registerAgent } from './src/server/ai/agent.js'
 import { buildTools } from './src/server/ai/tools.js'
 import { tasks as cronTasks, runTask as runCronTask } from './src/cron.js'
-import { runJob } from './src/server/jobs.js'
 import { schemas } from './src/schemas.js'
 import { registerI18nRoutes } from './src/server/i18n-routes.js'
 import {
@@ -54,7 +51,6 @@ export const __DO_MANIFEST__ = [
   { binding: 'CANVAS_ROOMS', className: 'AppCanvasRoom', sqlite: true },
   { binding: 'PRESENCE_ROOMS', className: 'AppPresenceRoom', sqlite: true },
   { binding: 'CRON_ROOMS', className: 'AppCronRoom', sqlite: true },
-  { binding: 'JOB_ROOMS', className: 'AppJobRoom', sqlite: true },
   { binding: 'STUDENT_ROOMS', className: 'AltamyraStudentRoom', sqlite: true },
   { binding: 'SCHOOL_ROOMS', className: 'AltamyraSchoolRoom', sqlite: true },
   { binding: 'INSIGHTS_ROOMS', className: 'AltamyraInsightsRoom', sqlite: true },
@@ -78,23 +74,6 @@ export class AppCronRoom extends CronRoom<Env> {
 
   protected async onTask(taskName: string): Promise<void> {
     await runCronTask(taskName, this.env)
-  }
-}
-
-/** Runs durable background work defined in src/server/jobs.ts. */
-export class AppJobRoom extends JobRoom<Env> {
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env, {
-      authorizeWrite: async (user) => {
-        if (user.userId.startsWith('anon-')) return false
-        const role = await resolveAppRole(env, user.userId)
-        return role === 'member' || role === 'admin'
-      },
-    })
-  }
-
-  protected async onJob(job: Job, context: JobContext): Promise<unknown> {
-    return await runJob(job, context, this.env)
   }
 }
 

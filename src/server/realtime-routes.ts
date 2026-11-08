@@ -171,9 +171,4 @@ export function registerRealtimeRoutes(app: Hono<AppContext>): void {
       async (auth, env) => ({ role: await resolveAppRole(env, auth.userId) }),
     ),
   )
-
-  app.get(
-    '/ws/jobs/:roomId',
-    wsRoute((env) => env.JOB_ROOMS),
-  )
 }
