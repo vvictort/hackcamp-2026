@@ -45,6 +45,14 @@ import { seo } from '../seo'
 /** Stagger an entrance by `step` steps of --stagger (styles.css). */
 const delay = (step: number): CSSProperties => ({ animationDelay: `calc(var(--stagger) * ${step})` })
 
+/** Footer links on the ink panel: muted text lifts to white, and an underline
+ * grows from the left on hover or keyboard focus (and shrinks back on leave),
+ * on the shared 200ms ease-out. Pure CSS; reduced motion makes it instant. */
+const footerLink =
+  'group inline-flex min-h-11 items-center text-body font-semibold text-ink-muted transition-colors hover:text-ink-foreground focus-visible:text-ink-foreground'
+const footerLinkLabel =
+  'bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_2px] bg-[position:0_100%] bg-no-repeat pb-0.5 transition-[background-size] group-hover:bg-[length:100%_2px] group-focus-visible:bg-[length:100%_2px]'
+
 const NAV = [
   ['#modules', 'Modules'],
   ['#how', 'How it works'],
@@ -454,12 +462,12 @@ export default function Landing() {
               <Logo inverted />
               <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6">
                 {NAV.map(([href, label]) => (
-                  <a key={href} href={href} className="inline-flex min-h-11 items-center text-body font-semibold underline-offset-4 hover:underline">
-                    {label}
+                  <a key={href} href={href} className={footerLink}>
+                    <span className={footerLinkLabel}>{label}</span>
                   </a>
                 ))}
-                <Link to="/sign-in" className="inline-flex min-h-11 items-center text-body font-semibold underline-offset-4 hover:underline">
-                  Sign in
+                <Link to="/sign-in" className={footerLink}>
+                  <span className={footerLinkLabel}>Sign in</span>
                 </Link>
               </nav>
             </div>
