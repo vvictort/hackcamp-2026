@@ -29,8 +29,7 @@ export function initialOf(u?: { name?: string | null; email?: string | null } | 
 }
 
 export function localDate(d: Date = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+  return d.toLocaleDateString('en-CA')
 }
 
 export async function blobToBase64(blob: Blob): Promise<string> {
