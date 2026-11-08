@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, Printer, X } from 'lucide-react'
 import { Badge, Button, Card } from '@/components/ui'
+import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { lensText, type StudentAnalysis } from '@/lib/lessonLens'
 
 const PRINT_CSS = `@media print{body *{visibility:hidden}#lens-sheet,#lens-sheet *{visibility:visible}#lens-sheet{position:absolute;inset:0;padding:24px;background:#fff;color:#000;box-shadow:none}.lens-noprint{display:none!important}}`
@@ -13,6 +14,10 @@ export const goalGroups = (student: StudentAnalysis): [string, StudentAnalysis['
 }
 
 /** One student's printable sheet: adaptations, then goal-coded checks (G1-C2 ...). */
+/** The sheet as plain sentences for read-aloud: adaptations, then each check. */
+export const sheetSpeech = (student: StudentAnalysis): string =>
+  [...student.suggestions.filter((s) => s.state !== 'rejected').map((s) => s.text), ...student.checks.map((c) => c.text)].join('. ')
+
 export function LensSheet({ student, subject, codes, onClose }: { student: StudentAnalysis; subject: string; codes: Record<string, string>; onClose: () => void }) {
   const [making, setMaking] = useState(false)
   const pdf = async () => {
@@ -65,6 +70,7 @@ export function LensSheet({ student, subject, codes, onClose }: { student: Stude
         <p className="text-body text-muted-foreground">{lensText('lens.noChecks')}</p>
       )}
       <div className="lens-noprint flex flex-wrap gap-3">
+        <ReadAloudButton text={sheetSpeech(student)} studentId={student.studentId} />
         <Button onClick={() => window.print()}>
           <Printer aria-hidden />
           {lensText('lens.print')}
