@@ -116,8 +116,6 @@ export const app = {
   'app.summaries.student': 'Student',
   'app.summaries.noStudents': 'You have no students yet.',
   'app.summaries.loading': 'Loading summaries',
-  'app.summaries.loadFailed': 'Could not load this summary. Try again.',
-  'app.summaries.retry': 'Try again',
   'app.summaries.none': 'No summary yet',
   'app.summaries.noneBody': 'Create a draft from the data logged so far. Nothing is shared until you approve it.',
   'app.summaries.generate': 'Generate draft',

@@ -1,5 +1,5 @@
 /** School administrator: see who has which role and give someone a role. */
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { UsersRound } from 'lucide-react'
 import {
   Button,
@@ -19,10 +19,10 @@ import {
 } from '@/components/ui'
 import { useLang } from '@/i18n'
 import type { MessageKey } from '@/i18n/en'
-import { ApiError, apiGet, apiPost } from '@/lib/altamyra/api'
-import { assignBody, NEEDS_STUDENT, type Member } from '@/lib/altamyra/roles-admin'
+import { assignRole, listMembers, NEEDS_STUDENT } from '@/lib/altamyra/roles-admin'
 import { RoleGate } from '@/lib/altamyra/RoleGate'
 import { ALTAMYRA_ROLES, useAltamyraMe, type AltamyraRole } from '@/lib/altamyra/role'
+import { useLoad } from '@/lib/useLoad'
 
 const ROLE_KEY: Record<AltamyraRole, MessageKey> = {
   ea: 'app.role.ea',
@@ -45,30 +45,11 @@ function RolesBody() {
   const { t } = useLang()
   const toast = useToast()
   const { me, schoolId } = useAltamyraMe()
-  const [members, setMembers] = useState<Member[] | null>(null)
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [form, setForm] = useState({ userId: '', displayName: '', role: 'teacher' as AltamyraRole, studentId: '' })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    if (!schoolId) return
-    setState('loading')
-    try {
-      const r = await apiGet<{ memberships: Member[] }>(`/admin/schools/${encodeURIComponent(schoolId)}/memberships`)
-      setMembers(r.memberships)
-      setState('ready')
-    } catch (e) {
-      // 404 = the list is not available yet: show it as empty rather than broken.
-      if (e instanceof ApiError && e.status === 404) {
-        setMembers([])
-        setState('ready')
-      } else setState('error')
-    }
-  }, [schoolId])
-  useEffect(() => {
-    void load()
-  }, [load])
+  const members = useLoad(() => listMembers(schoolId ?? ''), schoolId)
 
   const needsStudent = NEEDS_STUDENT.includes(form.role)
   const save = async () => {
@@ -78,10 +59,10 @@ function RolesBody() {
     setSaving(true)
     setFormError(null)
     try {
-      await apiPost(`/admin/schools/${encodeURIComponent(schoolId)}/memberships`, assignBody(form))
+      await assignRole(schoolId, form)
       toast.success(t('app.roles.saved'))
       setForm((f) => ({ ...f, userId: '', displayName: '', studentId: '' }))
-      await load()
+      members.reload()
     } catch (e) {
       setFormError(e instanceof Error && e.message ? e.message : t('app.roles.saveFailed'))
     } finally {
@@ -143,27 +124,27 @@ function RolesBody() {
           </Card>
 
           <Card title={t('app.roles.members')}>
-            {state === 'loading' && (
+            {members.status === 'loading' && (
               <p role="status" className="flex items-center gap-3 text-body text-muted-foreground">
                 <Spinner /> {t('app.roles.loading')}
               </p>
             )}
-            {state === 'error' && (
+            {members.status === 'error' && (
               <div className="flex flex-col items-start gap-3">
                 <p role="alert" className="text-body text-destructive">
                   {t('app.roles.loadFailed')}
                 </p>
-                <Button variant="outline" onClick={() => void load()}>
+                <Button variant="outline" onClick={members.reload}>
                   {t('app.roles.retry')}
                 </Button>
               </div>
             )}
-            {state === 'ready' && members && members.length === 0 && (
+            {members.data?.length === 0 && (
               <EmptyState icon={<UsersRound aria-hidden />} title={t('app.roles.empty')} description={t('app.roles.emptyHelp')} />
             )}
-            {state === 'ready' && members && members.length > 0 && (
+            {!!members.data?.length && (
               <ul className="flex flex-col gap-3">
-                {members.map((m, i) => (
+                {members.data.map((m, i) => (
                   <li key={`${m.userId}-${m.role}-${m.studentId ?? i}`} className="flex flex-wrap items-center justify-between gap-3">
                     <span className="flex flex-col">
                       <span className="text-body font-semibold">{m.displayName ?? m.userId}</span>

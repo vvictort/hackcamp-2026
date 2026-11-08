@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormField, Input, Progress, Textarea, useToast } from '@/components/ui'
-import { extractIepText, importIepTimed } from '@/lib/altamyra/profile-api'
+import { importIepTimed } from '@/lib/altamyra/profile-api'
 import { confirmIep, confirmObjective, getObjectives } from '@/lib/altamyra/students-api'
-import { blobToBase64 } from '@/lib/utils'
+import { readLessonFile } from '@/components/lens/PlanUpload'
 import type { IepImportResponse } from '@/server/altamyra/contract/api'
 import type { IepSections, Objective } from '@/server/altamyra/contract/student'
 import { SAMPLE_IEP_TEXT } from './sampleIep'
@@ -75,18 +75,13 @@ export function IepImportDialog({ studentId, open, onOpenChange, onConfirmed }: 
     try {
       const file = fileRef.current?.files?.[0]
       let source = text
-      if (file && /\.docx$/i.test(file.name)) {
+      if (file) {
         setPhase('pdf')
-        const mammoth = await import('mammoth')
-        source = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value.trim()
-      } else if (file) {
-        setPhase('pdf')
-        source = (
-          await extractIepText(studentId, { sourceKind: 'pdf', fileName: file.name, contentType: file.type || 'application/pdf', bytesBase64: await blobToBase64(file) })
-        ).text
+        source = await readLessonFile(file)
+        if (!source) throw new Error(t('students.import.noText'))
       }
       setPhase('ai')
-      const res = await importIepTimed(studentId, { sourceKind: 'text', text: source })
+      const res = await importIepTimed(studentId, source)
       setSourceText(source)
       setResult(res)
       setDraft(res.iep.sections)

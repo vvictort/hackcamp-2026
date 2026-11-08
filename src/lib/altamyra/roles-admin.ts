@@ -1,3 +1,4 @@
+import { apiFetch, emptyOn404, enc } from './api'
 import type { AltamyraRole } from './role'
 
 export type Member = { userId: string; displayName: string | null; role: string; studentId: string | null; classId: string | null }
@@ -13,3 +14,11 @@ export function assignBody(f: { userId: string; displayName: string; role: Altam
 
 /** Roles that must be tied to one student when assigned. */
 export const NEEDS_STUDENT: AltamyraRole[] = ['ea', 'parent']
+
+const membershipsPath = (schoolId: string) => `/admin/schools/${enc(schoolId)}/memberships`
+
+export const listMembers = async (schoolId: string) =>
+  (await emptyOn404(apiFetch<{ memberships: Member[] }>(membershipsPath(schoolId)), { memberships: [] })).memberships
+
+export const assignRole = (schoolId: string, form: Parameters<typeof assignBody>[0]) =>
+  apiFetch(membershipsPath(schoolId), { body: assignBody(form) })
