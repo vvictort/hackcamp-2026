@@ -4,6 +4,7 @@ import { defineOp } from '../contract/ops'
 import type { AdaptationType } from '../contract/enums'
 import { AltamiraError } from '../contract/errors'
 import type { Lesson } from '../contract/school'
+import type { LessonPlan, Ticket } from '../contract/plans'
 import type { DataPoint, Decision, Objective, Probe, Suggestion, UsageEvent } from '../contract/student'
 import { appendAudit } from '../db/audit'
 import { insertRow, toRow } from '../db/mapping'
@@ -354,14 +355,34 @@ export const studentDevSeedDemo = defineOp({
   },
 })
 
+export const DEMO_PLAN_IDS = { kai: hexId('0a5e0000', 'b', 1), amara: hexId('0a5e0000', 'b', 2) } as const
+export const DEMO_TICKET_ID = hexId('7c4e0000', 'c', 1)
+
 /** Demo lessons for today and tomorrow (school calendar), so the lesson plan screens and Coming up have lessons. */
 export function seedSchoolDemo(sql: SqlExecutor, now: string): void {
   const lessons: Lesson[] = [
     { id: DEMO_LESSON_IDS.salmon, classId: CLASS_IDS.literacy, title: 'Salmon life cycle (fictional lesson)', sourceKind: 'text', text: 'Read the short text about the salmon life cycle. Retell the main idea. Then write two sentences about one stage.', scheduledFor: SCHOOL_DATE.format(new Date(now)), createdBy: USER_IDS.teacher, createdAt: daysAgo(now, 1), version: 1 },
     { id: DEMO_LESSON_IDS.counting, classId: CLASS_IDS.numeracy, title: 'Counting and adding to 20 (fictional lesson)', sourceKind: 'text', text: 'Use cubes to make groups. Count each group. Add two groups together and say how many in all.', scheduledFor: SCHOOL_DATE.format(new Date(daysAhead(now, 1))), createdBy: USER_IDS.teacher, createdAt: daysAgo(now, 1), version: 1 },
   ]
+  const today = SCHOOL_DATE.format(new Date(now))
+  const original = 'Read the short text about the salmon life cycle. Retell the main idea. Then write two sentences about one stage.'
+  const change = (n: number, text: string) => ({ id: hexId('0a5e0000', 'a', n), text, label: 'adaptation' as const, accepted: true })
+  const kaiChanges = [
+    change(1, 'Simplified passage with the same key ideas: short sentences, same vocabulary, plus a three-box beginning, middle, end retell strip.'),
+    change(2, 'Sentence frames: "The main idea is ___." "One detail is ___."'),
+  ]
+  const amaraChanges = [change(3, 'Visual vocabulary cards for the five life cycle stages, with a picture and one word each.')]
+  const tailored = (changes: { text: string }[]) => `${original}\n\nChanges for this student:\n${changes.map((c) => `- ${c.text}`).join('\n')}`
+  // Kai: approved. Amara: AI draft, waiting for the teacher. Sofia: no plan today.
+  const plans: LessonPlan[] = [
+    { id: DEMO_PLAN_IDS.kai, studentId: STUDENT_IDS.kai, lessonId: null, planDate: today, title: 'Salmon life cycle (fictional lesson)', originalText: original, proposed: kaiChanges, tailoredText: tailored(kaiChanges), status: 'approved', createdBy: USER_IDS.teacher, approvedBy: USER_IDS.teacher, approvedAt: daysAgo(now, 0), createdAt: daysAgo(now, 0), version: 2 },
+    { id: DEMO_PLAN_IDS.amara, studentId: STUDENT_IDS.amara, lessonId: null, planDate: today, title: 'Salmon life cycle (fictional lesson)', originalText: original, proposed: amaraChanges, tailoredText: tailored(amaraChanges), status: 'draft', createdBy: USER_IDS.teacher, approvedBy: null, approvedAt: null, createdAt: daysAgo(now, 0), version: 1 },
+  ]
+  const ticket: Ticket = { id: DEMO_TICKET_ID, studentId: STUDENT_IDS.kai, iepVersion: 1, target: 'accommodations', proposedChange: 'Extra time (up to 50 percent) on written tasks.', reason: 'Kai tires quickly during longer writing blocks; the team agreed at the October review.', status: 'pending', submittedBy: USER_IDS.caseManager, reviewedBy: null, reviewedAt: null, declineReason: null, createdAt: daysAgo(now, 1), version: 1 }
   sql.transaction(() => {
     lessons.forEach((l) => insertRow(sql, 'lessons', toRow(l)))
+    plans.forEach((p) => insertRow(sql, 'lesson_plans', toRow(p)))
+    insertRow(sql, 'iep_change_tickets', toRow(ticket))
     appendAudit(sql, { actorId: SEED_ACTOR, action: 'fixtures.seed', tableName: 'lessons', rowId: '*', at: now })
   })
 }
