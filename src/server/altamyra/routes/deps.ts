@@ -3,6 +3,7 @@ import type { Env } from '../../../../worker'
 import type { AiProvider } from '../contract/ai'
 import type { MediaRef } from '../contract/common'
 import type { Roster } from '../ai/deidentify'
+import type { SummaryProvider } from '../ai/summaries-provider'
 import type { AltamyraEnv } from '../middleware/auth'
 import type { InsightsRoomRpc, SchoolRoomRpc, StudentRoomRpc } from '../rooms/rpc'
 
@@ -20,6 +21,7 @@ export type AltamyraRouteDeps = {
   resolveUserId(req: Request, env: Env): Promise<string | null>
   /** AI provider (env ALTAMYRA_AI_PROVIDER; fixture by default). */
   aiProvider(env: Env): AiProvider
+  summaryProvider(env: Env): SummaryProvider
   /**
    * Base de-identification roster: names no room stores (the school and
    * district names). Req.ai() adds every user's name and the IEP names of the

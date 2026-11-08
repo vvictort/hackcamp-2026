@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
 /**
- * Schemas for the four summary drafts (daily, weekly, monthly family, district
- * monthly). Provider outputs carry no status: createSummaryAi stamps
+ * Schemas for the summary drafts (daily, weekly, monthly family) and their
+ * translation. Provider outputs carry no status: createSummaryAi stamps
  * status 'draft' and generatedBy 'ai' on every result.
  *
  * APPROVAL IS ENFORCED IN THE ROUTES, NOT HERE. These functions only draft.
  * Routes must store the result as a draft visible to the EA or teacher alone,
- * and release it to its audience (case manager, parent, district lead) only
+ * and release it to its audience (case manager, parent) only
  * after an EA or teacher approves it.
  */
 
@@ -118,26 +118,3 @@ export type TranslateSummaryInput = z.input<typeof TranslateSummaryInput>
 export const TranslateSummaryModelOutput = z.object({ language: z.string().min(2), text: z.string().min(1) })
 export const TranslateSummaryOutput = TranslateSummaryModelOutput.extend({ status: z.literal('draft'), generatedBy: z.literal('ai') })
 export type TranslateSummaryOutput = z.infer<typeof TranslateSummaryOutput>
-
-// ---------- district monthly ----------
-
-/** Aggregates only. .strict() rejects studentId, name or any other per-student key. */
-export const DistrictAggregateRow = z
-  .object({
-    metric: z.string().min(1),
-    group: z.string().min(1),
-    /** Students in the group. Rows under MIN_DISTRICT_GROUP are dropped. */
-    n: z.number().int().nonnegative(),
-    value: z.number(),
-    unit: z.string().optional(),
-  })
-  .strict()
-export type DistrictAggregateRow = z.infer<typeof DistrictAggregateRow>
-export const MIN_DISTRICT_GROUP = 10
-
-export const DraftDistrictInput = z.object({ month: Month, aggregates: z.array(DistrictAggregateRow) }).strict()
-export type DraftDistrictInput = z.input<typeof DraftDistrictInput>
-
-export const DraftDistrictModelOutput = z.object({ text: z.string().min(1).refine(maxWords(250), 'at most 250 words') })
-export const DraftDistrictOutput = DraftDistrictModelOutput.extend({ status: z.literal('draft'), generatedBy: z.literal('ai') })
-export type DraftDistrictOutput = z.infer<typeof DraftDistrictOutput>

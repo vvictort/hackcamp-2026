@@ -8,7 +8,6 @@ import {
   createGeminiSummaryProvider,
   createSummaryAi,
   DraftDailyOutput,
-  DraftDistrictOutput,
   DraftMonthlyFamilyOutput,
   DraftWeeklyOutput,
   summaryProviderFromEnv,
@@ -164,43 +163,6 @@ describe('draftMonthlyFamilySummary', () => {
   it('translateSummary is a draft too', async () => {
     const out = await setup().ai.translateSummary({ text: 'Hello', language: 'fr' })
     expect(out).toMatchObject({ status: 'draft', generatedBy: 'ai' })
-  })
-})
-
-describe('draftDistrictMonthlyNarrative', () => {
-  const rows = [
-    { metric: 'Objectives on track', group: 'Grades 4 to 5', n: 24, value: 71, unit: '%' },
-    { metric: 'Objectives on track', group: 'Grades 6 to 7', n: 12, value: 64, unit: '%' },
-  ]
-
-  it('drafts from aggregate rows only', async () => {
-    const { ai, calls } = setup()
-    const out = await ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: rows })
-    expect(DraftDistrictOutput.safeParse(out).success).toBe(true)
-    expect(out.status).toBe('draft')
-    expect(out.text).toContain('Objectives on track')
-    expect(calls).toHaveLength(1)
-  })
-
-  it('rejects per-student keys', async () => {
-    const { ai, calls } = setup()
-    await expect(ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: [{ ...rows[0], studentId: 'x' } as never] })).rejects.toBeInstanceOf(AltamyraError)
-    await expect(ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: [{ ...rows[0], name: 'Kai' } as never] })).rejects.toBeInstanceOf(AltamyraError)
-    await expect(ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: rows, students: [] } as never)).rejects.toBeInstanceOf(AltamyraError)
-    expect(calls).toHaveLength(0)
-  })
-
-  it('drops groups under 10 before the provider and rejects when none remain', async () => {
-    const { ai, calls } = setup()
-    await ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: [...rows, { metric: 'Objectives on track', group: 'Tiny group', n: 3, value: 10 }] })
-    expect(JSON.stringify(calls[0].payload)).not.toContain('Tiny group')
-    await expect(ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: [{ metric: 'm', group: 'g', n: 9, value: 1 }] })).rejects.toBeInstanceOf(AltamyraError)
-  })
-
-  it('a student name in a group label is replaced before the provider', async () => {
-    const { ai, calls } = setup()
-    await ai.draftDistrictMonthlyNarrative({ month: '2026-11', aggregates: [{ metric: 'm', group: `${kaiName}'s group`, n: 12, value: 1 }] })
-    expect(fixtureNamesIn(JSON.stringify(calls[0].payload))).toEqual([])
   })
 })
 

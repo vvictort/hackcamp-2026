@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Id, MediaRef } from './common'
-import { AdaptationType, DataPointSource, EventKind, GapType, Label, MetricType, PromptLevel, Proficiency } from './enums'
+import { AdaptationType, DataPointSource, EventKind, GapType, Label, MetricType, PromptLevel } from './enums'
 import { LessonAnalysisBody } from './school'
 import { AnswerKeyEntry, CheckItem, Rubric } from './student'
 
@@ -192,48 +192,6 @@ export type VoiceEvent = z.infer<typeof VoiceEvent>
 export const ParseVoiceNoteOutput = z.object({ events: z.array(VoiceEvent) })
 export type ParseVoiceNoteOutput = z.infer<typeof ParseVoiceNoteOutput>
 
-// ---------- draftProgress ----------
-
-export const DraftProgressInput = z.object({
-  studentToken: StudentToken,
-  period: z.string().min(1),
-  goal: z.object({ goalId: Id, area: z.string(), text: z.string() }),
-  objective: z.object({ metricType: MetricType, unit: z.string(), target: z.number() }).nullable(),
-  /** Confirmed and auto-confirmed points only. */
-  dataPoints: z.array(
-    z.object({ id: Id, value: z.number(), unit: z.string(), recordedAt: z.string(), source: DataPointSource }),
-  ),
-  proficiencySuggestion: Proficiency.nullable(),
-})
-export type DraftProgressInput = z.infer<typeof DraftProgressInput>
-
-export const DraftProgressOutput = z.object({
-  sentences: z.array(
-    z.object({
-      text: z.string().min(1),
-      /** Data point ids. The citation checker verifies each one in code. */
-      citations: z.array(Id).min(1),
-    }),
-  ),
-})
-export type DraftProgressOutput = z.infer<typeof DraftProgressOutput>
-
-// ---------- summariseForFamily ----------
-
-export const SummariseForFamilyInput = z.object({
-  studentToken: StudentToken,
-  /** BCP 47 language tag, e.g. "en", "fr", "pa". */
-  language: z.string().min(2),
-  draft: z.object({ sentences: z.array(z.object({ text: z.string() })) }),
-})
-export type SummariseForFamilyInput = z.infer<typeof SummariseForFamilyInput>
-
-export const SummariseForFamilyOutput = z.object({
-  language: z.string().min(2),
-  text: z.string().min(1),
-})
-export type SummariseForFamilyOutput = z.infer<typeof SummariseForFamilyOutput>
-
 // ---------- provider ----------
 
 export const AI_PROVIDER_NAMES = ['fixture', 'vertex'] as const
@@ -247,8 +205,6 @@ export interface AiProvider {
   lensForStudent(input: LensForStudentInput): Promise<LensForStudentOutput>
   scorePhotoPage(input: ScorePhotoPageInput): Promise<ScorePhotoPageOutput>
   parseVoiceNote(input: ParseVoiceNoteInput): Promise<ParseVoiceNoteOutput>
-  draftProgress(input: DraftProgressInput): Promise<DraftProgressOutput>
-  summariseForFamily(input: SummariseForFamilyInput): Promise<SummariseForFamilyOutput>
 }
 
 /** Schema pair per function, so providers and tests can validate generically. */
@@ -258,8 +214,6 @@ export const AI_SCHEMAS = {
   lensForStudent: { input: LensForStudentInput, output: LensForStudentOutput },
   scorePhotoPage: { input: ScorePhotoPageInput, output: ScorePhotoPageOutput },
   parseVoiceNote: { input: ParseVoiceNoteInput, output: ParseVoiceNoteOutput },
-  draftProgress: { input: DraftProgressInput, output: DraftProgressOutput },
-  summariseForFamily: { input: SummariseForFamilyInput, output: SummariseForFamilyOutput },
 } as const satisfies Record<keyof Omit<AiProvider, 'name'>, { input: z.ZodType; output: z.ZodType }>
 
 export type AiFunctionName = keyof typeof AI_SCHEMAS

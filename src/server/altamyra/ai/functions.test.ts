@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AiProvider, AnalyseLessonOutput, DraftProgressOutput } from '../contract/ai'
+import type { AiProvider, AnalyseLessonOutput } from '../contract/ai'
 import { AltamyraError } from '../contract/errors'
 import { CBIEP_SAMPLE_TEXT, STUDENT_FIXTURES, type StudentFixture } from '../fixtures'
 import { collectStrings, findIdentifiers } from './deidentify'
 import { AiDeidentificationError, AiOutputError, VERTEX_NOT_CONFIGURED } from './errors'
 import { FIXTURE_EXTRA_IDENTIFIERS, FIXTURE_LESSONS, fixtureRoster, tokenFor } from './fixture-data'
-import { analyseLessonOnce, createAi, type AiCall, type LessonAnalysisCache } from './functions'
+import { createAi, type AiCall } from './functions'
 import { toAiProfile } from './profile'
 import { createFixtureProvider } from './providers/fixture'
 import { createVertexProvider } from './providers/vertex'
@@ -59,21 +59,6 @@ async function runEverything(ai: ReturnType<typeof createAi>) {
       studentToken: token,
       objectives: f.objectives.map((o) => ({ objectiveId: o.id, metricType: o.metricType, description: `${firstName(f)}: ${o.masteryRule}` })),
     })
-    for (const g of f.goals) {
-      const o = f.objectives.find((x) => x.goalId === g.id)
-      const points = f.dataPoints.filter((p) => p.objectiveId === o?.id && p.status !== 'pending_review')
-      const draft: DraftProgressOutput = await ai.draftProgress({
-        studentToken: token,
-        period: '2026-27 Term 1',
-        goal: { goalId: g.id, area: g.area, text: `${firstName(f)} will ${g.text}` },
-        objective: o ? { metricType: o.metricType, unit: o.unit, target: o.target } : null,
-        dataPoints: points.map((p) => ({ id: p.id, value: p.value, unit: p.unit, recordedAt: p.recordedAt, source: p.source })),
-        proficiencySuggestion: null,
-      })
-      for (const language of ['en', 'fr', 'pa']) {
-        await ai.summariseForFamily({ studentToken: token, language, draft })
-      }
-    }
   }
 }
 
@@ -93,7 +78,7 @@ describe('de-identification scan over every AI function', () => {
 
     const fns = new Set(requests.map((r) => r.fn))
     expect([...fns].sort()).toEqual(
-      ['analyseLesson', 'draftProgress', 'lensForStudent', 'parseVoiceNote', 'proposeObjectives', 'scorePhotoPage', 'summariseForFamily'],
+      ['analyseLesson', 'lensForStudent', 'parseVoiceNote', 'proposeObjectives', 'scorePhotoPage'],
     )
     expect(hooked.length).toBe(requests.length)
     for (const { fn, payload } of requests) {
@@ -136,17 +121,12 @@ describe('createAi', () => {
   it('re-identifies output so callers see real names', async () => {
     const ai = createAi({ provider: createFixtureProvider(), roster })
     const kai = STUDENT_FIXTURES[0]
-    const points = kai.dataPoints.filter((p) => p.status !== 'pending_review' && p.objectiveId === kai.objectives[1].id)
-    const out = await ai.draftProgress({
-      studentToken: 'S-K7Q4',
-      period: 'Term 1',
-      goal: { goalId: kai.goals[1].id, area: kai.goals[1].area, text: kai.goals[1].text },
-      objective: { metricType: 'frequency', unit: 'break card uses per day', target: 4 },
-      dataPoints: points.map((p) => ({ id: p.id, value: p.value, unit: p.unit, recordedAt: p.recordedAt, source: p.source })),
-      proficiencySuggestion: null,
-    })
-    expect(out.sentences[0].text.startsWith('Kai has been working')).toBe(true)
-    expect(out.sentences.every((s) => !s.text.includes('S-K7Q4'))).toBe(true)
+    const lesson = FIXTURE_LESSONS.literacy
+    const analysis = await ai.analyseLesson(lesson)
+    const out = await ai.lensForStudent({ lessonId: lesson.lessonId, subject: lesson.subject, analysis, lessonText: lesson.text, profile: profileOf(kai), whatWorks: [] })
+    const whys = out.adaptations.map((a) => a.why)
+    expect(whys.some((w) => w.startsWith(`Supports ${firstName(kai)}'s IEP goal`))).toBe(true)
+    expect(whys.every((w) => !w.includes(tokenFor(kai.studentId)))).toBe(true)
   })
 
   it('rejects provider output that fails the schema', async () => {
@@ -172,7 +152,7 @@ describe('createAi', () => {
 
   it('rejects invalid input with bad_request', async () => {
     const ai = createAi({ provider: createFixtureProvider(), roster })
-    const err = await ai.summariseForFamily({ studentToken: '', language: 'en', draft: { sentences: [] } }).catch((e: unknown) => e)
+    const err = await ai.proposeObjectives({ studentToken: '', goalId: 'g1', area: 'Reading', goalText: 'Retell' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(AltamyraError)
     expect((err as AltamyraError).status).toBe(400)
   })
@@ -180,27 +160,5 @@ describe('createAi', () => {
   it('surfaces the vertex "not configured" error', async () => {
     const ai = createAi({ provider: createVertexProvider(), roster })
     await expect(ai.analyseLesson(FIXTURE_LESSONS.literacy)).rejects.toThrow(VERTEX_NOT_CONFIGURED)
-  })
-})
-
-describe('PRD 1A-2: one analysis call per lesson', () => {
-  it('analyses a lesson once for every student in the class', async () => {
-    const ai = createAi({ provider: createFixtureProvider(), roster })
-    const store = new Map<string, AnalyseLessonOutput>()
-    const cache: LessonAnalysisCache = { get: (id) => store.get(id), set: (id, a) => void store.set(id, a) }
-
-    const lesson = FIXTURE_LESSONS.literacy
-    const results = []
-    for (const f of STUDENT_FIXTURES) {
-      const analysis = await analyseLessonOnce(ai, lesson, cache)
-      results.push(analysis)
-      await ai.lensForStudent({ lessonId: lesson.lessonId, subject: lesson.subject, analysis, lessonText: lesson.text, profile: profileOf(f), whatWorks: [] })
-    }
-    expect(ai.calls.analyseLesson).toBe(1)
-    expect(ai.calls.lensForStudent).toBe(STUDENT_FIXTURES.length)
-    expect(results[1]).toBe(results[0])
-
-    await analyseLessonOnce(ai, FIXTURE_LESSONS.numeracy, cache)
-    expect(ai.calls.analyseLesson).toBe(2)
   })
 })

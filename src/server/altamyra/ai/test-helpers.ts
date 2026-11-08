@@ -1,4 +1,4 @@
-import type { AiProvider } from '../contract/ai'
+import { AI_SCHEMAS, type AiFunctionName, type AiProvider } from '../contract/ai'
 import { FIXTURE_NAMES } from '../fixtures'
 
 /** Test-only helpers for the AI module. */
@@ -6,22 +6,11 @@ import { FIXTURE_NAMES } from '../fixtures'
 /** Wraps a provider and records every request payload it receives. */
 export function recordingProvider(inner: AiProvider): { provider: AiProvider; requests: { fn: string; payload: unknown }[] } {
   const requests: { fn: string; payload: unknown }[] = []
-  const wrap =
-    <K extends Exclude<keyof AiProvider, 'name'>>(fn: K) =>
-    (input: Parameters<AiProvider[K]>[0]) => {
-      requests.push({ fn, payload: structuredClone(input) })
-      return (inner[fn] as (i: unknown) => ReturnType<AiProvider[K]>)(input)
-    }
-  const provider: AiProvider = {
-    name: inner.name,
-    proposeObjectives: wrap('proposeObjectives'),
-    analyseLesson: wrap('analyseLesson'),
-    lensForStudent: wrap('lensForStudent'),
-    scorePhotoPage: wrap('scorePhotoPage'),
-    parseVoiceNote: wrap('parseVoiceNote'),
-    draftProgress: wrap('draftProgress'),
-    summariseForFamily: wrap('summariseForFamily'),
+  const wrap = (fn: AiFunctionName) => (input: unknown) => {
+    requests.push({ fn, payload: structuredClone(input) })
+    return (inner[fn] as (i: unknown) => Promise<unknown>)(input)
   }
+  const provider = { name: inner.name, ...Object.fromEntries((Object.keys(AI_SCHEMAS) as AiFunctionName[]).map((fn) => [fn, wrap(fn)])) } as unknown as AiProvider
   return { provider, requests }
 }
 

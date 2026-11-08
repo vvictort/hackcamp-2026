@@ -2,8 +2,6 @@ import type {
   AiProvider,
   AnalyseLessonInput,
   AnalyseLessonOutput,
-  DraftProgressInput,
-  DraftProgressOutput,
   LensAdaptation,
   LensCheck,
   LensForStudentInput,
@@ -15,8 +13,6 @@ import type {
   ProposeObjectivesOutput,
   ScorePhotoPageInput,
   ScorePhotoPageOutput,
-  SummariseForFamilyInput,
-  SummariseForFamilyOutput,
   VoiceEvent,
 } from '../../contract/ai'
 import { PROMPT_LEVELS, type AdaptationType } from '../../contract/enums'
@@ -396,56 +392,6 @@ function parseVoiceNote(input: ParseVoiceNoteInput): ParseVoiceNoteOutput {
   return { events }
 }
 
-// ---------- draftProgress ----------
-
-function draftProgress(input: DraftProgressInput): DraftProgressOutput {
-  const points = [...input.dataPoints].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
-  if (points.length === 0) return { sentences: [] }
-  const first = points[0]
-  const last = points[points.length - 1]
-  const day = (iso: string) => iso.slice(0, 10)
-  const token = input.studentToken
-  const sentences: DraftProgressOutput['sentences'] = [
-    {
-      text: `${token} has been working on this goal (${input.goal.area.toLowerCase()}): ${input.goal.text}. ${points.length} data point${points.length === 1 ? '' : 's'} were recorded between ${day(first.recordedAt)} and ${day(last.recordedAt)}.`,
-      citations: points.map((p) => p.id),
-    },
-  ]
-  if (points.length > 1) {
-    const direction = last.value > first.value ? 'grew from' : last.value < first.value ? 'moved from' : 'held steady at'
-    sentences.push({
-      text:
-        direction === 'held steady at'
-          ? `Results ${direction} ${first.value} ${first.unit}.`
-          : `Results ${direction} ${first.value} ${first.unit} to ${last.value} ${last.unit}.`,
-      citations: [first.id, last.id],
-    })
-  }
-  if (input.objective) {
-    sentences.push({
-      text: `The objective target is ${input.objective.target} ${input.objective.unit}; the most recent result was ${last.value} ${last.unit}.`,
-      citations: [last.id],
-    })
-  }
-  return { sentences }
-}
-
-// ---------- summariseForFamily ----------
-
-const FAMILY_TEMPLATES: Record<string, (token: string, body: string) => string> = {
-  en: (token, body) => `Here is an update on ${token}'s learning at school. ${body} Thank you for your support at home.`,
-  fr: (token, body) => `Voici des nouvelles de l'apprentissage de ${token} à l'école. ${body} Merci de votre soutien à la maison.`,
-}
-
-function summariseForFamily(input: SummariseForFamilyInput): SummariseForFamilyOutput {
-  const lang = input.language.toLowerCase().split('-')[0]
-  const body = input.draft.sentences.map((s) => s.text.trim()).join(' ')
-  const template = FAMILY_TEMPLATES[lang]
-  if (template) return { language: input.language, text: template(input.studentToken, body).trim() }
-  // No translation beyond English and French: return clean English and report language 'en' so callers can tell.
-  return { language: 'en', text: FAMILY_TEMPLATES.en(input.studentToken, body).trim() }
-}
-
 export function createFixtureProvider(): AiProvider {
   return {
     name: 'fixture',
@@ -454,7 +400,5 @@ export function createFixtureProvider(): AiProvider {
     lensForStudent: async (i) => lensForStudent(i),
     scorePhotoPage: async (i) => scorePhotoPage(i),
     parseVoiceNote: async (i) => parseVoiceNote(i),
-    draftProgress: async (i) => draftProgress(i),
-    summariseForFamily: async (i) => summariseForFamily(i),
   }
 }

@@ -174,15 +174,16 @@ describe('gemini provider', () => {
   })
 
   it('sends no student, staff or school name through createAi', async () => {
-    const f = vi.fn(async () => ok({ language: 'en', text: 'Kai-free summary' }))
+    const f = vi.fn(async () => ok())
     const provider = createGeminiProvider({ apiKey: 'k', fetch: f as unknown as typeof fetch })
     const roster = fixtureRoster()
     const student = roster.students[0]
     const ai = createAi({ provider, roster })
-    await ai.summariseForFamily({
+    await ai.proposeObjectives({
       studentToken: student.token,
-      language: 'en',
-      draft: { sentences: [{ text: `${student.firstName} ${student.lastName} read well. Call ${roster.people[0]?.displayName ?? ''}.` }] },
+      goalId: 'g1',
+      area: 'Reading',
+      goalText: `${student.firstName} ${student.lastName} will read well. Call ${roster.people[0]?.displayName ?? ''}.`,
     })
     const body = (f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string
     expect(body).not.toContain(student.firstName)
