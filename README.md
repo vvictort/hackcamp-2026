@@ -34,7 +34,7 @@ Who uses it: classroom teachers (primary), resource/case-manager teachers, educa
 
 ### Current state
 
-Working in the app today: the landing page, sign-in and sign-up, the teacher dashboard (today's schedule, suggestions to review, Pulse progress, progress drafts, coming up), and Settings (profile, school, position, preferences). The dashboard runs on **example data with fictional students** (`src/components/altamira/exampleData.ts`). The module features themselves are designed and described on the landing page but are not wired to real data yet. Language support (below) has its backend and provider built; wiring it into the pages and adding the language toggle is in progress.
+Working in the app today: the landing page, sign-in and sign-up, the teacher dashboard (today's schedule, suggestions to review, Pulse progress, progress drafts, coming up), and Settings (profile, school, position, preferences). The dashboard runs on **example data with fictional students** (`src/components/altamira/exampleData.ts`). The module features themselves are designed and described on the landing page but are not wired to real data yet. Every page reads its text through the language system, with a language picker on the landing page, auth pages, dashboard and Settings.
 
 ## Tech stack
 
@@ -46,6 +46,7 @@ Working in the app today: the landing page, sign-in and sign-up, the teacher das
 - **Motion:** plain CSS and Tailwind only (shared timing tokens, no animation libraries), plus Lenis for smooth scrolling; everything is off under `prefers-reduced-motion`
 - **Languages:** 36 interface languages, machine-translated on first use and cached (see [Languages](#languages))
 - **Testing and tooling:** Vitest (unit), Playwright (smoke, API and end-to-end), ESLint, `tsc`
+- **Agent workflow:** [Entire](https://docs.entire.com) for session capture, a code graph and shared project memory (see [Built with agents](#built-with-agents-entire))
 
 ## How the project is organized
 
@@ -104,9 +105,37 @@ npx deepspace deploy # deploy to <app>.app.space
 
 Version control lives in the app's DeepSpace cloud repo by default (`npx deepspace push`). Commit before you deploy.
 
+## Built with agents: Entire
+
+Altamyra was built by several Claude Code agents working in parallel. [Entire](https://docs.entire.com) keeps their work connected:
+
+- **Sessions:** each Claude Code session in this repo is captured as a checkpoint and linked to its commit (the `Entire-Checkpoint:` trailer). Transcripts stay on the developer's machine: the checkpoint push policy is `manual`, because this repository is public. Review a checkpoint with `entire checkpoint explain` before publishing it with `entire checkpoint push`.
+- **Graph:** a code map agents query before editing (`entire graph query ...`).
+- **Brain:** shared project memory synced through entire.com. It holds the rules every agent follows: product rules, privacy (fictional data only, names removed before any AI), the brand coming from `APP_NAME`, the design system, accessibility, motion, the backend/frontend layout and the git process. Agents read it with `entire brain brief "<task>"`; add a rule with `entire brain remember "<rule>" --kind convention --path project.<area>.<name> --agent none`.
+- **Agent guide:** `.entire/agent-guide.md` tells every coding agent to run `brain brief` and `graph query` before working.
+
+The repository is mirrored on entire.com (`entire` remote); GitHub stays `origin`.
+
+### Set up Entire (each teammate, once)
+
+You need to be a collaborator on the GitHub repository.
+
+```sh
+curl -fsSL https://entire.com/install.sh | bash      # macOS: brew install --cask entireio/tap/entire
+entire login                                          # use the same provider as your Entire account
+# WSL/Linux without a keyring: echo '{"token_store": "file"}' > ~/.config/entire/config.json, then log in again
+entire enable -y --agent claude-code                  # or codex, cursor, copilot-cli, opencode
+entire configure --checkpoint-push-policy manual      # keep transcripts off the public repo
+entire repo remote add entire --cluster aws-us-east-2.entire.io && git fetch entire
+entire plugin install graph && entire graph setup
+entire plugin install brain && entire brain setup && entire brain connect   # answer no to backfill
+```
+
+The first commit after `entire enable` may ask to link it to session context: answer `a` (always). Restart Claude Code afterwards so capture covers the session.
+
 ## Languages
 
-The interface is being set up to show in 36 languages, chosen from a toggle (the translation backend and provider are done; page wiring and the toggle are pending). English text lives in `src/i18n/en.ts`; other languages are translated automatically the first time someone picks them and cached in the `settings` collection. Only that fixed English catalogue is ever sent to the model, never student names or any record data. To add a language, add one line to `src/i18n/languages.ts`. To add text, add a key to `src/i18n/en.ts` and use `t('key')`.
+The interface shows in 36 languages, chosen from a language picker. English text lives in `src/i18n/en.ts`; other languages are translated automatically the first time someone picks them and cached in the `settings` collection. Only that fixed English catalogue is ever sent to the model, never student names or any record data. To add a language, add one line to `src/i18n/languages.ts`. To add text, add a key to `src/i18n/en.ts` and use `t('key')`.
 
 ## Design
 
