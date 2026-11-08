@@ -41,7 +41,6 @@ export function schoolIdOf(me: MeResponse | null): string | null {
 
 export type StudentSummary = MeResponse['students'][number]
 
-/** Students the signed-in user can see: caseload first, then the rest, no duplicates. */
 export function visibleStudents(me: MeResponse | null): StudentSummary[] {
   const seen = new Set<string>()
   return me ? [...me.caseload, ...me.students].filter((s) => !seen.has(s.id) && !!seen.add(s.id)) : []

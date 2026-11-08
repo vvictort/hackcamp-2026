@@ -9,7 +9,6 @@ export const listTickets = (studentId: string) => apiFetch<{ tickets: Ticket[] }
 export const createTicket = (studentId: string, body: { target: string; proposedChange: string; reason: string }) =>
   apiFetch<{ ticket: Ticket }>(`/students/${enc(studentId)}/tickets`, { body })
 
-/** The school administrator's queue. */
 export const listSchoolTickets = (filter: TicketFilter) =>
   emptyOn404(apiFetch<{ tickets: Ticket[] }>('/tickets', { query: { status: filter === 'pending' ? 'pending' : undefined } }).then((r) => r.tickets), [])
 export const applyTicket = (id: string) => apiFetch(`/tickets/${enc(id)}/apply`, { body: {} })

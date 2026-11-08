@@ -13,7 +13,6 @@ const NO_STUDENTS = { date: '', students: [] }
 export const getPendingSummaries = () =>
   emptyOn404(apiFetch<{ summaries: PendingSummary[] }>('/me/summaries/pending').then((r) => r.summaries), [])
 
-/** What a staff home shows today; a missing endpoint reads as empty. Only EAs get the end-of-day review. */
 export async function getToday(role: AltamyraRole | null): Promise<Today> {
   const [plans, pending, review] = await Promise.all([
     emptyOn404(getTodayPlans(), NO_STUDENTS),
