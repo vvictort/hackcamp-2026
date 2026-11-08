@@ -27,7 +27,7 @@ import {
   proposalsResolve,
 } from '../services/measurement'
 import { studentsGet } from '../services/school'
-import { parseCbIepText } from './cbiep'
+import { aiFailureResponse, parseCbIepText } from './cbiep'
 import { extractPdfText } from './pdf-text'
 import type { Kit } from './context'
 
@@ -78,10 +78,16 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
 
     // AI runs outside any room transaction, on de-identified input. The roster reads this student's IEP versions,
     // so the names in the import just stored are stripped and scanned for.
-    const ai = await r.ai([studentId])
     const objectiveProposals = []
-    for (const g of goals) {
-      objectiveProposals.push(await ai.proposeObjectives({ studentToken: student.displayToken, goalId: g.id, area: g.area, goalText: g.text }))
+    try {
+      const ai = await r.ai([studentId])
+      for (const g of goals) {
+        objectiveProposals.push(await ai.proposeObjectives({ studentToken: student.displayToken, goalId: g.id, area: g.area, goalText: g.text }))
+      }
+    } catch (err) {
+      const res = aiFailureResponse(err)
+      if (res) return res
+      throw err
     }
     await r.student(studentId, objectivesPropose, { proposals: objectiveProposals })
     return r.json(IepImportResponse, { iep, goals, objectiveProposals })
