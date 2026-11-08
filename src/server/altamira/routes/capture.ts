@@ -10,7 +10,6 @@ import {
   DataPointSourceResponse,
   GoalStatusResponse,
   PhotoCaptureBody,
-  SessionCreateResponse,
   ReviewConfirmBody,
   ReviewQueueResponse,
   TimelineQuery,
@@ -24,11 +23,8 @@ import type { CapturePageResult } from '../contract/school'
 import type { Check } from '../contract/student'
 import type { AltamiraEnv } from '../middleware/auth'
 import { HttpError } from '../middleware/errors'
-import { mintToken } from '../middleware/tokens'
-import { canStartStudentSession, STUDENT_SESSION_TTL_MS } from '../middleware/session'
 import { captureBatchesCreate, captureBatchesGet, checksForScoring } from '../services/integration'
 import { lensSaveRun } from '../services/lens'
-import { sessionsStart } from '../services/student-mode'
 import { ensureReviewable, fallbackPageScore, type PageItemScore } from '../services/scoring'
 import { voiceNoteAudioDeleted, voiceNoteProcess } from '../services/family'
 import {
@@ -219,7 +215,7 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     if (!deps.devSeedEnabled(r.env)) throw new HttpError('not_found', 'not found')
     const { studentId } = await r.body(SampleSheetBody)
-    r.allow('lesson.augment', studentId)
+    r.allow('lesson_plan.edit', studentId)
     const { objectives } = await r.student(studentId, objectivesList)
     const confirmed = objectives.filter((o) => o.status === 'confirmed')
     const objective = confirmed.find((o) => o.metricType === 'accuracy') ?? confirmed[0]
@@ -279,33 +275,6 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     return r.json(SampleSheetResponse, { code: sheetCode.code, studentId, checkId: check.id })
   })
 
-  /**
-   * Starts student mode. Teachers and EAs of the student start it as the PRD
-   * says; in the demo (ALTAMIRA_DEV_SEED) the signed-in "student" account, which
-   * is linked to its own student, may start it for that student only. Consent is
-   * checked in the room first.
-   */
-  app.post('/students/:id/student-mode/start', signedIn, async (c) => {
-    const r = req(c)
-    const studentId = r.param('id')
-    const self = deps.devSeedEnabled(r.env) && !r.actor.session && r.actor.parentOf.includes(studentId)
-    if (!self && !canStartStudentSession(r.actor, studentId, r.now())) {
-      throw new HttpError('forbidden', 'Only a teacher or EA of this student can start student mode.')
-    }
-    await r.student(studentId, sessionsStart, { selfStart: self })
-    const { token, tokenHash } = await mintToken()
-    const expiresAt = new Date(r.now() + STUDENT_SESSION_TTL_MS).toISOString()
-    const sessionId = await deps.rooms.school(r.env).issueToken({
-      kind: 'student_session',
-      studentId,
-      createdBy: r.actor.userId,
-      tokenHash,
-      expiresAt,
-      createdAt: r.nowIso(),
-    })
-    return r.json(SessionCreateResponse, { sessionId, token, expiresAt }, 201)
-  })
-
   app.post('/students/:id/events', signedIn, mw.requireCapability('evidence.capture'), async (c) => {
     const r = req(c)
     const event = await r.body(CaptureEventBody)
@@ -313,7 +282,7 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   })
 
   /**
-   * PRD NFR Consent: audio needs parental consent, and the recording is
+   * PRD NFR Consent: a voice note needs the parent's voice-note consent (403 consent_required), and the recording is
    * deleted once the consent gate is passed, whether processing succeeds or
    * fails (or at once, unprocessed, without consent). The deletion is audited
    * only after the delete succeeded.
@@ -327,9 +296,9 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
       await deps.deleteFile(r.env, audioFileKey, r.actor.userId)
       await r.student(studentId, voiceNoteAudioDeleted, { audioFileKey, processed })
     }
-    if (!(await deps.rooms.student(r.env, studentId).hasConsent('audio'))) {
+    if (!(await deps.rooms.student(r.env, studentId).hasConsent('voice_note'))) {
       await deleteAudio(false)
-      throw new HttpError('forbidden', 'Voice notes need recorded parental consent for audio.')
+      throw new HttpError('forbidden', 'consent_required: voice notes need the parent or guardian\'s consent.')
     }
     let processed = false
     try {
@@ -356,13 +325,16 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     }
   })
 
-  /** Open review items across the caller's students (EAs see their own entries only). */
+  /** Open review items across the caller's students: the EA and the teacher see their own captures only. */
   app.get('/review-queue', signedIn, async (c) => {
     const r = req(c)
     const only = c.req.query('studentId')
+    const reviewable = r.staffStudentIds().filter((id) => r.can('review.confirm', id, { recordedBy: r.actor.userId }))
+    // Case managers, parents and everyone else without an EA or teacher role are refused outright.
+    if (reviewable.length === 0) throw new HttpError('forbidden', 'Only the EA or teacher who captured an entry reviews it.')
     const items = []
-    for (const studentId of r.staffStudentIds()) {
-      if ((only && only !== studentId) || !r.can('review.confirm', studentId, { recordedBy: r.actor.userId })) continue
+    for (const studentId of reviewable) {
+      if (only && only !== studentId) continue
       items.push(...(await r.student(studentId, reviewList)).items)
     }
     return r.json(ReviewQueueResponse, { items })
@@ -371,7 +343,7 @@ export function captureRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   app.post('/review-queue/:rid/confirm', signedIn, studentRef, async (c) => {
     const r = req(c)
     const studentId = r.studentRef()
-    // EAs may confirm only their own entries; the room checks the row's recorder.
+    // Own captures only; the room checks the row's recorder.
     r.allow('review.confirm', studentId, { recordedBy: r.actor.userId })
     const body = await r.body(ReviewConfirmBody)
     return r.json(DataPointResponse, await r.student(studentId, reviewConfirm, { reviewId: r.param('rid'), ...body }))

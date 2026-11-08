@@ -8,9 +8,6 @@ import {
   ObjectiveFlagBody,
   ObjectiveResponse,
   ObjectivesResponse,
-  ProposalCreateBody,
-  ProposalResolveBody,
-  ProposalResponse,
   StudentProfileResponse,
 } from '../contract/api'
 import { HttpError } from '../middleware/errors'
@@ -23,8 +20,6 @@ import {
   objectivesFlagUnmeasurable,
   objectivesList,
   objectivesPropose,
-  proposalsCreate,
-  proposalsResolve,
 } from '../services/measurement'
 import { studentsGet } from '../services/school'
 import { aiFailureResponse, parseCbIepText } from './cbiep'
@@ -51,11 +46,11 @@ async function importText(body: IepImportBody): Promise<string> {
   return text
 }
 
-/** Student profile, CB-IEP import, objectives and proposals. */
+/** Student profile, CB-IEP import and objectives. IEP changes after import are tickets (next round). */
 export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   const { mw, signedIn, studentRef, req } = kit
 
-  /** Profile shaped by role: EAs and student mode get supports only, never IEP text. */
+  /** The full read-only IEP for the case manager, the teacher and the EA of this student. */
   app.get('/students/:id', signedIn, mw.requireCapability('iep.view'), async (c) => {
     const r = req(c)
     const studentId = r.param('id')
@@ -66,9 +61,9 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
 
   /**
    * PRD: only case managers import the IEP; the import is a pending version
-   * until confirmed side by side. Each goal gets an AI-proposed objective.
+   * until the case manager confirms it side by side. Each goal gets an AI-proposed objective.
    */
-  app.post('/students/:id/iep/import', signedIn, mw.requireCapability('iep.write'), async (c) => {
+  app.post('/students/:id/iep/import', signedIn, mw.requireCapability('iep.import'), async (c) => {
     const r = req(c)
     const studentId = r.param('id')
     const body = await r.body(IepImportBody)
@@ -95,13 +90,13 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
   })
 
   /** Source text of a CB-IEP PDF (its text layer), so the case manager can read it beside the parsed result. */
-  app.post('/students/:id/iep/source-text', signedIn, mw.requireCapability('iep.write'), async (c) => {
+  app.post('/students/:id/iep/source-text', signedIn, mw.requireCapability('iep.import'), async (c) => {
     const r = req(c)
     const body = await r.body(IepImportBody)
     return c.json({ text: await importText(body) })
   })
 
-  app.post('/students/:id/iep/:version/confirm', signedIn, mw.requireCapability('iep.write'), async (c) => {
+  app.post('/students/:id/iep/:version/confirm', signedIn, mw.requireCapability('iep.import'), async (c) => {
     const r = req(c)
     const version = Number(r.param('version'))
     if (!Number.isInteger(version) || version < 1) throw new HttpError('bad_request', 'version must be a positive integer')
@@ -125,20 +120,5 @@ export function studentRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     const body = await r.body(ObjectiveFlagBody)
     return r.json(ObjectiveResponse, await r.student(r.studentRef(), objectivesFlagUnmeasurable, { objectiveId: r.param('oid'), ...body }))
-  })
-
-  /** PRD: teachers propose IEP or objective changes with evidence; the case manager resolves them. */
-  app.post('/students/:id/proposals', signedIn, async (c) => {
-    const r = req(c)
-    const studentId = r.param('id')
-    const body = await r.body(ProposalCreateBody)
-    r.allow(body.target === 'objective' ? 'objective.propose' : 'iep.propose', studentId)
-    return r.json(ProposalResponse, await r.student(studentId, proposalsCreate, body))
-  })
-
-  app.post('/proposals/:pid/resolve', signedIn, studentRef, mw.requireCapability('iep.write'), async (c) => {
-    const r = req(c)
-    const body = await r.body(ProposalResolveBody)
-    return r.json(ProposalResponse, await r.student(r.studentRef(), proposalsResolve, { proposalId: r.param('pid'), ...body }))
   })
 }

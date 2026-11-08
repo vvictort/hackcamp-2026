@@ -35,9 +35,7 @@ import { jobDeps } from './server/altamira/rooms/job-deps.js'
 const SCHOOL_TZ = 'America/Vancouver'
 
 export const tasks: CronTask[] = [
-  { name: ALTAMIRA_CRON.weeklyDigest, schedule: '0 7 * * 1', timezone: SCHOOL_TZ },
   { name: ALTAMIRA_CRON.dataNeeded, schedule: '0 6 * * *', timezone: SCHOOL_TZ },
-  { name: ALTAMIRA_CRON.todayLinkExpiry, schedule: '0 2 * * *', timezone: SCHOOL_TZ },
 ]
 
 export async function runTask(name: string, env: Env): Promise<void> {

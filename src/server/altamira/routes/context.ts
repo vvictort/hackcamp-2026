@@ -8,7 +8,6 @@ import { can, type Actor, type CanOptions, type Capability } from '../contract/p
 import { createAltamiraMiddleware, type AltamiraContext, type AltamiraEnv } from '../middleware/auth'
 import { errorResponse, HttpError, httpErrorFromDeny, unwrapOp } from '../middleware/errors'
 import { deidSchoolRoster, deidStudentNames } from '../services/deid'
-import type { SessionDeps } from '../middleware/session'
 import { schoolDate } from '../services/student-common'
 import type { AltamiraRouteDeps } from './deps'
 
@@ -26,17 +25,12 @@ export function createKit(deps: AltamiraRouteDeps) {
     schoolId: deps.schoolId,
     now: deps.now,
   })
-  const sessionDeps: SessionDeps = {
-    schoolRoom: (env) => deps.rooms.school(env),
-    studentRoom: (env, studentId) => deps.rooms.student(env, studentId),
-    now: deps.now,
-  }
   /** Routes whose path has no student id take ?studentId= (contract StudentRefQuery). 400 without it. */
   const studentRef: MiddlewareHandler<AltamiraEnv> = async (c, next) => {
     if (!c.req.query('studentId')) return errorResponse(new HttpError('bad_request', 'studentId query parameter is required')) ?? undefined
     await next()
   }
-  return { deps, mw, sessionDeps, signedIn: mw.altamiraAuth(), studentRef, req: (c: AltamiraContext) => new Req(deps, c) }
+  return { deps, mw, signedIn: mw.altamiraAuth(), studentRef, req: (c: AltamiraContext) => new Req(deps, c) }
 }
 
 /** One request: the caller, its clock, typed room calls and contract validation. */
@@ -112,9 +106,9 @@ export class Req {
     return can(this.actor, capability, studentId, { now: this.now(), ...opts }).allowed
   }
 
-  /** Student ids the caller holds any staff role for (parents and links excluded). */
+  /** Student ids the caller holds any staff role for (parents excluded). */
   staffStudentIds(): string[] {
-    return this.actor.session ? [] : Object.keys(this.actor.studentRoles)
+    return Object.keys(this.actor.studentRoles)
   }
 
   private async run<A, R>(room: AltamiraRoomRpc, op: RoomOp<A, R>, args: Record<string, unknown>): Promise<R> {

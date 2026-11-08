@@ -12,20 +12,13 @@ import { userActor, type Actor } from '../contract/permissions'
 export const SYSTEM_ACTOR: Actor = userActor('system:jobs')
 
 export const ALTAMIRA_CRON = {
-  weeklyDigest: 'altamira.weekly-digest',
   dataNeeded: 'altamira.data-needed',
-  todayLinkExpiry: 'altamira.today-link-expiry',
 } as const
 
 /** Which op each cron task runs, and in which room kind. */
 export const CRON_OPS: Record<string, { room: Extract<RoomName, 'student' | 'school'>; op: string }> = {
-  // Weekly: evaluate decision rules so the case manager's digest has this week's events.
-  // digest.weekly is the case manager's read (GET /me/digest); the job runs the capability-free evaluation.
-  [ALTAMIRA_CRON.weeklyDigest]: { room: 'student', op: 'decisions.evaluate' },
   // Daily: data-needed scan per active objective (PRD: fewer than 2 points in 2 weeks).
   [ALTAMIRA_CRON.dataNeeded]: { room: 'student', op: 'dataNeeded.scan' },
-  // Daily: expire Today View links.
-  [ALTAMIRA_CRON.todayLinkExpiry]: { room: 'school', op: 'shareTokens.expire' },
 }
 
 export type JobDeps = {
