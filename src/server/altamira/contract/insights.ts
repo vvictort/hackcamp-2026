@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Id, RowVersion } from './common'
-import { Label, Proficiency, ReviewTimeliness } from './enums'
+import { GoalProgress, Label, Proficiency, ReviewTimeliness } from './enums'
 
 /**
  * AltamiraInsightsRoom (one per district): de-identified counters only.
@@ -21,12 +21,13 @@ export const Counter = z.object({
   proficiencyLevel: Proficiency.nullable(),
   label: Label.nullable(),
   reviewTimeliness: ReviewTimeliness.nullable(),
+  goalProgress: GoalProgress.nullable(),
   count: z.number().int().min(0),
   version: RowVersion,
 })
 export type Counter = z.infer<typeof Counter>
 
-/** What a student room pushes after a confirmed data point (no names, no ids beyond the hash). */
+/** What a student room pushes after a confirmed data point or IEP review (no names, no ids beyond the hash). */
 export const CounterIncrement = Counter.pick({
   schoolId: true,
   period: true,
@@ -35,10 +36,10 @@ export const CounterIncrement = Counter.pick({
   proficiencyLevel: true,
   label: true,
   reviewTimeliness: true,
-}).extend({ by: z.number().int().min(1).default(1) })
+}).extend({ goalProgress: GoalProgress.nullable().default(null), by: z.number().int().min(1).default(1) })
 export type CounterIncrement = z.infer<typeof CounterIncrement>
 
-export const INSIGHT_DIMENSIONS = ['schoolId', 'goalArea', 'proficiencyLevel', 'label', 'reviewTimeliness', 'period'] as const
+export const INSIGHT_DIMENSIONS = ['schoolId', 'goalArea', 'proficiencyLevel', 'label', 'reviewTimeliness', 'goalProgress', 'period'] as const
 export const InsightDimension = z.enum(INSIGHT_DIMENSIONS)
 export type InsightDimension = z.infer<typeof InsightDimension>
 

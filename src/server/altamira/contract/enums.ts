@@ -121,6 +121,12 @@ export const CaptureBatchStatus = z.enum(CAPTURE_BATCH_STATUSES)
 
 export const REVIEW_TIMELINESS = ['on_time', 'late'] as const
 export const ReviewTimeliness = z.enum(REVIEW_TIMELINESS)
+export type ReviewTimeliness = z.infer<typeof ReviewTimeliness>
+
+/** District Insights goal progress: where a goal's confirmed data sits against its goal line (PRD 1B decision rules). */
+export const GOAL_PROGRESS = ['above_goal_line', 'near_goal_line', 'below_goal_line', 'insufficient_data'] as const
+export const GoalProgress = z.enum(GOAL_PROGRESS)
+export type GoalProgress = z.infer<typeof GoalProgress>
 
 /** EA-assisted capture event kinds (PRD 1B: prompt level, counters, timers). */
 export const EVENT_KINDS = ['prompt_level', 'counter', 'timer'] as const

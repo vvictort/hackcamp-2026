@@ -133,13 +133,12 @@ export const StudentProfileResponse = z.discriminatedUnion('view', [
     modificationSubjects: z.array(z.string()),
     goals: z.array(Goal),
   }),
-  /** EA (supports and what works) and student mode (supports applied): no IEP text. */
+  /** EA (supports and what works) and student mode (supports applied): no IEP text, accommodations included. */
   z.object({
     view: z.literal('supports'),
     id: Id,
     firstName: z.string().nullable(),
     supports: z.array(z.string()),
-    accommodations: z.array(z.string()),
   }),
 ])
 export type StudentProfileResponse = z.infer<typeof StudentProfileResponse>
@@ -288,6 +287,10 @@ export const SheetPage = z.object({
   checkItems: z.array(CheckItem),
 })
 
+/** POST /checks/:chid/remove?studentId= (PRD 1A-6: the teacher can remove checks). */
+export const CheckRemoveBody = ExpectedVersion
+export const CheckResponse = z.object({ check: Check })
+
 export const SheetResponse = z.object({
   lessonId: Id,
   pages: z.array(SheetPage),
@@ -411,6 +414,8 @@ export const SessionResponseBody = z.object({
   itemId: z.string().min(1),
   response: z.string(),
   durationMs: z.number().int().min(0).optional(),
+  /** Whether the student used read-aloud on this item (PRD 1B: student mode records read-aloud use). */
+  readAloudUsed: z.boolean().default(false),
 })
 export type SessionResponseBody = z.infer<typeof SessionResponseBody>
 
@@ -484,6 +489,8 @@ export const FamilyProgressResponse = z.object({
 export const FamilyInputBody = z.object({ text: z.string().min(1), language: z.string().min(2) })
 export type FamilyInputBody = z.infer<typeof FamilyInputBody>
 export const FamilyInputResponse = z.object({ input: ParentInput })
+/** GET /students/:id/parent-input: what parents sent to the case manager. */
+export const ParentInputsResponse = z.object({ inputs: z.array(ParentInput) })
 
 export const FamilyConsentBody = z.object({ kind: ConsentKind, granted: z.boolean() })
 export type FamilyConsentBody = z.infer<typeof FamilyConsentBody>
