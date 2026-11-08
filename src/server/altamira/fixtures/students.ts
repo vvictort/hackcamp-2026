@@ -89,10 +89,14 @@ const rating = (id: string, goalId: string, level: ProficiencyRating['level']): 
 const KAI_GOALS = {
   reading: '6a000000-0000-4000-8000-0000000000a1',
   selfReg: '6a000000-0000-4000-8000-0000000000a2',
+  routines: '6a000000-0000-4000-8000-0000000000a3',
+  transitions: '6a000000-0000-4000-8000-0000000000a4',
 }
 const KAI_OBJ = {
   reading: '0b000000-0000-4000-8000-0000000000a1',
   selfReg: '0b000000-0000-4000-8000-0000000000a2',
+  promptLevel: '0b000000-0000-4000-8000-0000000000a3',
+  duration: '0b000000-0000-4000-8000-0000000000a4',
 }
 
 /** Weekly school days in Sep-Oct 2026 for the break-card series. */
@@ -105,6 +109,14 @@ const KAI_BREAK_CARD: [string, number, DataPoint['status']][] = [
   ['2026-10-09T19:00:00.000Z', 2, 'confirmed'],
   ['2026-10-15T19:00:00.000Z', 3, 'auto_confirmed'],
   ['2026-10-21T19:00:00.000Z', 4, 'pending_review'],
+]
+
+/** Routines goal: [recordedAt, prompt level, minutes to return to the task]. */
+const KAI_ROUTINE_POINTS: [string, number, number][] = [
+  ['2026-10-05T19:00:00.000Z', 1, 12],
+  ['2026-10-09T19:00:00.000Z', 1, 10],
+  ['2026-10-15T19:00:00.000Z', 2, 8],
+  ['2026-10-21T19:00:00.000Z', 2, 7],
 ]
 
 export const KAI: StudentFixture = {
@@ -136,6 +148,8 @@ export const KAI: StudentFixture = {
   goals: [
     goal(KAI_GOALS.reading, 'kai-r', 'Reading', 'Retell the main idea of a short text in his own words'),
     goal(KAI_GOALS.selfReg, 'kai-sr', 'Self-regulation', 'Ask for a break using his break card before he feels overwhelmed'),
+    goal(KAI_GOALS.routines, 'kai-rt', 'Routines', 'Finish each step of the writing routine with fewer prompts'),
+    goal(KAI_GOALS.transitions, 'kai-tr', 'Transitions', 'Stay on task within 5 minutes of coming back from a break'),
   ],
   objectives: [
     objective({
@@ -160,6 +174,29 @@ export const KAI: StudentFixture = {
       captureMethod: 'ea',
       status: 'confirmed',
     }),
+    objective({
+      id: KAI_OBJ.promptLevel,
+      goalId: KAI_GOALS.routines,
+      metricType: 'prompt_level',
+      unit: 'prompt level',
+      baseline: promptLevelValue('model'),
+      baselineMethod: 'Median prompt level over the first 3 routine steps',
+      target: promptLevelValue('independent'),
+      masteryRule: 'Independent on 3 of the last 4 routine steps',
+      captureMethod: 'ea',
+      status: 'confirmed',
+    }),
+    objective({
+      id: KAI_OBJ.duration,
+      goalId: KAI_GOALS.transitions,
+      metricType: 'duration',
+      unit: 'minutes',
+      baseline: 12,
+      target: 5,
+      masteryRule: '5 minutes or less to return to the task after a break on 4 of 5 days',
+      captureMethod: 'ea',
+      status: 'confirmed',
+    }),
   ],
   dataPoints: [
     ...KAI_BREAK_CARD.map(([recordedAt, value, status], i) =>
@@ -175,6 +212,30 @@ export const KAI: StudentFixture = {
         sourceRef: `ea_event:counter:${i}`,
       }),
     ),
+    ...KAI_ROUTINE_POINTS.flatMap(([recordedAt, prompt, minutes], i) => [
+      point({
+        id: `d9000000-0000-4000-8000-0000000a3${String(i).padStart(3, '0')}`,
+        objectiveId: KAI_OBJ.promptLevel,
+        value: prompt,
+        unit: 'prompt level',
+        source: 'ea',
+        recorderId: USER_IDS.ea,
+        recordedAt,
+        status: 'confirmed',
+        sourceRef: `ea_event:prompt_level:${i}`,
+      }),
+      point({
+        id: `d9000000-0000-4000-8000-0000000a4${String(i).padStart(3, '0')}`,
+        objectiveId: KAI_OBJ.duration,
+        value: minutes,
+        unit: 'minutes',
+        source: 'ea',
+        recorderId: USER_IDS.ea,
+        recordedAt,
+        status: 'confirmed',
+        sourceRef: `ea_event:timer:${i}`,
+      }),
+    ]),
     point({
       id: 'd9000000-0000-4000-8000-0000000a1001',
       objectiveId: KAI_OBJ.reading,
