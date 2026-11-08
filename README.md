@@ -117,6 +117,46 @@ npx deepspace deploy # deploy to <app>.app.space
 
 Version control lives in the app's DeepSpace cloud repo by default (`npx deepspace push`). Commit before you deploy.
 
+## Working on this project together
+
+Each teammate works in their own clone with their own Claude Code (or another coding agent). Setup, once per person:
+
+**1. GitHub** (repo owner adds you as a collaborator on `vvictort/hackcamp-2026`). Entire's mirror access follows these permissions too.
+
+```sh
+git clone git@github.com:vvictort/hackcamp-2026.git && cd hackcamp-2026 && npm install
+```
+
+**2. DeepSpace app** (repo owner adds you; this is also what gives you Lesson Lens):
+
+```sh
+npx deepspace app collaborators add teammate@example.com        # owner runs this
+npx deepspace app collaborators invites                          # teammate: list, then accept the invite
+npx deepspace auth login && npm run dev                          # teammate: secrets load automatically
+```
+
+`npm run dev` pulls the app's secrets, including `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN`, so
+**Get suggestions** works locally without a Maritime account. Collaborators get owner-level access: they can
+read every app secret in plain text and deploy to the live URL (billed to the owner), so only add people you trust.
+
+**3. Entire**: follow [Set up Entire](#set-up-entire-each-teammate-once) below, then restart Claude Code. Your
+sessions are captured on your machine and linked to your commits; your agent reads the shared project rules
+from Brain (`entire brain brief "<task>"`) and the routine in `.entire/agent-guide.md`. A rule anyone adds with
+`entire brain remember` syncs to everyone.
+
+**4. Maritime**: nothing to set up. The Lesson Lens agent runs in the owner's Maritime account, and the app
+reaches it through the shared secrets from step 2. To change the agent, edit `agent/`, test it locally
+(`node --test agent/`, or `PORT=8799 node agent/server.mjs`), push, and ask the owner to redeploy
+(steps in [agent/README.md](agent/README.md)). Your own Maritime account is only needed to run a separate copy.
+
+House rules for every teammate and every agent (they are also in Entire Brain):
+
+- Use fictional or de-identified student data only. Never paste real student information or any secret into an agent prompt: sessions are recorded.
+- App settings go in `npx deepspace secrets set KEY=value`, never in `.dev.vars` (DeepSpace rewrites it on every run). Then restart the dev server.
+- Several agents may share a clone: commit only your own files (`git add <paths>`, not `git add -A`), keep one dev server per clone, and commit without a `Co-authored-by` trailer.
+- Keep Entire's checkpoint push policy on `manual`: this repository is public.
+- `CLAUDE.md` and `AGENTS.md` are git-ignored, so each clone has its own. The shared rules live in Entire Brain and `.entire/agent-guide.md`.
+
 ## Lesson Lens on Maritime
 
 Lesson Lens suggestions come from an AI agent hosted on [Maritime](https://maritime.sh) (`agent/`), a small
