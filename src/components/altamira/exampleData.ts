@@ -128,3 +128,13 @@ export const DRAFTS: Draft[] = [
   { studentId: 'sofia', report: 'Term 1 progress report', due: 'Due Nov 20', linked: 7, sentences: 9 },
   { studentId: 'amara', report: 'Term 1 progress report', due: 'Due Nov 27', linked: 4, sentences: 8 },
 ]
+
+/** Next few dates that need the teacher (example). Nov 1, 2026 is a Sunday. */
+export const COMING_UP = [
+  { day: 'Wed', date: 'Nov 18', label: 'IEP review for Kai' },
+  { day: 'Fri', date: 'Nov 20', label: 'Progress reports due' },
+  { day: 'Tue', date: 'Nov 24', label: 'Team meeting' },
+]
+
+/** Pulse check-ins logged this week, against the weekly goal (example). */
+export const PULSE = { done: 18, goal: 24 }

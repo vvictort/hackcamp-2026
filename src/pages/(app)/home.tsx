@@ -9,71 +9,20 @@
 
 import type { ReactNode } from 'react'
 import { useAuthProfileReady } from 'deepspace'
-import { ArrowUpRight, Bell, ChevronRight, Search, type LucideIcon } from 'lucide-react'
-import { StatusBadge, useToast } from '@/components/ui'
-import { CLASSES, DRAFTS, SUGGESTIONS, studentById } from '@/components/altamira/exampleData'
+import { ArrowUpRight, Bell, ChevronRight, Search } from 'lucide-react'
+import { Button, Card, PageHeader, Progress, StatusBadge, useToast } from '@/components/ui'
+import { CLASSES, COMING_UP, DRAFTS, PULSE, SUGGESTIONS, studentById } from '@/components/altamira/exampleData'
 import { cn } from '@/lib/utils'
-
-/** Next few dates that need the teacher (example). Nov 1, 2026 is a Sunday. */
-const COMING_UP = [
-  { day: 'Wed', date: 'Nov 18', label: 'IEP review for Kai' },
-  { day: 'Fri', date: 'Nov 20', label: 'Progress reports due' },
-  { day: 'Tue', date: 'Nov 24', label: 'Team meeting' },
-]
-
-function Card({ children, dark, className, title }: { children: ReactNode; dark?: boolean; className?: string; title: string }) {
-  const id = `card-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`
-  return (
-    <section
-      aria-labelledby={id}
-      className={cn(
-        'flex min-w-0 flex-col gap-4 rounded-lg p-5 sm:p-6',
-        dark ? 'bg-ink text-ink-foreground shadow-ink' : 'bg-card shadow-raised',
-        className,
-      )}
-    >
-      <h2 id={id} className="text-h2 font-extrabold">
-        {title}
-      </h2>
-      {children}
-    </section>
-  )
-}
-
-function RoundButton({ label, Icon, onClick }: { label: string; Icon: LucideIcon; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-card text-foreground shadow-raised transition-shadow hover:shadow-lift"
-    >
-      <Icon className="size-5" strokeWidth={1.9} aria-hidden />
-    </button>
-  )
-}
 
 /** Pill button with a round arrow tucked inside the right end. One tap target. */
 function ArrowButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group inline-flex min-h-12 w-fit cursor-pointer items-center gap-3 rounded-full bg-card py-1.5 pl-5 pr-1.5 text-label font-bold text-foreground transition-colors hover:bg-secondary"
-    >
+    <Button variant="raised" onClick={onClick} className="group h-12 w-fit gap-3 pl-5 pr-1.5 font-bold">
       {children}
-      <span aria-hidden className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform group-hover:rotate-45">
-        <ArrowUpRight className="size-[1.125rem]" strokeWidth={2.2} />
+      <span aria-hidden className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <ArrowUpRight className="size-4.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={2.2} />
       </span>
-    </button>
-  )
-}
-
-function Bar({ pct, className }: { pct: number; className?: string }) {
-  return (
-    <div aria-hidden className={cn('h-2 overflow-hidden rounded-full bg-secondary', className)}>
-      <div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} />
-    </div>
+    </Button>
   )
 }
 
@@ -83,33 +32,37 @@ export default function HomePage() {
   const firstName = user?.name?.split(' ')[0] ?? ''
   const example = (what: string) => () => info('Example only', `${what} isn't connected yet.`)
 
-  const pulseDone = 18
-  const pulseGoal = 24
-  const pulsePct = Math.round((pulseDone / pulseGoal) * 100)
+  const pulsePct = Math.round((PULSE.done / PULSE.goal) * 100)
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:px-0 lg:py-0">
-      <header className="flex flex-wrap items-start justify-between gap-6 lg:pt-1">
-        <div className="flex flex-col gap-3">
-          <h1 className="text-display font-extrabold sm:text-hero">Good morning
+    <div className="flex flex-col gap-6 lg:gap-8">
+      <PageHeader
+        titleClassName="sm:text-hero"
+        title={
+          <>
+            Good morning
             {firstName && (
               <>
                 , <span className="text-highlight">{firstName}</span>
               </>
             )}
             .
-          </h1>
-          <p className="max-w-[60ch] text-body-lg text-muted-foreground">
-            Two Pulse check-ins are due before lunch, and three suggestions are waiting for you.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <RoundButton label="Search" Icon={Search} onClick={example('Search')} />
-          <RoundButton label="Notifications" Icon={Bell} onClick={example('Notifications')} />
-        </div>
-      </header>
+          </>
+        }
+        description="Two Pulse check-ins are due before lunch, and three suggestions are waiting for you."
+        actions={
+          <>
+            <Button variant="raised" size="icon" aria-label="Search" onClick={example('Search')}>
+              <Search strokeWidth={1.9} aria-hidden />
+            </Button>
+            <Button variant="raised" size="icon" aria-label="Notifications" onClick={example('Notifications')}>
+              <Bell strokeWidth={1.9} aria-hidden />
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:gap-5 xl:grid-cols-12">
+      <div className="stagger-rise grid gap-4 md:grid-cols-2 lg:gap-5 xl:grid-cols-12">
         <Card title="Today" className="md:col-span-2 xl:col-span-7 xl:row-span-2">
           <ol className="flex flex-1 flex-col justify-between gap-2">
             {CLASSES.map((c) => {
@@ -138,9 +91,9 @@ export default function HomePage() {
           </ol>
         </Card>
 
-        <Card dark title="Lesson Lens" className="xl:col-span-5">
+        <Card tone="ink" title="Lesson Lens" className="xl:col-span-5">
           <p className="-mt-2 text-body text-ink-muted">{SUGGESTIONS.length} suggestions to review</p>
-          <ul className="flex flex-col divide-y divide-white/10">
+          <ul className="flex flex-col divide-y divide-ink-foreground/10">
             {SUGGESTIONS.map((s) => {
               const modification = s.kind === 'modification'
               return (
@@ -156,32 +109,28 @@ export default function HomePage() {
 
         <Card title="Pulse this week" className="xl:col-span-5">
           <p className="text-h1 font-extrabold tabular-nums">
-            {pulseDone}
-            <span className="text-muted-foreground">/{pulseGoal}</span>
+            {PULSE.done}
+            <span className="text-muted-foreground">/{PULSE.goal}</span>
           </p>
           <div className="flex flex-col gap-3">
             <p className="text-body text-muted-foreground">
-              Check-ins logged. {pulseGoal - pulseDone} to go.
+              Check-ins logged. {PULSE.goal - PULSE.done} to go.
             </p>
-            <div
-              role="progressbar"
-              aria-label="Pulse check-ins this week"
-              aria-valuenow={pulsePct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className="h-2.5 overflow-hidden rounded-full bg-secondary"
-            >
-              <div className="h-full rounded-full bg-signal" style={{ width: `${pulsePct}%` }} />
-            </div>
+            <Progress value={pulsePct} tone="signal" label="Pulse check-ins this week" />
           </div>
         </Card>
 
         <Card title="Progress drafts" className="md:col-span-2 xl:col-span-7">
-          <ul className="flex flex-col divide-y divide-border">
+          <ul className="-my-3 flex flex-col">
             {DRAFTS.map((d) => {
               const student = studentById(d.studentId)
               return (
-                <li key={d.studentId} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+                // The chevron's ::after stretches over the row, so the whole row opens the draft and earns the hover.
+                // The divider is an inset ::before so it keeps the card's text edges while the tint bleeds 12px wider.
+                <li
+                  key={d.studentId}
+                  className="relative -mx-3 flex items-center gap-4 rounded-md px-3 py-3 transition-colors before:absolute before:inset-x-3 before:bottom-0 before:border-b before:border-border last:before:hidden hover:bg-muted has-focus-visible:bg-muted"
+                >
                   <div className="min-w-0 flex-1">
                     <p className="text-body font-bold">{student.name}</p>
                     <p className="text-small text-muted-foreground">{d.due}</p>
@@ -190,13 +139,21 @@ export default function HomePage() {
                     <p className="text-small font-semibold tabular-nums">
                       {d.linked} of {d.sentences} linked
                     </p>
-                    <Bar pct={Math.round((d.linked / d.sentences) * 100)} />
+                    <Progress value={Math.round((d.linked / d.sentences) * 100)} />
                   </div>
                   <p className="text-small font-semibold tabular-nums sm:hidden">
                     {d.linked}/{d.sentences}
                     <span className="sr-only"> sentences linked</span>
                   </p>
-                  <RoundButton label={`Open ${student.firstName}'s draft`} Icon={ChevronRight} onClick={example('Draft review')} />
+                  <Button
+                    variant="raised"
+                    size="icon"
+                    aria-label={`Open ${student.firstName}'s draft`}
+                    onClick={example('Draft review')}
+                    className="after:absolute after:inset-0 after:rounded-md"
+                  >
+                    <ChevronRight strokeWidth={1.9} aria-hidden />
+                  </Button>
                 </li>
               )
             })}
