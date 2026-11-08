@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import { AI_SCHEMAS, type AiFunctionName, type AiProvider, type AiProviderName } from '../../contract/ai'
+import { AI_SCHEMAS, type AiFunctionName, type AiProvider } from '../../contract/ai'
 import type { MediaRef } from '../../contract/common'
 import { issuesOf } from '../../contract/issues'
 import { AiNotConfiguredError, AiOutputError } from '../errors'
@@ -59,9 +59,7 @@ export type GeminiRequest<T> = {
   fetch?: typeof fetch
   parts: RequestPart[]
   generationConfig: Record<string, unknown>
-  /** Added to generationConfig; a model that answers 400 is retried once without it. */
   optionalConfig?: (model: string) => Record<string, unknown>
-  /** The result from the answer's parts; a throw moves to the next model. */
   read: (parts: GeminiPart[], model: string) => T
 }
 
@@ -71,7 +69,6 @@ const log = (model: string, what: string | number) => console.warn(`[altamyra-ai
 const diag = (model: string, status: number | string, t0: number, reason: string) =>
   console.warn(`[altamyra-ai] attempt model=${model} status=${status} ms=${Date.now() - t0} reason=${reason}`)
 
-/** Runs the model chain. Throws GeminiError for a fatal status (401, 403, other 4xx), else the last read error once every model failed. */
 export async function generate<T>(req: GeminiRequest<T>): Promise<T> {
   const doFetch = req.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
 
@@ -167,7 +164,6 @@ function buildParts(instruction: string, input: unknown): RequestPart[] {
   return [{ text: `${instruction}\nReturn only JSON matching the output schema.\nINPUT:\n${text}` }, ...media]
 }
 
-/** JSON output for `input`, checked against `schema`, with the defaults of GeminiConfig. `thinking` adds a low thinking config. */
 export function generateJson<S extends z.ZodType>(config: GeminiConfig, fn: string, instruction: string, input: unknown, schema: S, thinking = false): Promise<z.output<S>> {
   return generate({
     apiKey: config.apiKey,
@@ -226,10 +222,9 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
     }
   }
 
-  // The contract's AiProviderName has no 'gemini' yet; the cast is dropped once it does.
   return {
     ...Object.fromEntries((Object.keys(AI_SCHEMAS) as AiFunctionName[]).map((fn) => [fn, (i: unknown) => call(fn, i)])),
-    name: 'gemini' as AiProviderName,
+    name: 'gemini',
     get lastSource() {
       return lastSource
     },

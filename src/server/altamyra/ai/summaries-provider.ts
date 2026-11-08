@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import { AiNotConfiguredError } from './errors'
-import { generateJson, GeminiError, type GeminiConfig, type GeminiEnv } from './providers/gemini'
+import { getProvider, type AiEnv } from './provider'
+import { generateJson, GeminiError, type GeminiConfig } from './providers/gemini'
 import {
   DraftDailyInput,
   DraftDailyModelOutput,
@@ -160,11 +161,8 @@ export function createGeminiSummaryProvider(options: GeminiSummaryOptions): Summ
   }
 }
 
-/** Gemini when GEMINI_API_KEY is set (fixture fallback on failure), fixture otherwise. */
-export function summaryProviderFromEnv(env: GeminiEnv & { ALTAMYRA_AI_PROVIDER?: string }, fetchImpl?: typeof fetch): SummaryProvider {
-  const forced = (env.ALTAMYRA_AI_PROVIDER ?? '').trim().toLowerCase()
-  if (forced !== 'fixture' && env.GEMINI_API_KEY?.trim()) {
-    return createGeminiSummaryProvider({ apiKey: env.GEMINI_API_KEY, models: env.ALTAMYRA_GEMINI_MODELS, fetch: fetchImpl })
-  }
-  return createFixtureSummaryProvider()
+export function summaryProviderFromEnv(env: AiEnv, fetchImpl?: typeof fetch): SummaryProvider {
+  return getProvider(env).name === 'gemini'
+    ? createGeminiSummaryProvider({ apiKey: env.GEMINI_API_KEY ?? '', models: env.ALTAMYRA_GEMINI_MODELS, fetch: fetchImpl })
+    : createFixtureSummaryProvider()
 }

@@ -194,7 +194,7 @@ export type ParseVoiceNoteOutput = z.infer<typeof ParseVoiceNoteOutput>
 
 // ---------- provider ----------
 
-export const AI_PROVIDER_NAMES = ['fixture', 'vertex'] as const
+export const AI_PROVIDER_NAMES = ['fixture', 'vertex', 'gemini'] as const
 export type AiProviderName = (typeof AI_PROVIDER_NAMES)[number]
 
 /** Selected by env ALTAMYRA_AI_PROVIDER; "fixture" is the default. */
