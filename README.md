@@ -38,7 +38,7 @@ Working in the app today:
 
 - **Landing page** with Lenis smooth scrolling and light, CSS-only motion.
 - **Sign-in** (Google or GitHub first; email for existing accounts) and a **four-stage sign-up** (account, about you, school and language, a consent step for fictional or de-identified data only).
-- **Teacher dashboard** on per-teacher data stored in DeepSpace (`src/lib/classroom.ts`): today's schedule, Pulse progress, progress drafts and what's coming up. A new teacher can **load an example classroom** with fictional students (`src/components/altamira/exampleData.ts` is the seed).
+- **Dashboard** from the `/api/v1` backend: Pulse as goal data coverage (fresh, stale, data needed), today's schedule (Coming up) and the weekly digest. Dev-only demo controls load fictional data and switch roles.
 - **Lesson Lens**, powered by an AI agent on Maritime: **Get suggestions** on any class, then approve or reject each adaptation or modification (see [Lesson Lens on Maritime](#lesson-lens-on-maritime)).
 - **Settings**: profile, school and position, preferences, text size and signed-in devices (sign out per device).
 - **36 interface languages** with a picker on the landing page, auth pages, dashboard and Settings.
@@ -96,13 +96,22 @@ src/
 
 Backend and frontend split: the backend is `worker.ts`, `src/server/**`, `src/actions/` and `src/cron.ts`; the shared layer is `src/schemas*`; everything else under `src/` is frontend.
 
-## Getting started
+## Run locally
 
 ```sh
-npm install
-npx deepspace auth login    # authenticate with app.space
-npm run dev                 # local dev server (vite + miniflare)
+npm ci
+npx deepspace login
 ```
+
+Create a secrets config named `avi-local` (any name works; use it with `--secrets-config`). Set `ALTAMIRA_DEV_SEED=true`. `GEMINI_API_KEY`, `MARITIME_AGENT_URL` and `MARITIME_AGENT_TOKEN` are optional: without a Gemini key the AI features use the built-in fixture provider. Never commit or print secret values, and do not edit `.dev.vars` (`deepspace dev` rewrites it from the secret store).
+
+```sh
+npx deepspace dev start --host 127.0.0.1 --port 5173 --secrets-config avi-local
+```
+
+Open http://127.0.0.1:5173, sign in, then on Home press **Load demo data** (a fictional school, three students, IEPs and progress data). Use **Act as** to switch between case manager, teacher, EA, parent, student and district lead; the navigation and the data follow the role.
+
+The demo controls and the `/api/v1/dev/*` routes exist only when `ALTAMIRA_DEV_SEED=true`. They answer 404 otherwise, and the flag must never be set in a deploy.
 
 Other commands:
 

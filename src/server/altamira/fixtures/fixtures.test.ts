@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { CLASSES as EXAMPLE_CLASSES, studentById } from '../../../components/altamira/exampleData'
 import * as school from '../contract/school'
 import * as student from '../contract/student'
 import { fromRow } from '../db/mapping'
@@ -88,27 +87,6 @@ describe('fixtures parse against the contract', () => {
 
   it('lists fixture names for the de-identification scan, including unaccented forms', () => {
     expect(FIXTURE_NAMES).toEqual(expect.arrayContaining(['Kai', 'Nakamura', 'Sofía', 'Sofia', 'Leila', 'Ahmadi']))
-  })
-})
-
-describe('fixtures match the frontend example data', () => {
-  it('same names and goal wording', () => {
-    for (const f of STUDENT_FIXTURES) {
-      const example = studentById(f.exampleId)
-      expect(`${f.iep.sections.student.firstName} ${f.iep.sections.student.lastName}`).toBe(example.name)
-      expect(f.goals.map((g) => [g.exampleId, g.area, g.text])).toEqual(example.goals.map((g) => [g.id, g.area, g.text]))
-    }
-  })
-
-  it('same class rosters, without the frontend-only student', () => {
-    const idByExample = Object.fromEntries(STUDENT_FIXTURES.map((f) => [f.exampleId, f.studentId]))
-    for (const block of EXAMPLE_CLASSES) {
-      const cls = CLASSES.find((c) => c.name === block.subject)
-      expect(cls, block.subject).toBeDefined()
-      const expected = block.studentIds.filter((id) => id in idByExample).map((id) => idByExample[id]).sort()
-      const actual = ROSTER.filter((r) => r.classId === cls!.id).map((r) => r.studentId).sort()
-      expect(actual, block.subject).toEqual(expected)
-    }
   })
 })
 

@@ -9,6 +9,8 @@ import {
   MeResponse,
   ProposalsResponse,
 } from '../contract/api'
+import { z } from 'zod'
+import { DEV_ROLES, devRoleSwitch } from '../rooms/core'
 import { HttpError } from '../middleware/errors'
 import type { AltamiraEnv } from '../middleware/auth'
 import { digestWeekly } from '../services/insight'
@@ -72,7 +74,28 @@ export function meRoutes(app: Hono<AltamiraEnv>, kit: Kit): void {
     const r = req(c)
     const seeded = await r.school(schoolDevSeed, {})
     for (const studentId of seeded.studentIds) await r.student(studentId, studentDevSeed)
+    // The caller acts as the case manager by default.
+    await r.school(devRoleSwitch, { role: 'case_manager' })
     return r.json(DevSeedResponse, seeded)
+  })
+
+  /** Dev only: the roles the caller can act as, and the active one. */
+  app.get('/dev/roles', async (c, next) => {
+    if (!deps.devSeedEnabled(c.env)) throw new HttpError('not_found', 'not found')
+    await next()
+  }, signedIn, async (c) => {
+    const r = req(c)
+    return c.json(await r.school(devRoleSwitch, {}))
+  })
+
+  /** Dev only: act as another role. Swaps the caller's memberships for a copy of the fixture user's. */
+  app.post('/dev/role', async (c, next) => {
+    if (!deps.devSeedEnabled(c.env)) throw new HttpError('not_found', 'not found')
+    await next()
+  }, signedIn, async (c) => {
+    const r = req(c)
+    const { role } = await r.body(z.object({ role: z.enum(DEV_ROLES) }))
+    return c.json(await r.school(devRoleSwitch, { role }))
   })
 
   /** District leads see anonymized aggregates only; groups under 10 students are suppressed in the room. */
