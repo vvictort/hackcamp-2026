@@ -275,7 +275,7 @@ export default function Landing() {
             />
             <div className="flex max-w-5xl flex-col items-center gap-6">
               <h1 id="hero-title" className="animate-rise text-hero-sm font-medium sm:text-hero lg:text-mega">
-                Make the IEP part of <span className="text-highlight">every lesson</span>.
+                Make the <span className="text-highlight">IEP</span> part of every lesson.
               </h1>
               <p className="animate-rise max-w-[52ch] text-body-lg text-foreground/80" style={delay(1)}>
                 Built for BC classrooms and the <strong className="font-semibold text-foreground">Competency-Based IEP</strong>. {APP_NAME} links each lesson to your students&apos;
